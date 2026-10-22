@@ -1,0 +1,16 @@
+Alex Rivera
+Registered Nurse (BSN) | Clinical Informatics
+
+EXPERIENCE
+HCA Healthcare — Charge Nurse, Surgical ICU, 2017 - 2022
+- Led 12-nurse team; trained staff on Epic Systems EHR and the da Vinci surgical workflow
+- Partnered with pharmacy on medication reconciliation; reduced errors 18%
+
+UnitedHealth Group (Optum) — Clinical Informatics Specialist, 2022 - Present
+- Build Medicare Advantage care-management dashboards in SQL and Tableau
+- Work with medical device vendors (Abbott, Stryker) on patient monitoring integrations
+
+EDUCATION
+BSN, University of Texas, 2016
+
+INTERESTS: biotech news, GLP-1 drugs, clinical trial readouts, running, Lululemon

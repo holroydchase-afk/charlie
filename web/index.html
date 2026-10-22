@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Charlie</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%231f5f4a%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22 font-weight=%22700%22%3EC%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="logo">C</span>
+      <div>
+        <div class="brand-name">Charlie</div>
+        <div class="brand-sub">Invest in what you know. Paper trading only.</div>
+      </div>
+    </div>
+    <div class="risk-control" title="Risk slider: controls which strategies Charlie will suggest">
+      <label for="risk">Risk</label>
+      <input type="range" id="risk" min="1" max="5" step="1" value="2">
+      <span id="risk-label" class="pill">Conservative</span>
+    </div>
+    <span id="data-badge" class="badge">data…</span>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button data-tab="today" class="active">Today</button>
+    <button data-tab="profile">Profile</button>
+    <button data-tab="screener">Screener</button>
+    <button data-tab="chat">Chat</button>
+    <button data-tab="paper">Paper portfolio</button>
+    <button data-tab="learn">Learn</button>
+  </nav>
+
+  <main>
+    <!-- TODAY -->
+    <section id="tab-today" class="tab active">
+      <div class="section-head">
+        <div>
+          <h1>Today's ideas</h1>
+          <p id="today-sub" class="muted">Up to three ideas from inside your circle of competence.</p>
+        </div>
+        <div class="row gap">
+          <select id="idea-count" aria-label="How many ideas">
+            <option value="1">1 idea</option><option value="2">2 ideas</option><option value="3" selected>3 ideas</option>
+          </select>
+          <button id="refresh-ideas" class="ghost">Refresh</button>
+        </div>
+      </div>
+      <div id="profile-nudge" class="callout hidden">
+        You haven't set up a profile yet, so these come from a generic starter circle.
+        <a href="#" data-goto="profile">Add your resume and interests</a> to personalize them.
+      </div>
+      <div id="ideas" class="cards"></div>
+      <div id="ideas-skipped" class="muted small"></div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="tab-profile" class="tab">
+      <div class="section-head">
+        <div>
+          <h1>Your circle of competence</h1>
+          <p class="muted">Charlie looks for ideas in the industries you work in, read about, and spend money in.</p>
+        </div>
+      </div>
+      <div class="grid2">
+        <form id="profile-form" class="panel">
+          <label>Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
+            <input type="file" name="resume" accept=".pdf,.docx,.txt,.md">
+          </label>
+          <label>…or paste it
+            <textarea name="resume_text" rows="6" placeholder="Paste your resume or LinkedIn summary"></textarea>
+          </label>
+          <label>What do you read about or follow closely?
+            <textarea name="interests" rows="3" placeholder="e.g. AI chips, NVIDIA earnings, hospital staffing, EV batteries, $COST"></textarea>
+          </label>
+          <label>Brands and products you use a lot
+            <input name="brands" placeholder="e.g. Costco, iPhone, Chipotle, Visa, Netflix">
+          </label>
+          <label>Shares you already own <span class="muted small">(unlocks covered calls)</span>
+            <input name="holdings" placeholder="e.g. AAPL 100, KO 200">
+          </label>
+          <div class="row gap">
+            <label class="grow">Paper capital ($)
+              <input name="capital" type="number" min="1000" step="500" value="25000">
+            </label>
+            <label class="grow">Starting risk level
+              <select name="risk_level">
+                <option value="1">1 · Learn (shares only)</option>
+                <option value="2" selected>2 · Conservative</option>
+                <option value="3">3 · Moderate</option>
+                <option value="4">4 · Growth</option>
+                <option value="5">5 · Speculative</option>
+              </select>
+            </label>
+          </div>
+          <label class="check"><input type="checkbox" name="use_ai" checked> Let Claude read my resume too (when an API key is configured)</label>
+          <button type="submit" class="primary">Build my profile</button>
+          <p id="profile-status" class="muted small"></p>
+        </form>
+        <div id="profile-view" class="panel"></div>
+      </div>
+    </section>
+
+    <!-- SCREENER -->
+    <section id="tab-screener" class="tab">
+      <div class="section-head">
+        <div>
+          <h1>Screener</h1>
+          <p class="muted">Set your own criteria. Only strategies your risk level allows are searched.</p>
+        </div>
+      </div>
+      <form id="screen-form" class="panel screen-form">
+        <label>Universe
+          <select name="scope">
+            <option value="circle">My circle</option>
+            <option value="all">All tickers</option>
+            <option value="list">Specific tickers</option>
+          </select>
+        </label>
+        <label>Tickers <input name="symbols" placeholder="AAPL, KO"></label>
+        <label>Sectors <select name="domains" multiple size="4" id="domain-select"></select></label>
+        <label>Strategies <select name="strategies" multiple size="4" id="strategy-select"></select></label>
+        <label>Min Charlie score <input name="min_score" type="number" value="50" min="0" max="100"></label>
+        <label>Max stock price <input name="max_price" type="number" placeholder="any"></label>
+        <label>Min prob. of profit % <input name="min_pop" type="number" placeholder="any"></label>
+        <label>Max capital per trade <input name="max_capital" type="number" placeholder="any"></label>
+        <label>Min annualized return % <input name="min_annualized" type="number" placeholder="any"></label>
+        <label>IV range % <span class="row gap"><input name="min_iv" type="number" placeholder="min"><input name="max_iv" type="number" placeholder="max"></span></label>
+        <label>Days to expiry <span class="row gap"><input name="dte_min" type="number" value="25"><input name="dte_max" type="number" value="55"></span></label>
+        <label>Short-strike delta <input name="delta" type="number" step="0.05" min="0.05" max="0.5" placeholder="auto"></label>
+        <label class="check"><input type="checkbox" name="exclude_red_flags"> Skip anything with red flags</label>
+        <div class="row gap span-all">
+          <button type="submit" class="primary">Run screen</button>
+          <input name="save_name" placeholder="Name to save this screen">
+          <button type="button" id="save-screen" class="ghost">Save</button>
+        </div>
+        <div id="saved-screens" class="span-all chips"></div>
+      </form>
+      <div id="screen-results"></div>
+    </section>
+
+    <!-- CHAT -->
+    <section id="tab-chat" class="tab">
+      <div class="chat-wrap panel">
+        <div id="chat-log" class="chat-log">
+          <div class="msg bot">Hi, I'm Charlie. Ask me about today's ideas, any company in your circle, or how a strategy works.
+            <div class="chips suggestions">
+              <button class="chip" data-q="What are today's ideas?">Today's ideas</button>
+              <button class="chip" data-q="Explain a cash-secured put like I'm new">Explain a cash-secured put</button>
+              <button class="chip" data-q="How does the risk slider work?">The risk slider</button>
+              <button class="chip" data-q="Find trades under $100">Trades under $100</button>
+            </div>
+          </div>
+        </div>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" autocomplete="off" placeholder="Ask Charlie…">
+          <button class="primary">Send</button>
+        </form>
+        <div id="chat-mode" class="muted small"></div>
+      </div>
+    </section>
+
+    <!-- PAPER -->
+    <section id="tab-paper" class="tab">
+      <div class="section-head">
+        <div>
+          <h1>Paper portfolio</h1>
+          <p class="muted">Practice with fake money first. Positions are marked to the latest (delayed or demo) prices.</p>
+        </div>
+        <button id="refresh-paper" class="ghost">Refresh</button>
+      </div>
+      <div id="paper-stats" class="stats"></div>
+      <div id="paper-list"></div>
+    </section>
+
+    <!-- LEARN -->
+    <section id="tab-learn" class="tab">
+      <div class="section-head">
+        <div>
+          <h1>Learn</h1>
+          <p class="muted">How Charlie thinks, and what each strategy on the slider actually does.</p>
+        </div>
+      </div>
+      <div id="learn"></div>
+    </section>
+  </main>
+
+  <div id="drawer" class="drawer hidden" aria-hidden="true">
+    <div class="drawer-inner">
+      <button class="close" id="drawer-close" aria-label="Close">×</button>
+      <div id="drawer-body"></div>
+    </div>
+  </div>
+
+  <div id="ack" class="modal hidden">
+    <div class="modal-inner">
+      <h2>Before you start</h2>
+      <p id="ack-text"></p>
+      <p>Charlie never places real orders. Ideas are starting points for your own research.</p>
+      <button id="ack-btn" class="primary">I understand</button>
+    </div>
+  </div>
+
+  <footer class="disclaimer" id="footer-disclaimer"></footer>
+  <div id="toast" class="toast hidden"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
