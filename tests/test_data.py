@@ -81,3 +81,14 @@ def test_auto_falls_back_to_mock_and_live_raises(monkeypatch, tmp_path):
         live.quote("KO")
 
 
+
+
+def test_mock_chain_prices_match_options_math():
+    from charlie.options_math import bs_price, greeks, occ_symbol
+    from charlie.data.mock import RISK_FREE
+    q = mock.quote("KO", TODAY)
+    for r in mock.chain("KO", TODAY)[::37]:
+        t = r["dte"] / 365
+        assert r["last"] == pytest.approx(bs_price(r["kind"], q["price"], r["strike"], t, r["iv"], RISK_FREE), abs=0.011)
+        assert r["delta"] == pytest.approx(greeks(r["kind"], q["price"], r["strike"], t, r["iv"], RISK_FREE)["delta"], abs=2e-3)
+        assert r["symbol"] == occ_symbol("KO", date.fromisoformat(r["expiry"]), r["kind"], r["strike"])

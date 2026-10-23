@@ -13,7 +13,7 @@ import math
 from datetime import date, timedelta
 from functools import lru_cache
 
-from ..options_math import RISK_FREE, bs_price, greeks, occ_symbol
+from ..options_math import RISK_FREE, norm_cdf, norm_pdf
 from ..universe import lookup
 
 EPOCH = date(2024, 1, 1)
@@ -117,10 +117,10 @@ def _third_friday(year: int, month: int) -> date:
 
 
 def expirations(today: date) -> list[date]:
-    """Weeklies 2-9 weeks out, monthlies for 9 months, and two January LEAPS."""
+    """Weeklies 3-8 weeks out, monthlies for 9 months, and two January LEAPS."""
     exps = set()
     friday = today + timedelta(days=(4 - today.weekday()) % 7)
-    for w in range(2, 10):
+    for w in range(3, 9):
         exps.add(friday + timedelta(weeks=w))
     y, m = today.year, today.month
     for _ in range(10):
@@ -155,41 +155,57 @@ def _chain(symbol: str, today: date) -> tuple[dict, ...]:
     for exp in expirations(today):
         dte = (exp - today).days
         t = dte / 365
-        width = 0.35 if dte < 120 else 0.55
+        # Wide enough for every strategy's strikes (deep ITM LEAPS need the most room), and no
+        # wider: chain size drives load time in the browser demo.
+        width = 0.22 if dte < 120 else 0.45
         lo = math.floor(spot * (1 - width) / step) * step
         hi = math.ceil(spot * (1 + width) / step) * step
         n = int(round((hi - lo) / step))
+        sq = math.sqrt(t)
+        disc = math.exp(-RISK_FREE * t)
+        exp_iso, exp_tag = exp.isoformat(), f"{exp:%y%m%d}"
+        root = symbol.replace(".", "")
         for i in range(n + 1):
             k = round(lo + i * step, 2)
             if k <= 0:
                 continue
             m = math.log(k / spot)
             iv = _smile(info.vol, m, t)
-            dist = abs(m) / max(info.vol * math.sqrt(t), 0.02)
-            for kind in ("call", "put"):
-                theo = bs_price(kind, spot, k, t, iv, RISK_FREE)
-                if theo < 0.01:
+            dist = abs(m) / max(info.vol * sq, 0.02)
+            # Black-Scholes once per strike; the put comes from put-call parity (same math as
+            # options_math.bs_price/greeks, inlined because chain size drives browser load time).
+            d1 = (-m + (RISK_FREE + 0.5 * iv * iv) * t) / (iv * sq)
+            d2 = d1 - iv * sq
+            n1, n2, pdf = norm_cdf(d1), norm_cdf(d2), norm_pdf(d1)
+            k_disc = k * disc
+            call = spot * n1 - k_disc * n2
+            gamma = pdf / (spot * iv * sq)
+            vega = spot * pdf * sq / 100
+            decay = -spot * pdf * iv / (2 * sq)
+            for j, (kind, theo, delta, theta) in enumerate((
+                    ("call", call, n1, (decay - RISK_FREE * k_disc * n2) / 365),
+                    ("put", call - spot + k_disc, n1 - 1, (decay + RISK_FREE * k_disc * (1 - n2)) / 365))):
+                if theo < 0.03:
                     continue
-                g = greeks(kind, spot, k, t, iv, RISK_FREE)
                 half = max(0.01, theo * 0.025, 0.02 * math.sqrt(spot / 100))
                 bid, ask = round(max(0.0, theo - half), 2), round(theo + half, 2)
-                oi = int(4000 * math.exp(-dist) * (0.5 + _unit(symbol, exp, k, kind)))
+                oi = int(4000 * math.exp(-dist) * (0.5 + ((i * 7 + j * 3 + dte) % 10) / 10))
                 rows.append({
-                    "symbol": occ_symbol(symbol, exp, kind, k),
+                    "symbol": f"{root}{exp_tag}{'C' if kind == 'call' else 'P'}{int(round(k * 1000)):08d}",
                     "underlying": symbol,
                     "kind": kind,
                     "strike": k,
-                    "expiry": exp.isoformat(),
+                    "expiry": exp_iso,
                     "dte": dte,
                     "bid": bid,
                     "ask": ask,
                     "mid": round((bid + ask) / 2, 2),
                     "last": round(theo, 2),
                     "iv": round(iv, 4),
-                    "delta": round(g["delta"], 4),
-                    "gamma": round(g["gamma"], 5),
-                    "theta": round(g["theta"], 4),
-                    "vega": round(g["vega"], 4),
+                    "delta": round(delta, 4),
+                    "gamma": round(gamma, 5),
+                    "theta": round(theta, 4),
+                    "vega": round(vega, 4),
                     "open_interest": oi,
                     "volume": int(oi * 0.1),
                     "source": "mock",

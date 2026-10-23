@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-23 (night shift, M0.2 + M0.3)
+Updated: 2026-10-23 (morning shift, M1.1)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -14,13 +14,23 @@ Updated: 2026-10-23 (night shift, M0.2 + M0.3)
 - M0.3 privacy fixes (same branch, PR #2): "Not financial advice. Paper trading only." is now added by code to every chat reply (Claude, rule-based, refusal and fallback), to every trade dict (`disclaimer`), and in the UI on idea cards, trade blocks, chat trade cards and the ticker drawer. The Claude resume read is opt-in (unchecked, `Form(False)`), and the label says the text goes to Anthropic's API. `GET /api/profile` returns `resume_chars`, not the text. New `DELETE /api/profile` plus a "Delete my data" button. A same-origin middleware refuses cross-site POST and DELETE requests (403). Upload errors return generic text. README says to bind 127.0.0.1. 58 tests pass 3x.
 - Night UX sweep (Playwright, 390x844 and 1280x800, light and dark, every tab plus the drawer): no console errors, no horizontal overflow. Fixed the raw `*finding*` markdown in the profile caution.
 
+- M1.1 Pyodide spike (same branch, PR #2):
+  - `charlie/demo.py` is the static demo's entry point (fictional sample person, mock data, no server, storage, chat or network imports).
+  - The engine runs serially when there are no threads.
+  - `spike/` + `tools/build_spike.py` build a test page that runs the real engine in Pyodide 0.28.3. Its ideas match `tests/golden/sample_ideas.json` exactly in Chromium.
+  - Mock chains are about 2x faster (narrower strike range, one Black-Scholes pass per strike).
+  - Timings and options are in `docs/decisions/engine-in-browser.md`: laptop about 2.5 s to ideas, phone at 4x CPU about 10 to 12 s plus about 5.5 MB to download on a first visit.
+  - 65 tests pass 3x.
+
 ## In progress
-- Nothing. Next is M1.1.
+- Waiting on Chase's engine call (below) before M1.2. Meanwhile: engine-agnostic polish only.
 
 ## Exact next step
-Chase merges #1, then #2 (GitHub retargets it to main). Then M1.1, the Pyodide spike (see PLAN.md).
+Chase picks the engine (Decisions to review: Pyodide with more prebuilt screens, or a JS port). Then M1.2 (browser adapter) or the port. Chase also merges #1, then #2.
 
 ## Decisions to review
+- **Engine for the static demo (needs Chase's call).** M1.1 tripped PLAN's stop condition: about 10 to 12 s to interactive on a 4x-throttled phone, most of it Pyodide's own start-up. Recommended: stay on Pyodide and have M1.3 prebuild ideas for all 5 risk levels plus each idea's ticker drawer, so the recruiter path is instant and only "paste your own resume" and the screener wait on Python. Alternative: port scoring, strategies and mock data to JS (instant, but two engines). Details: `docs/decisions/engine-in-browser.md`.
+- Mock option chains changed in M1.1 (strikes ±22% short-dated and ±45% LEAPS, weeklies 3 to 8 weeks out). Tests and the golden ideas are unchanged.
 - M0.2 rebuilt `charlie/data/` from the tests and callers because the original never reached git or the project zip. The mock numbers differ from the Oct 22 screenshots (same universe fundamentals, new price paths). Undo: none needed; it's demo data.
 - The Origin check allows requests with no Origin header (curl, scripts) and any localhost origin. That's enough for the single-user local app, but not for any hosted backend (CLAUDE.md already forbids one).
 - Static demo engine: Pyodide running the existing Python, not a JS port (one source of truth, reuse the tests). Switch to a JS port of scoring and strategies if M1.1 shows over 10 seconds to usable on a throttled phone. Undo: edit PLAN.md M1.1.
@@ -34,7 +44,7 @@ Chase merges #1, then #2 (GitHub retargets it to main). Then M1.1, the Pyodide s
 - Live data adapters (Cboe delayed options, SEC EDGAR) only tested against fixtures; the cloud blocks market-data hosts. The M0.2 rewrite of both adapters is unverified against the real endpoints.
 - On phones the tab bar scrolls sideways ("Paper portfolio" is cut off at 390px) with no visual hint. P2, left for M1.7.
 - The fixed footer disclaimer covers the last two lines of content until you scroll. P2, left for M1.7.
-- Screening all ~95 tickers in mock mode takes about 6 seconds (chain generation in pure Python). Fine locally; worth caching or trimming strikes before the Pyodide demo (M1.1).
+- Screening all ~95 tickers in mock mode took about 6 s before M1.1 sped up chain generation by about 2x. Still the slowest path in the browser; the screener needs a loading state there.
 
 ## Blockers
 - None for Chase tonight. Live-data check needs Chase's laptop (later, PLAN M2+).
@@ -47,3 +57,4 @@ Chase merges #1, then #2 (GitHub retargets it to main). Then M1.1, the Pyodide s
 - Studio status: [STUDIO-STATUS.md](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md).
 - 2026-10-23: studio onboarding (M0.1). No public changes yet.
 - 2026-10-23: night shift M0.2 + M0.3 (PR #2). No public changes; the demo isn't live yet.
+- 2026-10-23: M1.1 Pyodide spike page (`spike/`, test page only, not deployed). No public changes.

@@ -25,10 +25,10 @@ The bet: a recruiter on a phone opens chaseholroyd.com/charlie/, sees a sample p
 
 Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is met at chaseholroyd.com/charlie/.
 
-- **M1.1** Pyodide spike. Status: todo. Branch: `m1.1-pyodide-spike`.
-  - [ ] A static page loads the `charlie` package in Pyodide with mock data and shows today's ideas for the sample resume.
-  - [ ] Those ideas match what pytest produces for the same profile, date and risk level.
-  - [ ] Cold and warm load times on a throttled phone profile are written in `docs/decisions/engine-in-browser.md`, with a go or switch-to-JS call.
+- **M1.1** Pyodide spike. Status: done; engine call waiting on Chase (see `docs/decisions/engine-in-browser.md`). Shipped on `claude/project-thread-74d6f6`, PR #2.
+  - [x] A static page loads the `charlie` package in Pyodide with mock data and shows today's ideas for the sample resume.
+  - [x] Those ideas match what pytest produces for the same profile, date and risk level.
+  - [x] Cold and warm load times on a throttled phone profile are written in `docs/decisions/engine-in-browser.md`, with a go or switch-to-JS call.
 - **M1.2** Browser adapter. Status: todo. Branch: `m1.2-browser-adapter`.
   - [ ] In static mode, `api()` in `web/app.js` calls Python handlers in Pyodide instead of `fetch`, and the same UI file serves both modes.
   - [ ] A `BrowserStore` with the same interface as `Store` saves profile, screens and paper trades to `localStorage` only.

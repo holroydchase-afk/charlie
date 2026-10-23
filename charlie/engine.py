@@ -11,6 +11,7 @@ Selection follows Munger's process more than a quant model:
 from __future__ import annotations
 
 import hashlib
+import sys
 from concurrent.futures import ThreadPoolExecutor
 
 from . import scoring
@@ -52,6 +53,14 @@ def analyze(md: MarketData, profile: Profile, symbol: str) -> dict:
         "charlie": s,
         "_chain": ch,
     }
+
+
+def _analyze_all(md: MarketData, profile: Profile, symbols: list[str]) -> list[dict]:
+    """Analyze in parallel where threads exist; in the browser (Pyodide) there are none."""
+    if sys.platform == "emscripten":
+        return [analyze(md, profile, s) for s in symbols]
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        return list(ex.map(lambda s: analyze(md, profile, s), symbols))
 
 
 def _public(a: dict) -> dict:
@@ -107,8 +116,7 @@ def daily_ideas(md: MarketData, profile: Profile, level: int | None = None, coun
         if s not in symbols and lookup(s):
             symbols.append(s)
 
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        analyses = list(ex.map(lambda s: analyze(md, profile, s), symbols))
+    analyses = _analyze_all(md, profile, symbols)
 
     live = all(a["quote"]["source"] != "mock" for a in analyses)
     # Rank by Charlie score; a small date-seeded tiebreak rotates near-equal names day to day.
@@ -202,8 +210,7 @@ def screen(md: MarketData, profile: Profile, criteria: dict, level: int | None =
     if c["delta"]:
         params["delta"] = float(c["delta"])
 
-    with ThreadPoolExecutor(max_workers=6) as ex:
-        analyses = list(ex.map(lambda s: analyze(md, profile, s), symbols))
+    analyses = _analyze_all(md, profile, symbols)
     live = all(a["quote"]["source"] != "mock" for a in analyses)
 
     rows, filtered = [], 0
