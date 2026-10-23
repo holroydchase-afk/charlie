@@ -1,0 +1,30 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Test
+        env:
+          CHARLIE_DATA: mock
+          CHARLIE_LLM: "off"
+        run: python -m pytest -q
+      - name: Privacy check
+        run: |
+          # Fail on committed secrets or real email addresses. Placeholders on example.com are fine.
+          hits=$(git grep -nIE 'sk-ant-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{16}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' -- . ':!.github/workflows/ci.yml' ':!.claude/agents' \
+            | grep -vE '@(example\.(com|org)|anthropic\.com)|noreply@' || true)
+          if [ -n "$hits" ]; then echo "$hits"; echo "::error::Possible secret or real email committed."; exit 1; fi
+          echo "ok"
