@@ -185,5 +185,8 @@ tr.clickable:hover td { background: var(--bg); }
   .factor { grid-template-columns: 84px 1fr 30px; }
   .disclaimer { font-size: 10.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
   .disclaimer.open { display: block; }
+  /* The tab bar scrolls sideways on phones; fade the right edge so the cut-off tab reads as "more". */
+  .tabs { scrollbar-width: none; -webkit-mask-image: linear-gradient(to right, #000 90%, transparent); mask-image: linear-gradient(to right, #000 90%, transparent); }
+  .tabs::-webkit-scrollbar { display: none; }
 }
 .nfa { font-size: 12px; color: var(--muted); margin: 8px 0 0; }

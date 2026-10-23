@@ -145,6 +145,7 @@ function ideaCard(idea) {
 // ---------------------------------------------------------------- tabs
 function showTab(name) {
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
   history.replaceState(null, "", `#${name}`);
   ({ today: loadIdeas, profile: renderProfile, screener: initScreener, paper: loadPaper, learn: renderLearn, chat: () => $("#chat-input").focus() }[name] || (() => {}))();

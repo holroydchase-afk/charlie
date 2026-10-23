@@ -22,6 +22,8 @@ Updated: 2026-10-23 (morning shift, M1.1)
   - Timings and options are in `docs/decisions/engine-in-browser.md`: laptop about 2.5 s to ideas, phone at 4x CPU about 10 to 12 s plus about 5.5 MB to download on a first visit.
   - 65 tests pass 3x.
 
+- Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
+
 ## In progress
 - Waiting on Chase's engine call (below) before M1.2. Meanwhile: engine-agnostic polish only.
 
@@ -42,8 +44,6 @@ Chase picks the engine (Decisions to review: Pyodide with more prebuilt screens,
 - About 95 curated large-cap tickers. Banks and insurers score low on ROIC-style metrics.
 - No earnings calendar. Single user, local SQLite, no auth (bind 127.0.0.1).
 - Live data adapters (Cboe delayed options, SEC EDGAR) only tested against fixtures; the cloud blocks market-data hosts. The M0.2 rewrite of both adapters is unverified against the real endpoints.
-- On phones the tab bar scrolls sideways ("Paper portfolio" is cut off at 390px) with no visual hint. P2, left for M1.7.
-- The fixed footer disclaimer covers the last two lines of content until you scroll. P2, left for M1.7.
 - Screening all ~95 tickers in mock mode took about 6 s before M1.1 sped up chain generation by about 2x. Still the slowest path in the browser; the screener needs a loading state there.
 
 ## Blockers
