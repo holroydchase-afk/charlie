@@ -6,8 +6,10 @@ import hashlib
 import json
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from urllib.parse import urlsplit
+
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -26,6 +28,22 @@ DISCLAIMER = ("Charlie is an educational tool for paper trading. It is not a bro
 
 app = FastAPI(title="Charlie", version=__version__)
 store = Store()
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+@app.middleware("http")
+async def same_origin_only(request: Request, call_next):
+    """Refuse cross-site writes: a page on another site can't post a resume or chat here.
+
+    Browsers send Origin on cross-site requests; requests without one (curl, tests) are local.
+    """
+    origin = request.headers.get("origin")
+    if request.method not in ("GET", "HEAD", "OPTIONS") and origin:
+        host = urlsplit(origin).hostname or ""
+        own = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
+        if host not in LOCAL_HOSTS and host != own:
+            return JSONResponse({"detail": "Cross-site requests are not allowed."}, status_code=403)
+    return await call_next(request)
 
 
 def md():
@@ -69,8 +87,19 @@ def meta():
 
 @app.get("/api/profile")
 def get_profile():
-    return {"profile": current_profile().to_dict(), "saved": store.get("profile") is not None,
-            "intake": store.get("intake", {})}
+    intake = dict(store.get("intake", {}))
+    text = intake.pop("resume_text", None)  # never send the resume back out; the length is enough for the UI
+    if text is not None:
+        intake["resume_chars"] = len(text)
+    return {"profile": current_profile().to_dict(), "saved": store.get("profile") is not None, "intake": intake}
+
+
+@app.delete("/api/profile")
+def delete_profile():
+    store.delete("profile")
+    store.delete("intake")
+    store.clear_daily()
+    return {"ok": True}
 
 
 @app.post("/api/profile")
@@ -83,7 +112,7 @@ async def post_profile(
     capital: float = Form(25000),
     risk_level: int = Form(2),
     name: str = Form(""),
-    use_ai: bool = Form(True),
+    use_ai: bool = Form(False),
 ):
     text = resume_text
     if resume is not None and resume.filename:
@@ -92,8 +121,8 @@ async def post_profile(
             raise HTTPException(413, "Resume file is too large (8 MB max).")
         try:
             text = (extract_text(resume.filename, data) + "\n" + resume_text).strip()
-        except Exception as e:
-            raise HTTPException(400, f"Couldn't read that file: {e}")
+        except Exception:
+            raise HTTPException(400, "Couldn't read that file. Try a PDF, DOCX or plain text resume.")
     if not text:
         text = store.get("intake", {}).get("resume_text", "")
     hold = {}

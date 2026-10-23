@@ -14,6 +14,9 @@ async function api(path, opts = {}) {
 const postJSON = (path, data) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (x, d = 0) => (x === null || x === undefined) ? "—" : (x < 0 ? "-$" : "$") + Math.abs(x).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+// Rendered by code on every trade surface (CLAUDE.md hard rule).
+const NFA = "Not financial advice. Paper trading only.";
+const nfa = () => `<p class="nfa">${NFA}</p>`;
 const pct = (x, d = 0) => (x === null || x === undefined) ? "—" : `${(x * 100).toFixed(d)}%`;
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
@@ -114,7 +117,8 @@ function tradeBlock(t, { withActions = true } = {}) {
     ${withActions ? `<div class="actions">
       <button class="primary" data-paper="${id}">Paper trade this</button>
       <button class="ghost" data-copy="${id}">Copy ticket</button>
-    </div>` : ""}`;
+    </div>` : ""}
+    ${nfa()}`;
 }
 function ideaCard(idea) {
   const a = idea.analysis, t = idea.trade, th = idea.thesis, ch = a.charlie;
@@ -134,6 +138,7 @@ function ideaCard(idea) {
     </div>
     <details><summary>Charlie score breakdown</summary>${factorBars(ch)}<p class="muted small">Fundamentals: ${esc(ch.data_source)}</p></details>
     <p class="muted small"><em>${esc(th.munger)}</em></p>
+    ${nfa()}
   </article>`;
 }
 
@@ -172,10 +177,12 @@ async function loadProfile() {
   $("#profile-nudge").classList.toggle("hidden", r.saved);
   syncRisk();
   const f = $("#profile-form"), i = r.intake || {};
+  f.resume_text.dataset.ph ??= f.resume_text.placeholder;
+  f.resume_text.placeholder = f.resume_text.dataset.ph;
   if (i.interests !== undefined) {
     f.interests.value = i.interests || ""; f.brands.value = i.brands || ""; f.holdings.value = i.holdings || "";
     f.capital.value = i.capital || 25000; f.risk_level.value = i.risk_level || 2;
-    if (i.resume_text) f.resume_text.placeholder = `Saved resume on file (${i.resume_text.length.toLocaleString()} characters). Paste again to replace.`;
+    if (i.resume_chars) f.resume_text.placeholder = `Saved resume on file (${i.resume_chars.toLocaleString()} characters). Paste again to replace.`;
   }
 }
 function renderProfile() {
@@ -279,7 +286,7 @@ function renderChatMsg(role, text, cards = []) {
   div.innerHTML = role === "user" ? esc(text) : md(text) + cards.map((t) => {
     const id = `c${Math.random().toString(36).slice(2, 8)}`; window._trades = window._trades || {}; window._trades[id] = t;
     return `<div class="mini"><b>${esc(t.symbol)} · ${esc(t.label)}</b>${t.expiry ? ` · ${esc(t.expiry)}` : ""}<br>Max loss ${money(t.max_loss)} · Breakeven ${t.breakeven ? money(t.breakeven, 2) : "—"}${t.pop ? ` · ${pct(t.pop)} chance of profit` : ""}
-      <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div></div>`;
+      <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
   }).join("");
   $("#chat-log").appendChild(div); div.scrollIntoView({ behavior: "smooth", block: "end" });
   return div;
@@ -372,6 +379,7 @@ async function openTicker(sym) {
       <div class="card-head"><div><div class="card-title">${esc(d.name)}<span class="sym">${esc(d.symbol)} · ${money(d.quote.price, 2)} (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span></div>
       <div class="muted small">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · data: ${esc(d.quote.source)}</div></div>
       <span class="grade ${ch.grade}">Charlie ${ch.score} · ${ch.grade}</span></div>
+      ${nfa()}
       ${sparkline(d.history)}
       <div class="chips">${(d.familiarity_why.length ? d.familiarity_why : ["Outside your stated circle"]).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>
       <h3>Munger checklist</h3>${factorBars(ch)}
@@ -417,6 +425,14 @@ $("#screen-form").addEventListener("submit", (e) => runScreen(e));
 $("#save-screen").onclick = () => { if (!$("#screen-form").save_name.value.trim()) return toast("Name the screen first"); runScreen(null, true); };
 $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#chat-input").value; $("#chat-input").value = ""; sendChat(v); });
 $("#refresh-paper").onclick = loadPaper;
+$("#delete-profile").onclick = async () => {
+  if (!confirm("Delete your saved profile and resume text from this computer? Paper trades are kept.")) return;
+  try {
+    await api("/api/profile", { method: "DELETE" });
+    $("#profile-form").reset(); await loadProfile(); renderProfile();
+    toast("Profile and resume deleted");
+  } catch (err) { toast(err.message); }
+};
 $("#footer-disclaimer").onclick = (e) => e.currentTarget.classList.toggle("open");
 $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); } catch (_) {} $("#ack").classList.add("hidden"); };
 

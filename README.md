@@ -10,17 +10,19 @@
 
 ```bash
 pip install -r requirements.txt
-python -m uvicorn charlie.server:app --port 8000
+python -m uvicorn charlie.server:app --host 127.0.0.1 --port 8000
 # open http://localhost:8000
 ```
 
-Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas.
+Keep it on `127.0.0.1`. The local app is single-user with no login, so don't expose it on your network.
+
+Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas. Your resume stays in the local `data/` folder. The app never sends it back out, and **Delete my data** on Profile removes it.
 
 Optional settings (environment variables):
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | unset | Turns on Claude for chat (with tools) and a deeper resume read. Without it, chat runs on simple rules. |
+| `ANTHROPIC_API_KEY` | unset | Turns on Claude for chat (with tools). It also allows a deeper resume read, but only if you tick the opt-in box on Profile, since that sends the text to Anthropic's API. Without a key, chat runs on simple rules. |
 | `CHARLIE_DATA` | `auto` | `auto` tries free live data and falls back to demo data; `mock` is offline only; `live` errors instead of falling back. |
 | `CHARLIE_SEC_UA` | placeholder | SEC asks for `"AppName you@example.com"` (use your own contact; never commit it) as the User-Agent. Set this before using live fundamentals. |
 | `CHARLIE_MODEL` | `claude-opus-5-5` | Claude model for chat. |

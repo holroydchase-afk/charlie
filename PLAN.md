@@ -14,12 +14,12 @@ The bet: a recruiter on a phone opens chaseholroyd.com/charlie/, sees a sample p
   - [x] `charlie/data/` (market facade, Cboe and SEC adapters, mock generator) is committed and no longer gitignored.
   - [x] `python -m pytest -q` passes all 35 tests on a clean clone, and the M0.1 `ci.yml` is green on every PR.
   - [x] `CHARLIE_SEC_UA` is read only from env with a `you@example.com` placeholder, and live SEC calls refuse to run while it's unset.
-- **M0.3** Privacy fixes from the M0.1 privacy-security review. Status: todo. Branch: `m0.3-privacy-fixes`.
-  - [ ] Every chat reply (Claude and rule-based, including the fallback) ends with "Not financial advice. Paper trading only." added in code, not by the prompt. Test enforces it.
-  - [ ] Every idea card, trade block, chat trade card and the ticker drawer show the same line. Test enforces it.
-  - [ ] "Use Claude to read my resume" is opt-in (unchecked, `Form(False)`), with a line saying the resume goes to Anthropic's API.
-  - [ ] `GET /api/profile` returns the resume length, not its text; `DELETE /api/profile` exists; README says bind 127.0.0.1 only.
-  - [ ] `POST /api/profile` rejects cross-site form posts (Origin check), and errors return generic text.
+- **M0.3** Privacy fixes from the M0.1 privacy-security review. Status: done (shipped with M0.2 on `claude/project-thread-74d6f6`, PR #2).
+  - [x] Every chat reply (Claude and rule-based, including the fallback) ends with "Not financial advice. Paper trading only." added in code, not by the prompt. Test enforces it.
+  - [x] Every idea card, trade block, chat trade card and the ticker drawer show the same line. Test enforces it.
+  - [x] "Use Claude to read my resume" is opt-in (unchecked, `Form(False)`), with a line saying the resume goes to Anthropic's API.
+  - [x] `GET /api/profile` returns the resume length, not its text; `DELETE /api/profile` exists; README says bind 127.0.0.1 only.
+  - [x] `POST /api/profile` rejects cross-site form posts (Origin check), and errors return generic text.
 
 ## M1: Recruiter-demoable v1
 

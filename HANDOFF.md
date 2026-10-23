@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-23 (night shift, M0.2)
+Updated: 2026-10-23 (night shift, M0.2 + M0.3)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -11,14 +11,18 @@ Updated: 2026-10-23 (night shift, M0.2)
 
 - M0.2 restored `charlie/data/` (branch `claude/project-thread-74d6f6`, stacked on M0.1): `market.py` facade (auto / mock / live, per-call fallback, on-disk cache, 5-minute offline backoff), `cboe.py` and `sec.py` adapters, `mock.py` deterministic demo data (mean-reverting prices keyed by date, Black-Scholes chains on a put-skew smile, weeklies + monthlies + January LEAPS). `.gitignore` now ignores only the root `/data/`. `CHARLIE_SEC_UA` comes only from env; live SEC calls refuse while it's unset or still the `you@example.com` placeholder. 42 tests pass 3x (35 original + 7 new in `tests/test_data.py`).
 
+- M0.3 privacy fixes (same branch, PR #2): "Not financial advice. Paper trading only." is now added by code to every chat reply (Claude, rule-based, refusal and fallback), to every trade dict (`disclaimer`), and in the UI on idea cards, trade blocks, chat trade cards and the ticker drawer. The Claude resume read is opt-in (unchecked, `Form(False)`), and the label says the text goes to Anthropic's API. `GET /api/profile` returns `resume_chars`, not the text. New `DELETE /api/profile` plus a "Delete my data" button. A same-origin middleware refuses cross-site POST and DELETE requests (403). Upload errors return generic text. README says to bind 127.0.0.1. 58 tests pass 3x.
+- Night UX sweep (Playwright, 390x844 and 1280x800, light and dark, every tab plus the drawer): no console errors, no horizontal overflow. Fixed the raw `*finding*` markdown in the profile caution.
+
 ## In progress
-- M0.3 privacy fixes (same branch, next commits).
+- Nothing. Next is M1.1.
 
 ## Exact next step
-M0.3 (disclaimers in code on every idea and chat reply, resume AI opt-in), then M1.1 Pyodide spike (see PLAN.md).
+Chase merges #1, then #2 (GitHub retargets it to main). Then M1.1, the Pyodide spike (see PLAN.md).
 
 ## Decisions to review
 - M0.2 rebuilt `charlie/data/` from the tests and callers because the original never reached git or the project zip. The mock numbers differ from the Oct 22 screenshots (same universe fundamentals, new price paths). Undo: none needed; it's demo data.
+- The Origin check allows requests with no Origin header (curl, scripts) and any localhost origin. That's enough for the single-user local app, but not for any hosted backend (CLAUDE.md already forbids one).
 - Static demo engine: Pyodide running the existing Python, not a JS port (one source of truth, reuse the tests). Switch to a JS port of scoring and strategies if M1.1 shows over 10 seconds to usable on a throttled phone. Undo: edit PLAN.md M1.1.
 - Repo stays private until M1.5 (privacy-security pre-public review), then Chase decides to make it public for Pages.
 - Build Slate: add Charlie, or keep it as a side project? (Asked Oct 22. Product Studio has since added Charlie to STUDIO-STATUS and Build Slate.)
@@ -28,6 +32,8 @@ M0.3 (disclaimers in code on every idea and chat reply, resume AI opt-in), then 
 - About 95 curated large-cap tickers. Banks and insurers score low on ROIC-style metrics.
 - No earnings calendar. Single user, local SQLite, no auth (bind 127.0.0.1).
 - Live data adapters (Cboe delayed options, SEC EDGAR) only tested against fixtures; the cloud blocks market-data hosts. The M0.2 rewrite of both adapters is unverified against the real endpoints.
+- On phones the tab bar scrolls sideways ("Paper portfolio" is cut off at 390px) with no visual hint. P2, left for M1.7.
+- The fixed footer disclaimer covers the last two lines of content until you scroll. P2, left for M1.7.
 - Screening all ~95 tickers in mock mode takes about 6 seconds (chain generation in pure Python). Fine locally; worth caching or trimming strikes before the Pyodide demo (M1.1).
 
 ## Blockers
@@ -40,3 +46,4 @@ M0.3 (disclaimers in code on every idea and chat reply, resume AI opt-in), then 
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
 - Studio status: [STUDIO-STATUS.md](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md).
 - 2026-10-23: studio onboarding (M0.1). No public changes yet.
+- 2026-10-23: night shift M0.2 + M0.3 (PR #2). No public changes; the demo isn't live yet.

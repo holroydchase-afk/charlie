@@ -95,8 +95,11 @@
               </select>
             </label>
           </div>
-          <label class="check"><input type="checkbox" name="use_ai" checked> Let Claude read my resume too (when an API key is configured)</label>
-          <button type="submit" class="primary">Build my profile</button>
+          <label class="check"><input type="checkbox" name="use_ai"> Also let Claude read my resume (sends the text to Anthropic's API; only works when an API key is set)</label>
+          <div class="actions">
+            <button type="submit" class="primary">Build my profile</button>
+            <button type="button" class="ghost" id="delete-profile">Delete my data</button>
+          </div>
           <p id="profile-status" class="muted small"></p>
         </form>
         <div id="profile-view" class="panel"></div>
