@@ -5,7 +5,17 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const state = { meta: null, profile: null, risk: 2, chat: [], loaded: {} };
 
 // ---------------------------------------------------------------- helpers
+// One UI, two backends: the local server over fetch, or (static demo) the same Python
+// handlers running in Pyodide, exposed by static.js as window.charlieStatic.
 async function api(path, opts = {}) {
+  if (window.charlieStatic) {
+    let data = null;
+    if (opts.body instanceof FormData) data = Object.fromEntries([...opts.body].filter(([, v]) => typeof v === "string"));
+    else if (typeof opts.body === "string") data = JSON.parse(opts.body);
+    const r = await window.charlieStatic.request(opts.method || "GET", path, data);
+    if (r.status >= 400) throw new Error(r.body.detail || `Request failed (${r.status})`);
+    return r.body;
+  }
   const res = await fetch(path, opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
@@ -206,7 +216,7 @@ async function submitProfile(e) {
   e.preventDefault();
   const f = e.target, fd = new FormData(f);
   fd.set("use_ai", f.use_ai.checked ? "true" : "false");
-  if (!f.resume.files.length) fd.delete("resume");
+  if (!f.resume.files.length || window.charlieStatic) fd.delete("resume");
   $("#profile-status").textContent = "Reading your resume and building your circle…";
   try {
     const r = await api("/api/profile", { method: "POST", body: fd });
@@ -302,7 +312,8 @@ async function sendChat(text) {
     pending.remove();
     state.chat.push({ role: "assistant", content: r.reply });
     renderChatMsg("bot", r.reply, r.cards);
-    $("#chat-mode").textContent = r.mode === "claude" ? "Answered by Claude using Charlie's tools." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    $("#chat-mode").textContent = r.mode === "claude" ? "Answered by Claude using Charlie's tools."
+      : window.charlieStatic ? "Demo mode: rule-based answers on sample data." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
   } catch (e) { pending.innerHTML = esc(e.message); state.chat.pop(); }
 }
 
@@ -445,7 +456,9 @@ $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); 
     $("#ack-text").textContent = meta.disclaimer;
     let acked = false; try { acked = localStorage.getItem("charlie-ack") === "1"; } catch (_) {}
     if (!acked) $("#ack").classList.remove("hidden");
-    $("#chat-mode").textContent = status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    $("#chat-mode").textContent = status.static ? "Demo mode: rule-based answers on sample data."
+      : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    if (status.static) $$(".server-only").forEach((el) => el.classList.add("hidden"));  // no uploads or Claude in the demo
     await loadProfile();
     renderProfile();
     const tab = location.hash.slice(1);

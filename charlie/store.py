@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import sqlite3
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -29,6 +28,8 @@ def _now() -> str:
 
 class Store:
     def __init__(self, path: str | Path | None = None):
+        import sqlite3  # here, not at the top: the browser demo imports this module but uses BrowserStore
+
         path = Path(path or os.environ.get("CHARLIE_DB", "data/charlie.db"))
         if str(path) != ":memory:":
             path.parent.mkdir(parents=True, exist_ok=True)

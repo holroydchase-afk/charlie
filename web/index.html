@@ -66,7 +66,7 @@
       </div>
       <div class="grid2">
         <form id="profile-form" class="panel">
-          <label>Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
+          <label class="server-only">Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
             <input type="file" name="resume" accept=".pdf,.docx,.txt,.md">
           </label>
           <label>…or paste it
@@ -95,7 +95,7 @@
               </select>
             </label>
           </div>
-          <label class="check"><input type="checkbox" name="use_ai"> Also let Claude read my resume (sends the text to Anthropic's API; only works when an API key is set)</label>
+          <label class="check server-only"><input type="checkbox" name="use_ai"> Also let Claude read my resume (sends the text to Anthropic's API; only works when an API key is set)</label>
           <div class="actions">
             <button type="submit" class="primary">Build my profile</button>
             <button type="button" class="ghost" id="delete-profile">Delete my data</button>

@@ -29,11 +29,11 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
   - [x] A static page loads the `charlie` package in Pyodide with mock data and shows today's ideas for the sample resume.
   - [x] Those ideas match what pytest produces for the same profile, date and risk level.
   - [x] Cold and warm load times on a throttled phone profile are written in `docs/decisions/engine-in-browser.md`, with a go or switch-to-JS call.
-- **M1.2** Browser adapter. Status: todo. Branch: `m1.2-browser-adapter`.
-  - [ ] In static mode, `api()` in `web/app.js` calls Python handlers in Pyodide instead of `fetch`, and the same UI file serves both modes.
-  - [ ] A `BrowserStore` with the same interface as `Store` saves profile, screens and paper trades to `localStorage` only.
-  - [ ] Static mode forces mock data, uses rule-based chat, and never imports `anthropic`, `requests` or the live adapters.
-  - [ ] New pytest tests cover the handler router and `BrowserStore` parity with `Store`.
+- **M1.2** Browser adapter. Status: done (built on the recommended Pyodide path; shipped on `claude/project-thread-74d6f6`, PR #2).
+  - [x] In static mode, `api()` in `web/app.js` calls Python handlers in Pyodide instead of `fetch`, and the same UI file serves both modes.
+  - [x] A `BrowserStore` with the same interface as `Store` saves profile, screens and paper trades to `localStorage` only.
+  - [x] Static mode forces mock data, uses rule-based chat, and never imports `anthropic`, `requests` or the live adapters.
+  - [x] New pytest tests cover the handler router and `BrowserStore` parity with `Store`.
 - **M1.3** Instant first screen. Status: todo. Branch: `m1.3-instant-first-view`.
   - [ ] `tools/build_demo.py` writes `site/` with the web app, the Python package, and the sample profile with its ideas prebuilt as JSON.
   - [ ] On a throttled phone, Today shows the sample person's ideas in under 3 seconds while Pyodide loads behind them.

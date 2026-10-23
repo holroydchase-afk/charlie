@@ -1,0 +1,234 @@
+"""The API's logic, shared by the FastAPI server and the static browser demo.
+
+The server wraps these methods in routes (and keeps uploads, Claude profile reading and
+the Origin check to itself). The browser calls route() through Pyodide instead of fetch,
+so both modes run the same code. In static mode chat is rule-based and Claude is never used.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from urllib.parse import parse_qsl, unquote, urlsplit
+
+from . import __version__, chat as chat_mod, engine, portfolio
+from .profile import RISK_LABELS, Profile, build_profile
+from .strategies import RISK_LEVELS, STRATEGIES
+from .universe import DOMAINS, TICKERS, lookup
+
+DISCLAIMER = ("Charlie is an educational tool for paper trading. It is not a broker or a registered investment "
+              "adviser, and nothing here is personalized financial advice. Options involve significant risk and "
+              "are not suitable for all investors; read the OCC's 'Characteristics and Risks of Standardized "
+              "Options' before trading real money. Data may be delayed, incomplete, or simulated.")
+
+
+class ApiError(Exception):
+    def __init__(self, status: int, detail: str):
+        super().__init__(detail)
+        self.status, self.detail = status, detail
+
+
+def profile_hash(p: Profile) -> str:
+    return hashlib.sha1(json.dumps(p.to_dict(), sort_keys=True).encode()).hexdigest()[:12]
+
+
+def parse_holdings(holdings: str) -> dict[str, int]:
+    hold = {}
+    for part in holdings.replace(";", ",").split(","):
+        bits = part.replace(":", " ").split()
+        if len(bits) == 2 and bits[1].replace(".", "").isdigit():
+            hold[bits[0].upper()] = int(float(bits[1]))
+    return hold
+
+
+def _int(v, default=None):
+    if v is None or v == "":
+        return default
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        raise ApiError(422, f"expected a number, got {v!r}")
+
+
+def _bool(v) -> bool:
+    return v is True or str(v).lower() in ("1", "true", "on", "yes")
+
+
+class Api:
+    def __init__(self, store, md, static: bool = False):
+        self.store, self.md, self.static = store, md, static
+
+    def current_profile(self) -> Profile:
+        data = self.store.get("profile")
+        if data:
+            return Profile.from_dict(data)
+        # Sensible starting point until the user fills in the intake.
+        return build_profile(capital=25000, risk_level=2)
+
+    # meta
+    def status(self) -> dict:
+        return {"version": __version__, "data": self.md.status(), "llm": not self.static and chat_mod.llm_available(),
+                "has_profile": self.store.get("profile") is not None, "disclaimer": DISCLAIMER, "static": self.static}
+
+    def meta(self) -> dict:
+        return {
+            "risk_levels": {k: {"label": v["label"], "blurb": v["blurb"], "max_risk_pct": v["max_risk_pct"]}
+                            for k, v in RISK_LEVELS.items()},
+            "strategies": {k: {kk: v[kk] for kk in ("label", "min_level", "outlook", "risk", "learn")}
+                           for k, v in STRATEGIES.items()},
+            "domains": [{"key": d.key, "label": d.label} for d in DOMAINS],
+            "tickers": [{"symbol": t.symbol, "name": t.name, "domain": t.domain} for t in TICKERS],
+            "disclaimer": DISCLAIMER,
+        }
+
+    # profile
+    def get_profile(self) -> dict:
+        intake = dict(self.store.get("intake", {}))
+        text = intake.pop("resume_text", None)  # never send the resume back out; the length is enough for the UI
+        if text is not None:
+            intake["resume_chars"] = len(text)
+        return {"profile": self.current_profile().to_dict(), "saved": self.store.get("profile") is not None,
+                "intake": intake}
+
+    def delete_profile(self) -> dict:
+        self.store.delete("profile")
+        self.store.delete("intake")
+        self.store.clear_daily()
+        return {"ok": True}
+
+    def save_profile(self, text: str = "", interests: str = "", brands: str = "", holdings: str = "",
+                     capital: float = 25000, risk_level: int = 2, name: str = "", boosts=None) -> dict:
+        if not text:
+            text = self.store.get("intake", {}).get("resume_text", "")
+        p = build_profile(text, interests, brands, parse_holdings(holdings), capital, risk_level, name,
+                          this_year=self.md.today.year,
+                          domain_boosts=boosts[0] if boosts else None,
+                          ticker_boosts=boosts[1] if boosts else None)
+        if boosts:
+            p.source = "rules + claude"
+        self.store.put("profile", p.to_dict())
+        self.store.put("intake", {"resume_text": text[:50000], "interests": interests, "brands": brands,
+                                  "holdings": holdings, "capital": capital, "risk_level": risk_level, "name": name})
+        return {"profile": p.to_dict(), "resume_chars": len(text)}
+
+    def set_risk(self, risk_level: int) -> dict:
+        p = self.current_profile()
+        p.risk_level = max(1, min(5, risk_level))
+        self.store.put("profile", p.to_dict())
+        return {"risk_level": p.risk_level, "label": RISK_LABELS[p.risk_level]}
+
+    # ideas & analysis
+    def ideas(self, risk: int | None = None, count: int = 3, refresh: bool = False) -> dict:
+        p = self.current_profile()
+        level = max(1, min(5, risk or p.risk_level))
+        day = self.md.today.isoformat()
+        h = profile_hash(p) + f"-{count}"
+        if not refresh:
+            cached = self.store.daily_get(day, level, h)
+            if cached:
+                return cached
+        result = engine.daily_ideas(self.md, p, level, count)
+        self.store.daily_put(day, level, h, result)
+        return result
+
+    def ticker(self, symbol: str, risk: int | None = None) -> dict:
+        if not lookup(symbol):
+            raise ApiError(404, f"{symbol.upper()} isn't in Charlie's universe yet.")
+        return engine.ticker_detail(self.md, self.current_profile(), symbol, risk)
+
+    def screen(self, criteria: dict | None = None, risk: int | None = None, name: str | None = None,
+               save: bool = False) -> dict:
+        criteria = criteria or {}
+        result = engine.screen(self.md, self.current_profile(), criteria, risk)
+        if save and name:
+            result["saved"] = self.store.save_screen(name, criteria)
+        return result
+
+    def screens(self) -> dict:
+        return {"screens": self.store.screens(), "defaults": engine.DEFAULT_CRITERIA}
+
+    def delete_screen(self, sid: str) -> dict:
+        self.store.delete_screen(sid)
+        return {"ok": True}
+
+    # chat
+    def chat(self, messages) -> dict:
+        msgs = [m for m in messages or [] if isinstance(m, dict) and m.get("role") in ("user", "assistant")
+                and isinstance(m.get("content"), str)]
+        if not msgs or msgs[-1]["role"] != "user":
+            raise ApiError(400, "last message must be from the user")
+        return chat_mod.chat(msgs[-20:], self.md, self.store, self.current_profile(), allow_llm=not self.static)
+
+    # paper trading
+    def paper(self) -> dict:
+        return portfolio.summary(self.md, self.store)
+
+    def paper_open(self, trade: dict, note: str = "") -> dict:
+        t = trade if isinstance(trade, dict) else {}
+        if not t.get("legs") or not t.get("symbol") or t.get("strategy") not in STRATEGIES:
+            raise ApiError(400, "not a valid trade")
+        p = self.current_profile()
+        if STRATEGIES[t["strategy"]]["min_level"] > p.risk_level:
+            raise ApiError(403, f"{STRATEGIES[t['strategy']]['label']} is above your risk level ({p.risk_level}).")
+        return portfolio.mark(self.md, self.store.open_position(t, note))
+
+    def paper_close(self, pid: str) -> dict:
+        pos = portfolio.close(self.md, self.store, pid)
+        if not pos:
+            raise ApiError(404, "no such position")
+        return pos
+
+    # the browser's router: same paths and payloads as the FastAPI routes
+    def route(self, method: str, path: str, query: dict | None = None, body: dict | None = None) -> tuple[int, dict]:
+        parts = urlsplit(path)
+        q = dict(parse_qsl(parts.query))
+        q.update(query or {})
+        b = body if isinstance(body, dict) else {}
+        seg = [unquote(s) for s in parts.path.strip("/").split("/")]
+        if seg[:1] != ["api"]:
+            return 404, {"detail": "Not Found"}
+        seg, m = seg[1:], method.upper()
+        try:
+            if m == "GET" and seg == ["status"]:
+                return 200, self.status()
+            if m == "GET" and seg == ["meta"]:
+                return 200, self.meta()
+            if seg == ["profile"]:
+                if m == "GET":
+                    return 200, self.get_profile()
+                if m == "DELETE":
+                    return 200, self.delete_profile()
+                if m == "POST":  # the form's fields; there are no file uploads or Claude reading in the demo
+                    return 200, self.save_profile(
+                        str(b.get("resume_text", "")), str(b.get("interests", "")), str(b.get("brands", "")),
+                        str(b.get("holdings", "")), float(b.get("capital") or 25000), _int(b.get("risk_level"), 2),
+                        str(b.get("name", "")),
+                        boosts=None if self.static or not _bool(b.get("use_ai")) else self._enrich(b))
+            if m == "POST" and seg == ["profile", "risk"]:
+                return 200, self.set_risk(_int(b.get("risk_level"), 2))
+            if m == "GET" and seg == ["ideas"]:
+                return 200, self.ideas(_int(q.get("risk")), _int(q.get("count"), 3), _bool(q.get("refresh")))
+            if m == "GET" and len(seg) == 2 and seg[0] == "ticker":
+                return 200, self.ticker(seg[1], _int(q.get("risk")))
+            if m == "POST" and seg == ["screen"]:
+                return 200, self.screen(b.get("criteria") or {}, _int(b.get("risk")), b.get("name"), _bool(b.get("save")))
+            if m == "GET" and seg == ["screens"]:
+                return 200, self.screens()
+            if m == "DELETE" and len(seg) == 2 and seg[0] == "screens":
+                return 200, self.delete_screen(seg[1])
+            if m == "POST" and seg == ["chat"]:
+                return 200, self.chat(b.get("messages"))
+            if seg == ["paper"]:
+                if m == "GET":
+                    return 200, self.paper()
+                if m == "POST":
+                    return 200, self.paper_open(b.get("trade"), str(b.get("note", "")))
+            if m == "POST" and len(seg) == 3 and seg[0] == "paper" and seg[2] == "close":
+                return 200, self.paper_close(seg[1])
+        except ApiError as e:
+            return e.status, {"detail": e.detail}
+        return 404, {"detail": "Not Found"}
+
+    def _enrich(self, b: dict):
+        from .llm_profile import enrich
+        return enrich(str(b.get("resume_text", "")), f"{b.get('interests', '')}\n{b.get('brands', '')}")

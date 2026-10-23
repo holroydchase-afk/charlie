@@ -284,11 +284,11 @@ def chat_rules(text: str, ctx: ToolContext) -> str:
             "_Running in offline mode. Set ANTHROPIC_API_KEY for full conversational answers._")
 
 
-def chat(messages: list[dict], md: MarketData, store: Store, profile: Profile) -> dict:
+def chat(messages: list[dict], md: MarketData, store: Store, profile: Profile, allow_llm: bool = True) -> dict:
     ctx = ToolContext(md, store, profile)
     last = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
     mode = "rules"
-    if llm_available():
+    if allow_llm and llm_available():
         try:
             reply = chat_claude(messages, ctx)
             mode = "claude"

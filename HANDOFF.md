@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-23 (morning shift, M1.1)
+Updated: 2026-10-23 (afternoon shift, M1.2)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -22,15 +22,24 @@ Updated: 2026-10-23 (morning shift, M1.1)
   - Timings and options are in `docs/decisions/engine-in-browser.md`: laptop about 2.5 s to ideas, phone at 4x CPU about 10 to 12 s plus about 5.5 MB to download on a first visit.
   - 65 tests pass 3x.
 
+- M1.2 browser adapter (same branch, PR #2), built on the recommended Pyodide path while the engine call waits:
+  - `charlie/handlers.py` holds every endpoint's logic. `server.py` is now thin FastAPI wrappers (uploads, Claude resume reading and the Origin check stay server-only), and the browser calls the same code through `Api.route()`.
+  - `charlie/browser_store.py`: `BrowserStore` has Store's interface on `localStorage` (keys `charlie:*`, keeps only the latest day of ideas, reads corrupt entries as empty).
+  - `charlie/browser.py` is the Pyodide entry point: mock data, rule-based chat, and none of anthropic, requests, sqlite3, fastapi or the Cboe/SEC adapters get imported (those and sqlite3 now load lazily).
+  - `web/static.js` loads Pyodide plus `charlie.zip` and exposes `window.charlieStatic`; `api()` in `web/app.js` uses it when present, so one UI file serves both modes. Upload and the Claude opt-in are hidden in the demo.
+  - `tools/build_demo.py` writes a minimal `site/` (gitignored); M1.3 adds the prebuilt first screen.
+  - Checked in Chromium on the built site (phone viewport, local Pyodide): ideas, disclaimers, paper trade, chat, paste-a-resume, and reload persistence all work, with no console errors and no requests leaving the site. Pyodide from the CDN is untested here (jsDelivr is blocked in this sandbox).
+  - 86 tests pass 3x (21 new in `tests/test_browser.py`, including the router matching the FastAPI responses and BrowserStore parity with Store).
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress
-- Waiting on Chase's engine call (below) before M1.2. Meanwhile: engine-agnostic polish only.
+- Engine call still open (below). M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-Chase picks the engine (Decisions to review: Pyodide with more prebuilt screens, or a JS port). Then M1.2 (browser adapter) or the port. Chase also merges #1, then #2.
+M1.3: extend `tools/build_demo.py` to prebuild the sample person's ideas (all 5 risk levels) as JSON so Today renders before Pyodide is ready, and give Pyodide-only controls a loading state. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
 
 ## Decisions to review
+- M1.2: the demo's daily-ideas cache keeps only the latest day in `localStorage`, and the demo hides resume upload and the Claude opt-in (PLAN: paste and the sample resume are enough). `chat()` gained `allow_llm`, which static mode sets to False.
 - **Engine for the static demo (needs Chase's call).** M1.1 tripped PLAN's stop condition: about 10 to 12 s to interactive on a 4x-throttled phone, most of it Pyodide's own start-up. Recommended: stay on Pyodide and have M1.3 prebuild ideas for all 5 risk levels plus each idea's ticker drawer, so the recruiter path is instant and only "paste your own resume" and the screener wait on Python. Alternative: port scoring, strategies and mock data to JS (instant, but two engines). Details: `docs/decisions/engine-in-browser.md`.
 - Mock option chains changed in M1.1 (strikes ±22% short-dated and ±45% LEAPS, weeklies 3 to 8 weeks out). Tests and the golden ideas are unchanged.
 - M0.2 rebuilt `charlie/data/` from the tests and callers because the original never reached git or the project zip. The mock numbers differ from the Oct 22 screenshots (same universe fundamentals, new price paths). Undo: none needed; it's demo data.

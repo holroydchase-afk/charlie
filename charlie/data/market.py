@@ -16,7 +16,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from . import cboe, mock, sec
+from . import mock
 
 MODES = ("auto", "mock", "live")
 TTL = {"options": 15 * 60, "history": 12 * 3600, "facts": 7 * 86400, "ciks": 30 * 86400}
@@ -91,6 +91,7 @@ class MarketData:
         return val
 
     def _options_payload(self, symbol: str) -> dict:
+        from . import cboe
         return self._cached("options", symbol, lambda: cboe.fetch_options(symbol))
 
     # ------------------------------------------------------------------ public API
@@ -99,6 +100,7 @@ class MarketData:
         symbol = symbol.upper()
 
         def live():
+            from . import cboe
             rows = cboe.parse_history(self._cached("history", symbol, lambda: cboe.fetch_history(symbol)))
             if not rows:
                 raise ValueError("empty history")
@@ -111,6 +113,7 @@ class MarketData:
         symbol = symbol.upper()
 
         def live():
+            from . import cboe
             closes = [r["close"] for r in self.history(symbol) if r.get("close")]
             q = cboe.parse_quote(self._options_payload(symbol), symbol, closes)
             if not q["price"]:
@@ -124,6 +127,7 @@ class MarketData:
         symbol = symbol.upper()
 
         def live():
+            from . import cboe
             rows = cboe.parse_chain(self._options_payload(symbol), symbol, self.today)
             if not rows:
                 raise ValueError("empty option chain")
@@ -138,6 +142,7 @@ class MarketData:
         symbol = symbol.upper()
 
         def live():
+            from . import sec
             sec.user_agent()  # refuse before any request while the identity is unset
             ciks = self._cached("ciks", "company_tickers", sec.fetch_cik_map)
             cik = ciks.get(symbol)
@@ -153,6 +158,7 @@ class MarketData:
         def guarded():
             if self.mode != "mock" and not _sec_ready():
                 if self.mode == "live":
+                    from . import sec
                     sec.user_agent()
                 return fallback()
             return self._live(f"fundamentals {symbol}", live, fallback)
@@ -179,6 +185,9 @@ class MarketData:
 
 
 def _sec_ready() -> bool:
+    if not os.environ.get("CHARLIE_SEC_UA"):
+        return False
+    from . import sec  # the live adapters load only when used, so the browser demo never imports them
     try:
         sec.user_agent()
         return True
