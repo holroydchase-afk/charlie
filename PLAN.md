@@ -10,10 +10,10 @@ The bet: a recruiter on a phone opens chaseholroyd.com/charlie/, sees a sample p
 
 - **M0.1** Studio setup. Status: doing. Branch: `claude/project-thread-dlm2ig`.
   - [x] CLAUDE.md (hard rules + Studio agents), HANDOFF.md (with Portfolio / public presence), PLAN.md, `.claude/agents/`, `.claude/settings.json`, handoff-check, `ci.yml` (pytest + privacy check), dependabot, MIT LICENSE, README CI badge.
-- **M0.2** Restore `charlie/data/` and green CI. Status: doing. Owner: tonight's night run, not this plan.
-  - [ ] `charlie/data/` (market facade, Cboe and SEC adapters, mock generator) is committed and no longer gitignored.
-  - [ ] `python -m pytest -q` passes all 35 tests on a clean clone, and the M0.1 `ci.yml` is green on every PR.
-  - [ ] `CHARLIE_SEC_UA` is read only from env with a `you@example.com` placeholder, and live SEC calls refuse to run while it's unset.
+- **M0.2** Restore `charlie/data/` and green CI. Status: done (branch `claude/project-thread-74d6f6`).
+  - [x] `charlie/data/` (market facade, Cboe and SEC adapters, mock generator) is committed and no longer gitignored.
+  - [x] `python -m pytest -q` passes all 35 tests on a clean clone, and the M0.1 `ci.yml` is green on every PR.
+  - [x] `CHARLIE_SEC_UA` is read only from env with a `you@example.com` placeholder, and live SEC calls refuse to run while it's unset.
 - **M0.3** Privacy fixes from the M0.1 privacy-security review. Status: todo. Branch: `m0.3-privacy-fixes`.
   - [ ] Every chat reply (Claude and rule-based, including the fallback) ends with "Not financial advice. Paper trading only." added in code, not by the prompt. Test enforces it.
   - [ ] Every idea card, trade block, chat trade card and the ticker drawer show the same line. Test enforces it.
