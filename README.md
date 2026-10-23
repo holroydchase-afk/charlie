@@ -1,5 +1,7 @@
 # Charlie
 
+[![CI](https://github.com/holroydchase-afk/charlie/actions/workflows/ci.yml/badge.svg)](https://github.com/holroydchase-afk/charlie/actions/workflows/ci.yml)
+
 **Invest in what you know, with training wheels.** Charlie reads your resume and interests, maps your *circle of competence* to companies, scores them with a Charlie Munger-style checklist, and turns the best 1-3 into concrete stock or options ideas each day. A risk slider decides how adventurous the trades are. It defaults to conservative (covered calls and cash-secured puts).
 
 > Education and paper trading only. Charlie never places real orders and is not financial advice.
@@ -20,7 +22,7 @@ Optional settings (environment variables):
 |---|---|---|
 | `ANTHROPIC_API_KEY` | unset | Turns on Claude for chat (with tools) and a deeper resume read. Without it, chat runs on simple rules. |
 | `CHARLIE_DATA` | `auto` | `auto` tries free live data and falls back to demo data; `mock` is offline only; `live` errors instead of falling back. |
-| `CHARLIE_SEC_UA` | placeholder | SEC asks for `"AppName your@email.com"` as the User-Agent. Set this before using live fundamentals. |
+| `CHARLIE_SEC_UA` | placeholder | SEC asks for `"AppName you@example.com"` (use your own contact; never commit it) as the User-Agent. Set this before using live fundamentals. |
 | `CHARLIE_MODEL` | `claude-opus-5-5` | Claude model for chat. |
 | `CHARLIE_DB` | `data/charlie.db` | SQLite file for profile, saved screens, and paper trades. |
 
@@ -82,3 +84,11 @@ Run tests with `python -m pytest -q`.
 2. Earnings calendar and ex-dividend checks before suggesting short options.
 3. Daily email or push digest of the day's ideas.
 4. Track idea outcomes over time to see whether the scoring actually works.
+
+## Plan and status
+
+Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). Next up (M1) is a static, no-login demo on sample data at chaseholroyd.com/charlie/.
+
+## License
+
+[MIT](LICENSE)
