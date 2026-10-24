@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (M2 planned after Chase picked laptop first)
+Updated: 2026-10-24 (Polish Freeze; M2 parked)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -65,10 +65,14 @@ Updated: 2026-10-24 (M2 planned after Chase picked laptop first)
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-M2.1: test live data (`CHARLIE_DATA=live`) on Chase's laptop and fix what breaks (Chase picked laptop first on Oct 24). M1 is merged to `main` (Oct 24, Chase's go). Still Chase's: the engine card (Pyodide recommended) and M1.5 part 2, the decision to make the repo public. Then he enables Pages (Settings, Pages, Source: GitHub Actions) and `pages.yml` deploys. The demo lands at chaseholroyd.com/charlie/ only if chaseholroyd.com is the custom domain on the account's user Pages site; otherwise at holroydchase-afk.github.io/charlie/.
+Polish Freeze is on. Waiting on Chase: does his "merge anything pending" (Oct 24, 15:13Z) still stand? PR #2 already contains #1 (it fixes #1's red CI) and could be merged on its own. Then, under the freeze: UI polish toward 8/10 (baseline 2/10), scored by ux-reviewer at 390 and 1280 px, after the day's job-hunt gate is met. Still Chase's: the engine card and the decision to go public.
+
+## Parked (Polish Freeze)
+Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI toward 8/10 (baseline 2/10); never merge, deploy or publish.
+- "Chase uses it daily", laptop first (Chase's pick on Oct 24): M2.1 live data verified on his laptop, plus a README "use it yourself" setup; M2.2 an earnings and ex-dividend check before any short-option idea; M2.3 a morning summary of the day's ideas; M2.4 an idea track record. A phone version with hosting and a login would come after that.
 
 ## Decisions to review
-- Oct 24, decided by Chase: Charlie is also a real product he'll use, laptop first (local app, his resume, real delayed prices, paper only). PLAN now has M2, "Chase uses it daily": live data on his laptop, an earnings check, a morning summary and an idea track record. Phone use (hosted, with login) moved to M3.
+- Oct 24, decided by Chase: Charlie is also a real product he'll use, laptop first. Parked minutes later by the Polish Freeze (see below).
 - M1.6 prep: the public demo self-hosts Pyodide instead of loading it from jsDelivr. That's more privacy (no third party sees visitors) for about 12 MB of hosting on Pages. To undo, drop `--pyodide-dir` in `pages.yml` and use `check_site.py` without `--no-cdn`.
 - M1.5: the history review recommends leaving the two original commits as they are (a rewrite would change every SHA). Chase decides whether the author email on them matters to him.
 - M1.8: the README's "Why I built it" paragraph is written in Chase's voice from the project's stated goals (Munger's circle of competence, research first, safe by default). Chase should edit it before the repo goes public.

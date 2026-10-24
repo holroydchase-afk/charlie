@@ -62,24 +62,9 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 
 Not in M1: resume file upload in the demo (paste and the sample resume are enough), Claude chat, live data, accounts.
 
-## M2: Chase uses it daily (laptop first)
+## Later (M2+)
 
-Goal: Charlie is a small real product Chase uses on his laptop every market day, alongside the recruiter demo. Chase picked laptop first on Oct 24: the local app, his own resume, real delayed prices, paper trading only. A phone needs a hosted private copy with a login, which comes later (M3).
-
-- **M2.1** Live data on Chase's laptop. Status: todo.
-  - [ ] On Chase's computer, `CHARLIE_DATA=live` returns real Cboe quotes and chains and SEC fundamentals for a handful of tickers. Whatever breaks gets fixed with a recorded fixture and a test.
-  - [ ] README has a three-step "Use it yourself" setup (install, set `CHARLIE_SEC_UA`, run), checked on his machine.
-- **M2.2** Earnings check. Status: todo.
-  - [ ] No short-option idea (covered call, cash-secured put, credit spread) expires after the company's next earnings date unless the card says so in plain words. Dates come from a free source behind an interface, with a labeled fake for tests.
-  - [ ] Ex-dividend dates flag early-assignment risk on covered calls.
-- **M2.3** Morning summary. Status: todo.
-  - [ ] One command (and an optional scheduled run) writes the day's 1 to 3 ideas to a short page or file Chase can read in a minute, with the disclaimer.
-- **M2.4** Idea track record. Status: todo.
-  - [ ] Each day's ideas are saved, and a "How did past ideas do?" view marks them to market at expiry, so Chase can see whether the Charlie score works.
-
-Stop condition: if live data can't be made reliable on free sources after M2.1, record the options (a paid data API, or Alpaca's free paper data) and ask Chase before spending money.
-
-## Later (M3+)
+- Parked by the Polish Freeze (Oct 24): "Chase uses it daily" (live data on his laptop, earnings check, morning summary, idea track record). See HANDOFF.md.
 
 - A private hosted version with a login, so Chase can check ideas on his phone (needs auth and Origin checks first, per CLAUDE.md).
 - Alpaca paper orders from "Paper trade this" (paper URL hard-coded, with a test that it can't reach the live URL).
