@@ -1,6 +1,6 @@
 # Decision: running the engine in the browser (M1.1 spike)
 
-Date: 2026-10-23. Status: **proposed, needs Chase's call** (see the end).
+Date: 2026-10-23, updated 2026-10-24. Status: **proposed, needs Chase's call** (see the end). M1.2 to M1.4 were built on the recommended Pyodide path in the meantime.
 
 ## Question
 FastAPI can't run on GitHub Pages, so the static demo needs the engine in the browser. Should we run the existing Python in Pyodide or port scoring and strategies to JavaScript? PLAN's stop condition says: if the interactive app takes over 10 seconds on a throttled mid-range phone, even with a prebuilt first screen, port to JS.
@@ -40,3 +40,15 @@ Recommendation: option 1. Revisit if real-device testing (M1.7) shows more than 
 ## Not verified
 - Real phones, real CDN delivery, and Safari/WebKit. Chromium throttling only approximates a mid-range phone.
 - The jsDelivr CDN is blocked from the build machine, so the spike was served from the `pyodide` npm package (same files, same version).
+
+## Update 2026-10-24: M1.3 measured
+
+With the prebuilt first screen built (M1.3), the built demo was measured in Chromium with Pyodide served locally:
+
+| Profile | Today visible | Risk slider | Engine ready (chat, screener, your own resume) |
+|---|---|---|---|
+| Laptop | 0.1 s | instant | 2.3 s |
+| Phone, 4x CPU, 4G | 0.8 s | 0.08 s | about 20 s |
+| Phone, 6x CPU, slow 4G | 1.6 s | 0.1 s | about 39 s |
+
+The recruiter path (Today, the slider and each idea's ticker drawer) is now well under PLAN's 10-second bar on a throttled phone. That supports staying on Pyodide. Only the interactive tools wait, and a "Starting Charlie's engine" pill shows during the wait.
