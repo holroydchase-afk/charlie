@@ -47,8 +47,8 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 - **M1.5** Pre-public privacy review. Status: review done (`docs/reviews/2026-10-24-pre-public-privacy.md`, PR #2); waiting on Chase's decision to go public. Branch: `m1.5-public-review`.
   - [x] privacy-security reviews the whole git history, `samples/` and docs for secrets or real personal data, and logs findings.
   - [ ] Chase decides to make the repo public (needed for Pages). Until then M1.6 is blocked.
-- **M1.6** Pages deploy. Status: blocked on M1.5. Branch: `m1.6-pages-deploy`.
-  - [ ] `pages.yml` builds `site/` and deploys from `main` only after CI passes.
+- **M1.6** Pages deploy. Status: blocked on M1.5; `pages.yml` is written and gated on the repo being public (PR #2). Branch: `m1.6-pages-deploy`.
+  - [x] `pages.yml` builds `site/` and deploys from `main` only after CI passes.
   - [ ] The demo loads at chaseholroyd.com/charlie/ with relative paths and no console errors.
 - **M1.7** Phone, desktop and accessibility. Status: done (shipped on `claude/project-thread-74d6f6`, PR #2).
   - [x] Playwright screenshots at 390x844 and 1280x800, light and dark, show no overflow or clipped payoff charts.

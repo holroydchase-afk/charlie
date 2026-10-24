@@ -48,8 +48,12 @@ jobs:
           pip install -r requirements.txt playwright==1.56.0
           python -m playwright install --with-deps chromium
           npm install --no-save --no-audit --no-fund axe-core@4.10.3
+          # The same self-hosted Pyodide that pages.yml ships.
+          npm pack pyodide@0.28.3 --silent
+          mkdir pyodide-pkg && tar -xzf pyodide-0.28.3.tgz -C pyodide-pkg --strip-components=1
       - name: Browser tests
         env:
           CHARLIE_E2E: "1"
           CHARLIE_AXE_JS: node_modules/axe-core/axe.min.js
+          CHARLIE_PYODIDE_DIR: pyodide-pkg
         run: python -m pytest -q tests/e2e

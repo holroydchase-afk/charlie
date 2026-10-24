@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (night shift, M1.3, M1.4, M1.5 part 1, M1.7, M1.8 and M1.9)
+Updated: 2026-10-24 (morning shift, M1.6 prep)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -53,15 +53,21 @@ Updated: 2026-10-24 (night shift, M1.3, M1.4, M1.5 part 1, M1.7, M1.8 and M1.9)
 - M1.8 README (same branch, PR #2): the top now has the CI badge, a "Try the demo" line (coming soon; it becomes a link when M1.6 is live), a phone screenshot of the built demo (`docs/screenshots/demo-phone.png`, fictional sample person), and a "Why I built it" paragraph. The project layout and status are refreshed. The MIT license was already there.
 - M1.9 recruiter-ready review (same branch, PR #2): `docs/reviews/2026-10-24-recruiter-ready.md` ranks 10 findings. All 4 P1s are fixed: the nudge copy, the tab ARIA, the orphaned "…or paste it" label in the demo, and "Alex Rivera (sample)'s circle". There's also a P2 fix: a demo-only "Use the sample resume" button. Open P2s are the engine wait for interactive features on slow phones, SRI or self-hosting for Pyodide, and real-phone checks. 107 unit tests pass 3x and 9 browser tests pass.
 - M1.5 part 1, pre-public privacy review (same branch, PR #2): `docs/reviews/2026-10-24-pre-public-privacy.md`. No keys, real resumes, data files or real emails were found in any file across all 13 commits on the 3 branches. One P2 is Chase's call: his two original commits carry his personal Gmail address as the commit author. Part 2, deciding to make the repo public, is Chase's.
+- M1.6 prep (same branch, PR #2). Nothing deploys yet:
+  - `.github/workflows/pages.yml` builds the demo and deploys it to Pages after CI passes on `main`. It skips itself while the repo is private (`github.event.repository.private == false`), so merging it is safe before Chase decides to go public.
+  - The public build self-hosts Pyodide 0.28.3. `build_demo.py --pyodide-dir` copies the 5 runtime files the demo fetches (about 12 MB, served gzipped) into `site/pyodide/` and points `static.js` at them, so visitors' browsers never call a third-party CDN. `check_site.py --no-cdn` enforces that, flagging any extra file in `site/pyodide/`. The CI e2e job uses the same self-hosted build, and a browser test asserts zero requests leave the site.
+  - Review finding 7 (SRI or self-host) and finding 9 (cut-off Screener placeholder) are fixed.
+  - 113 unit tests and 9 browser tests pass 3x.
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-M1 is built. What's left needs Chase: merge #1 then #2, answer the engine card (M1.3 makes Pyodide the clear pick), and M1.5 part 2 (the history review is done with nothing blocking, so this is his decision to make the repo public, including whether he minds his Gmail address on his two original commits). After that comes M1.6, the Pages deploy (add SRI or self-host Pyodide, review finding 7). Meanwhile, shifts can take on the open P2s in the review. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
+M1 is built. What's left needs Chase: merge #1 then #2, answer the engine card (M1.3 makes Pyodide the clear pick), and M1.5 part 2 (the history review is done with nothing blocking, so this is his decision to make the repo public, including whether he minds his Gmail address on his two original commits). After that comes M1.6: enable Pages for the repo (Settings, Pages, Source: GitHub Actions), and `pages.yml` takes it from there. Then check chaseholroyd.com/charlie/ loads with no console errors. That URL works only if chaseholroyd.com is the custom domain on the account's user Pages site. Otherwise the demo lands at holroydchase-afk.github.io/charlie/, and the portfolio links there instead. Meanwhile, shifts can take on the open P2s in the review. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
 
 ## Decisions to review
+- M1.6 prep: the public demo self-hosts Pyodide instead of loading it from jsDelivr. That's more privacy (no third party sees visitors) for about 12 MB of hosting on Pages. To undo, drop `--pyodide-dir` in `pages.yml` and use `check_site.py` without `--no-cdn`.
 - M1.5: the history review recommends leaving the two original commits as they are (a rewrite would change every SHA). Chase decides whether the author email on them matters to him.
 - M1.8: the README's "Why I built it" paragraph is written in Chase's voice from the project's stated goals (Munger's circle of competence, research first, safe by default). Chase should edit it before the repo goes public.
 - M1.4: the back link and Reset demo sit in a banner strip right under the header, not in the header row, because the phone header is already full.
@@ -90,6 +96,7 @@ M1 is built. What's left needs Chase: merge #1 then #2, answer the engine card (
 - Portfolio page: not yet (added after the demo passes the recruiter-ready bar, via an INTAKE to Product Studio).
 - Live demo: not yet. Planned at chaseholroyd.com/charlie/, a static Pyodide build deployed by `pages.yml` from `main` after CI passes (PLAN M1.6, needs the repo public).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
+- 2026-10-24: `pages.yml` is ready to publish the demo at chaseholroyd.com/charlie/ once the repo is public. The demo serves Pyodide itself and makes no third-party calls (not deployed).
 - 2026-10-24: recruiter-ready review done with no open P0 or P1 (`docs/reviews/2026-10-24-recruiter-ready.md`). The demo now has "Use the sample resume" (M1.9, not deployed).
 - 2026-10-24: README now opens with the demo line, a phone screenshot and "Why I built it" (M1.8).
 - 2026-10-24: the demo build passes axe WCAG 2.2 AA on every tab, with keyboard-navigable tabs (M1.7, not deployed).

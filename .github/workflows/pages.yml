@@ -1,0 +1,51 @@
+name: Pages
+# Publishes the static demo to GitHub Pages (chaseholroyd.com/charlie/) after CI passes on main.
+# It does nothing while the repo is private: going public is Chase's call (PLAN M1.5).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: >-
+      github.event.repository.private == false &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Fetch Pyodide to self-host
+        # npm checks the tarball against the registry's integrity hash.
+        run: |
+          npm pack pyodide@0.28.3 --silent
+          mkdir pyodide-pkg && tar -xzf pyodide-0.28.3.tgz -C pyodide-pkg --strip-components=1
+      - name: Build the demo
+        run: python tools/build_demo.py site --pyodide-dir pyodide-pkg
+      - name: Check the demo
+        # No keys, and no hosts at all beyond the portfolio link: the runtime is served from this site.
+        run: python tools/check_site.py site --no-cdn
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

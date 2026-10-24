@@ -12,9 +12,9 @@ The static demo (`tools/build_demo.py`, built for 2026-10-22) was walked through
 | 4 | P1 | ux-reviewer | The Profile heading read "Alex Rivera (sample)'s circle". | Fixed: "Alex Rivera's circle (sample)". |
 | 5 | P2 | ux-reviewer | A recruiter can't see which resume produced the sample ideas. | Fixed: a demo-only "Use the sample resume" button fills the form with the fictional resume. |
 | 6 | P2 | qa-tdd | Interactive features (chat, screener, paper trades, your own resume) wait for Pyodide: about 20 s on a 4x-throttled phone over 4G, 39 s at 6x on slow 4G. Today and the risk slider are instant from prebuilt answers. | Open. A "Starting Charlie's engine" pill shows during the wait. Next lever: prebuild a few common chat answers, or warm Pyodide in a Web Worker. |
-| 7 | P2 | privacy-security | `pyodide.js` loads from jsDelivr without a Subresource Integrity hash, and Pyodide then fetches its own runtime files. The CDN learns visitors' IPs, as with any CDN. | Open. Add `integrity` to the script tag in M1.6, or self-host Pyodide on Pages (about 5.5 MB). |
+| 7 | P2 | privacy-security | `pyodide.js` loads from jsDelivr without a Subresource Integrity hash, and Pyodide then fetches its own runtime files. The CDN learns visitors' IPs, as with any CDN. | Fixed (Oct 24 morning): `pages.yml` self-hosts the runtime (`build_demo.py --pyodide-dir`, npm checks the tarball's integrity), and `check_site.py --no-cdn` plus a browser test confirm nothing leaves the site. |
 | 8 | P2 | qa-tdd | Not checked on real phones (only Chromium emulation with CPU and network throttling). | Open. Chase can try it on his phone once M1.6 is live. |
-| 9 | P3 | ux-reviewer | On phones, the Screener's "Name to save this screen" placeholder is cut off. | Open. |
+| 9 | P3 | ux-reviewer | On phones, the Screener's "Name to save this screen" placeholder is cut off. | Fixed (Oct 24 morning): the placeholder is "Screen name", and the full wording moved to `aria-label`. |
 | 10 | P3 | ux-reviewer | The demo's date is pinned to the build date (status and ideas say 2026-10-22 here). | By design (prebuilt answers). M1.6 can rebuild on a schedule. |
 
 ## Privacy and safety check (privacy-security)
