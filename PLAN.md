@@ -38,12 +38,12 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
   - [x] `tools/build_demo.py` writes `site/` with the web app, the Python package, and the sample profile with its ideas prebuilt as JSON.
   - [x] On a throttled phone, Today shows the sample person's ideas in under 3 seconds while Pyodide loads behind them.
   - [x] Controls that need Pyodide show a short loading state, never a dead button.
-- **M1.4** Demo guardrails. Status: todo. Branch: `m1.4-demo-guardrails`.
-  - [ ] A banner says the data and the resume are samples and that everything stays in this browser.
-  - [ ] "Not financial advice. Paper trading only." shows on every idea card and in the chat panel.
-  - [ ] The header links back to chaseholroyd.com, and a "Reset demo" button clears local data.
-  - [ ] A CI privacy check fails on API key patterns or calls to hosts other than the Pyodide CDN.
-  - [ ] Playwright tests assert the disclaimer on each idea and in chat, and the back link.
+- **M1.4** Demo guardrails. Status: done (shipped on `claude/project-thread-74d6f6`, PR #2; the CI e2e job's first run is pending).
+  - [x] A banner says the data and the resume are samples and that everything stays in this browser.
+  - [x] "Not financial advice. Paper trading only." shows on every idea card and in the chat panel.
+  - [x] The header links back to chaseholroyd.com, and a "Reset demo" button clears local data.
+  - [x] A CI privacy check fails on API key patterns or calls to hosts other than the Pyodide CDN.
+  - [x] Playwright tests assert the disclaimer on each idea and in chat, and the back link.
 - **M1.5** Pre-public privacy review. Status: todo. Branch: `m1.5-public-review`.
   - [ ] privacy-security reviews the whole git history, `samples/` and docs for secrets or real personal data, and logs findings.
   - [ ] Chase decides to make the repo public (needed for Pages). Until then M1.6 is blocked.

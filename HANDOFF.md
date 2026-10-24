@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (night shift, M1.3)
+Updated: 2026-10-24 (night shift, M1.3 and M1.4)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -37,15 +37,23 @@ Updated: 2026-10-24 (night shift, M1.3)
   - A test checks every prebuilt answer against what the engine returns, so the two can't drift.
   - Chromium, built site, local Pyodide: Today shows in 0.1 s on a laptop, 0.8 s at 4x CPU on 4G and 1.6 s at 6x CPU on slow 4G. The slider stays instant on phones. The engine is up at about 20 s and 39 s on those phones, and chat waits behind the pill until then. There were no console errors and no requests left the site.
   - 96 tests pass 3x (10 new in `tests/test_first_screen.py`).
+- M1.4 demo guardrails (same branch, PR #2):
+  - In the demo, a banner says the resume and market data are made up and anything entered stays in this browser. It links back to chaseholroyd.com and has a "Reset demo" button that clears the `charlie:*` keys. The banner, link and button are `.static-only`, so the local app doesn't show them.
+  - The chat panel shows "Not financial advice. Paper trading only." in its markup, on top of every reply.
+  - The Today nudge in the demo now says the ideas are for Alex Rivera, a fictional sample person. Before, it wrongly said "generic starter circle".
+  - `tools/check_site.py` fails on key patterns or any URL host other than the Pyodide CDN, chaseholroyd.com and the SVG namespace. It also scans inside `charlie.zip`. CI builds the site and runs it.
+  - `tests/e2e/` holds Playwright (Python) tests on the built demo: the disclaimer on every idea card, the chat panel and the reply; the banner, back link and sample nudge; and the reset. They run with `CHARLIE_E2E=1` in a new CI `e2e` job, which loads Pyodide from the CDN. They passed 3x here with Pyodide served locally. The CI job itself hasn't run yet.
+  - README has a "Static demo" section. Unit tests: 101 pass 3x, and the e2e module is skipped without `CHARLIE_E2E`.
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-M1.4 demo guardrails: a sample-data banner ("everything stays in this browser"), a header link back to chaseholroyd.com, a "Reset demo" button that clears `charlie:*` keys, a CI check for key patterns and non-Pyodide hosts in `site/`, and Playwright tests for the disclaimer and back link. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
+Check that the new CI `e2e` job passes on GitHub (it's the first run that loads Pyodide from the CDN). Then M1.7 (Playwright screenshots at 390x844 and 1280x800 in light and dark, and an axe WCAG 2.2 AA check per tab, on the built demo), since M1.5 and M1.6 wait on Chase. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
 
 ## Decisions to review
+- M1.4: the back link and Reset demo sit in a banner strip right under the header, not in the header row, because the phone header is already full.
 - M1.3: the demo's data is pinned to the build date (status, ideas and the drawer all say that date), because the prebuilt answers are made at build time. M1.6 should rebuild on a schedule if a fresh date matters. Also: before saving anything, the demo visitor is the fictional sample person, not a blank default.
 - M1.2: the demo's daily-ideas cache keeps only the latest day in `localStorage`, and the demo hides resume upload and the Claude opt-in (PLAN: paste and the sample resume are enough). `chat()` gained `allow_llm`, which static mode sets to False.
 - **Engine for the static demo (needs Chase's call).** M1.1 tripped PLAN's stop condition: about 10 to 12 s to interactive on a 4x-throttled phone, most of it Pyodide's own start-up. Recommended: stay on Pyodide and have M1.3 prebuild ideas for all 5 risk levels plus each idea's ticker drawer, so the recruiter path is instant and only "paste your own resume" and the screener wait on Python. Alternative: port scoring, strategies and mock data to JS (instant, but two engines). Details: `docs/decisions/engine-in-browser.md`.
@@ -71,6 +79,7 @@ M1.4 demo guardrails: a sample-data banner ("everything stays in this browser"),
 - Portfolio page: not yet (added after the demo passes the recruiter-ready bar, via an INTAKE to Product Studio).
 - Live demo: not yet. Planned at chaseholroyd.com/charlie/, a static Pyodide build deployed by `pages.yml` from `main` after CI passes (PLAN M1.6, needs the repo public).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
+- 2026-10-24: the demo build has a sample-data banner with a link back to chaseholroyd.com and a Reset demo button (M1.4, not deployed).
 - 2026-10-24: the demo build (`tools/build_demo.py`, not deployed) now opens on the sample person's prebuilt ideas in under 2 s on a throttled phone, with data pinned to the build date.
 - Studio status: [STUDIO-STATUS.md](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md).
 - 2026-10-23: studio onboarding (M0.1). No public changes yet.

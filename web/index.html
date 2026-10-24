@@ -23,6 +23,10 @@
     </div>
     <span id="data-badge" class="badge">data…</span>
   </header>
+  <div id="demo-banner" class="demo-banner static-only hidden" role="note">
+    <span>Sample demo: the resume and market data are made up, and anything you enter stays in this browser.</span>
+    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <button id="reset-demo" class="link-btn" type="button">Reset demo</button></span>
+  </div>
 
   <nav class="tabs" role="tablist">
     <button data-tab="today" class="active">Today</button>
@@ -49,7 +53,7 @@
         </div>
       </div>
       <div id="profile-nudge" class="callout hidden">
-        You haven't set up a profile yet, so these come from a generic starter circle.
+        <span id="nudge-lead">You haven't set up a profile yet, so these come from a generic starter circle.</span>
         <a href="#" data-goto="profile">Add your resume and interests</a> to personalize them.
       </div>
       <div id="ideas" class="cards"></div>
@@ -162,6 +166,7 @@
           <button class="primary">Send</button>
         </form>
         <div id="chat-mode" class="muted small"></div>
+        <p class="nfa">Not financial advice. Paper trading only.</p>
       </div>
     </section>
 

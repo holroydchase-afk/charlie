@@ -186,6 +186,8 @@ async function loadProfile() {
   state.profile = r.profile;
   state.risk = r.profile.risk_level;
   $("#profile-nudge").classList.toggle("hidden", r.saved);
+  if (window.charlieStatic && !r.saved)  // the demo starts as the fictional sample person, not a blank profile
+    $("#nudge-lead").textContent = `These ideas are for ${r.profile.name.replace(/\s*\(sample\)$/, "")}, a fictional sample person.`;
   syncRisk();
   const f = $("#profile-form"), i = r.intake || {};
   f.resume_text.dataset.ph ??= f.resume_text.placeholder;
@@ -450,6 +452,10 @@ window.addEventListener("charlie:engine", (e) => {
   $("#engine-status").classList.toggle("hidden", e.detail.ready);
   if (e.detail.error) toast("Charlie's engine couldn't load. Check your connection and try again.");
 });
+$("#reset-demo").onclick = () => {
+  try { Object.keys(localStorage).filter((k) => k.startsWith("charlie:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
+  location.reload();
+};
 $("#footer-disclaimer").onclick = (e) => e.currentTarget.classList.toggle("open");
 $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); } catch (_) {} $("#ack").classList.add("hidden"); };
 
@@ -463,7 +469,10 @@ $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); 
     if (!acked) $("#ack").classList.remove("hidden");
     $("#chat-mode").textContent = status.static ? "Demo mode: rule-based answers on sample data."
       : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
-    if (status.static) $$(".server-only").forEach((el) => el.classList.add("hidden"));  // no uploads or Claude in the demo
+    if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
+      $$(".server-only").forEach((el) => el.classList.add("hidden"));
+      $$(".static-only").forEach((el) => el.classList.remove("hidden"));
+    }
     await loadProfile();
     renderProfile();
     const tab = location.hash.slice(1);

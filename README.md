@@ -30,6 +30,18 @@ Optional settings (environment variables):
 
 The header badge shows **Demo data** whenever numbers are simulated.
 
+### Static demo (no server)
+
+The same app also runs fully in the browser on sample data, with the Python engine in [Pyodide](https://pyodide.org). This is what the portfolio demo uses.
+
+```bash
+python tools/build_demo.py site          # web app + charlie.zip + prebuilt first screen
+python tools/check_site.py site          # no keys, no hosts beyond the Pyodide CDN
+python -m http.server 8001 --bind 127.0.0.1 --directory site   # open http://127.0.0.1:8001/
+```
+
+The first screen comes from `prebuilt.json`, so it appears right away while Pyodide loads. Everything a visitor enters stays in their browser's `localStorage`, and **Reset demo** clears it. Browser tests: `pip install playwright && python -m playwright install chromium && CHARLIE_E2E=1 python -m pytest tests/e2e`.
+
 ## What's in the MVP
 
 - **Profile:** resume + interests + brands + holdings → ranked sectors with the evidence behind each ("your resume mentions Da Vinci (Intuitive Surgical)"), and the companies you're positioned to understand.
