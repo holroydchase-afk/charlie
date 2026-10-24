@@ -445,6 +445,11 @@ $("#delete-profile").onclick = async () => {
     toast("Profile and resume deleted");
   } catch (err) { toast(err.message); }
 };
+// Static demo: say so while a control waits for the engine, so nothing looks dead.
+window.addEventListener("charlie:engine", (e) => {
+  $("#engine-status").classList.toggle("hidden", e.detail.ready);
+  if (e.detail.error) toast("Charlie's engine couldn't load. Check your connection and try again.");
+});
 $("#footer-disclaimer").onclick = (e) => e.currentTarget.classList.toggle("open");
 $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); } catch (_) {} $("#ack").classList.add("hidden"); };
 
@@ -463,5 +468,7 @@ $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); 
     renderProfile();
     const tab = location.hash.slice(1);
     showTab(["today", "profile", "screener", "chat", "paper", "learn"].includes(tab) ? tab : "today");
+    // Static demo: the first screen came from prebuilt answers; load the engine once it has painted.
+    requestAnimationFrame(() => setTimeout(() => window.charlieStatic?.start(), 50));
   } catch (e) { $("#ideas").innerHTML = `<div class="panel">Couldn't start: ${esc(e.message)}</div>`; }
 })();

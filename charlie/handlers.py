@@ -55,13 +55,17 @@ def _bool(v) -> bool:
 
 
 class Api:
-    def __init__(self, store, md, static: bool = False):
+    def __init__(self, store, md, static: bool = False, default_profile=None):
+        """default_profile(risk_level) is who the visitor sees before saving their own (the demo's sample person)."""
         self.store, self.md, self.static = store, md, static
+        self.default_profile = default_profile
 
     def current_profile(self) -> Profile:
         data = self.store.get("profile")
         if data:
             return Profile.from_dict(data)
+        if self.default_profile:
+            return self.default_profile(self.store.get("sample_risk", 2))
         # Sensible starting point until the user fills in the intake.
         return build_profile(capital=25000, risk_level=2)
 
@@ -93,6 +97,7 @@ class Api:
     def delete_profile(self) -> dict:
         self.store.delete("profile")
         self.store.delete("intake")
+        self.store.delete("sample_risk")
         self.store.clear_daily()
         return {"ok": True}
 
@@ -114,7 +119,11 @@ class Api:
     def set_risk(self, risk_level: int) -> dict:
         p = self.current_profile()
         p.risk_level = max(1, min(5, risk_level))
-        self.store.put("profile", p.to_dict())
+        if self.default_profile and self.store.get("profile") is None:
+            # Still the sample person: remember only the level, so the demo's prebuilt answers stay valid.
+            self.store.put("sample_risk", p.risk_level)
+        else:
+            self.store.put("profile", p.to_dict())
         return {"risk_level": p.risk_level, "label": RISK_LABELS[p.risk_level]}
 
     # ideas & analysis

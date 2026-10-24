@@ -169,6 +169,7 @@ tr.clickable:hover td { background: var(--bg); }
 .close { position: absolute; right: 16px; top: 12px; border: 0; background: none; font-size: 28px; color: var(--muted); }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 30; display: grid; place-items: center; padding: 16px; }
 .modal-inner { max-width: 520px; background: var(--panel); border-radius: 14px; padding: 24px; }
+.engine-status { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: 0.85rem; z-index: 45; }
 .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; z-index: 40; }
 .disclaimer {
   position: fixed; bottom: 0; left: 0; right: 0; background: var(--panel); border-top: 1px solid var(--line);

@@ -1,14 +1,18 @@
-"""Build the static demo into site/: the web app, static.js, and a zip of the Python it runs.
+"""Build the static demo into site/: the web app, static.js, a zip of the Python it runs, and
+prebuilt.json, the sample person's answers for every risk level, so Today shows before Pyodide loads.
 
-Usage: python tools/build_demo.py [out_dir]   (default site/)
-M1.3 adds the prebuilt first screen; M1.6 deploys the folder to Pages.
+Usage: python tools/build_demo.py [out_dir] [--date YYYY-MM-DD]   (default site/, today)
+The demo's data is pinned to the build date. M1.6 deploys the folder to Pages.
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import shutil
 import sys
 import zipfile
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,7 +26,7 @@ MODULES = [
 WEB_FILES = ["app.js", "styles.css", "static.js"]
 
 
-def build(out: Path) -> Path:
+def build(out: Path, day: str | None = None) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     for name in WEB_FILES:
         shutil.copy(ROOT / "web" / name, out / name)
@@ -34,8 +38,19 @@ def build(out: Path) -> Path:
     with zipfile.ZipFile(out / "charlie.zip", "w", zipfile.ZIP_DEFLATED) as z:
         for m in MODULES:
             z.write(ROOT / m, m)
+    sys.path.insert(0, str(ROOT))
+    try:
+        from charlie.browser import prebuild
+    finally:
+        sys.path.pop(0)
+    pre = prebuild(day or date.today().isoformat())
+    (out / "prebuilt.json").write_text(json.dumps(pre, separators=(",", ":")))
     return out
 
 
 if __name__ == "__main__":
-    print(build(Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "site"))
+    ap = argparse.ArgumentParser()
+    ap.add_argument("out", nargs="?", default=str(ROOT / "site"))
+    ap.add_argument("--date", help="pin the demo's day (default: today)")
+    a = ap.parse_args()
+    print(build(Path(a.out), a.date))

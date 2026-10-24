@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-23 (afternoon shift, M1.2)
+Updated: 2026-10-24 (night shift, M1.3)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -30,15 +30,23 @@ Updated: 2026-10-23 (afternoon shift, M1.2)
   - `tools/build_demo.py` writes a minimal `site/` (gitignored); M1.3 adds the prebuilt first screen.
   - Checked in Chromium on the built site (phone viewport, local Pyodide): ideas, disclaimers, paper trade, chat, paste-a-resume, and reload persistence all work, with no console errors and no requests leaving the site. Pyodide from the CDN is untested here (jsDelivr is blocked in this sandbox).
   - 86 tests pass 3x (21 new in `tests/test_browser.py`, including the router matching the FastAPI responses and BrowserStore parity with Store).
+- M1.3 instant first screen (same branch, PR #2):
+  - `charlie.browser.prebuild()` runs the same handlers at build time and `tools/build_demo.py` writes `site/prebuilt.json`: the sample person's profile, ideas and each idea's ticker drawer for all 5 risk levels, plus meta, status, screens and paper (341 KB, 52 KB gzipped).
+  - Until the visitor saves a profile, the demo shows the fictional sample person (Alex Rivera). Moving the slider in that state stores only `charlie:kv:sample_risk`, so the prebuilt answers stay valid.
+  - `web/static.js` serves prebuilt answers instantly while nothing is changed (no profile, intake, positions or screens stored) and starts Pyodide after the first paint. Anything else waits for the engine behind a "Starting Charlie's engine" pill, and if it fails to load there's a toast and the next click retries.
+  - A test checks every prebuilt answer against what the engine returns, so the two can't drift.
+  - Chromium, built site, local Pyodide: Today shows in 0.1 s on a laptop, 0.8 s at 4x CPU on 4G and 1.6 s at 6x CPU on slow 4G. The slider stays instant on phones. The engine is up at about 20 s and 39 s on those phones, and chat waits behind the pill until then. There were no console errors and no requests left the site.
+  - 96 tests pass 3x (10 new in `tests/test_first_screen.py`).
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress
-- Engine call still open (below). M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
+- Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-M1.3: extend `tools/build_demo.py` to prebuild the sample person's ideas (all 5 risk levels) as JSON so Today renders before Pyodide is ready, and give Pyodide-only controls a loading state. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
+M1.4 demo guardrails: a sample-data banner ("everything stays in this browser"), a header link back to chaseholroyd.com, a "Reset demo" button that clears `charlie:*` keys, a CI check for key patterns and non-Pyodide hosts in `site/`, and Playwright tests for the disclaimer and back link. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
 
 ## Decisions to review
+- M1.3: the demo's data is pinned to the build date (status, ideas and the drawer all say that date), because the prebuilt answers are made at build time. M1.6 should rebuild on a schedule if a fresh date matters. Also: before saving anything, the demo visitor is the fictional sample person, not a blank default.
 - M1.2: the demo's daily-ideas cache keeps only the latest day in `localStorage`, and the demo hides resume upload and the Claude opt-in (PLAN: paste and the sample resume are enough). `chat()` gained `allow_llm`, which static mode sets to False.
 - **Engine for the static demo (needs Chase's call).** M1.1 tripped PLAN's stop condition: about 10 to 12 s to interactive on a 4x-throttled phone, most of it Pyodide's own start-up. Recommended: stay on Pyodide and have M1.3 prebuild ideas for all 5 risk levels plus each idea's ticker drawer, so the recruiter path is instant and only "paste your own resume" and the screener wait on Python. Alternative: port scoring, strategies and mock data to JS (instant, but two engines). Details: `docs/decisions/engine-in-browser.md`.
 - Mock option chains changed in M1.1 (strikes ±22% short-dated and ±45% LEAPS, weeklies 3 to 8 weeks out). Tests and the golden ideas are unchanged.
@@ -63,6 +71,7 @@ M1.3: extend `tools/build_demo.py` to prebuild the sample person's ideas (all 5 
 - Portfolio page: not yet (added after the demo passes the recruiter-ready bar, via an INTAKE to Product Studio).
 - Live demo: not yet. Planned at chaseholroyd.com/charlie/, a static Pyodide build deployed by `pages.yml` from `main` after CI passes (PLAN M1.6, needs the repo public).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
+- 2026-10-24: the demo build (`tools/build_demo.py`, not deployed) now opens on the sample person's prebuilt ideas in under 2 s on a throttled phone, with data pinned to the build date.
 - Studio status: [STUDIO-STATUS.md](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md).
 - 2026-10-23: studio onboarding (M0.1). No public changes yet.
 - 2026-10-23: night shift M0.2 + M0.3 (PR #2). No public changes; the demo isn't live yet.
