@@ -22,6 +22,9 @@ from .handlers import Api
 
 INVALID_IF_KEYS = [PREFIX + k for k in ("kv:profile", "kv:intake", "positions", "screens")]
 COMMON_GETS = ["/api/meta", "/api/status", "/api/screens", "/api/paper"]
+# The chat panel's starter chips (web/index.html data-q); their first answers are prebuilt too.
+CHAT_STARTERS = ["What are today's ideas?", "Explain a cash-secured put like I'm new",
+                 "How does the risk slider work?", "Find trades under $100"]
 
 _api: Api | None = None
 
@@ -72,6 +75,12 @@ def prebuild(today_iso: str, count: int = 3) -> dict:
         for i in ideas["ideas"]:
             path = f"/api/ticker/{i['trade']['symbol']}?risk={lvl}"
             entries[f"GET {path}"] = get(path)
+        entries["chat"] = {}
+        for q in CHAT_STARTERS:
+            body = json.dumps({"messages": [{"role": "user", "content": q}]})
+            status, answer = json.loads(request("POST", "/api/chat", "{}", body)).values()
+            assert status == 200, (q, answer)
+            entries["chat"][q] = answer
         levels[str(lvl)] = entries
     return {"date": today_iso, "default_risk": SAMPLE_LEVEL, "invalid_if_keys": INVALID_IF_KEYS,
             "sample_resume": SAMPLE_RESUME,  # fictional; the "Use the sample resume" button fills the form with it

@@ -63,6 +63,11 @@
     }
     let level = pre.default_risk;
     try { level = JSON.parse(storage.getItem(SAMPLE_RISK_KEY)) ?? level; } catch (_) {}
+    if (key === "POST /api/chat") {  // a starter chip as the first question: answered without the engine
+      const messages = body?.messages;
+      const first = Array.isArray(messages) && messages.length === 1 && messages[0].role === "user";
+      return first ? pre.levels[level]?.chat?.[messages[0].content] ?? null : null;
+    }
     return pre.common[key] ?? pre.levels[level]?.[key] ?? null;
   }
 

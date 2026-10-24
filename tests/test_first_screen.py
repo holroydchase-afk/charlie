@@ -56,7 +56,7 @@ def test_prebuilt_matches_what_pyodide_computes(pre):
         s.setItem("charlie:kv:sample_risk", lvl)
         browser.init(s, DAY)
         for key, body in {**pre["common"], **entries}.items():
-            if key.startswith("POST "):
+            if key.startswith("POST ") or key == "chat":  # chat starters have their own parity test
                 continue
             method, path = key.split(" ", 1)
             got = json.loads(browser.request(method, path))
@@ -120,3 +120,28 @@ def test_app_starts_the_engine_after_first_render_and_shows_waits():
     assert "charlieStatic?.start()" in js and "charlie:engine" in js
     st = (ROOT / "web" / "static.js").read_text()
     assert "prebuilt.json" in st and "invalid_if_keys" in st and "charlie:engine" in st
+
+
+def test_chat_starter_chips_are_prebuilt_for_every_level(pre):
+    import re
+    html = (ROOT / "web" / "index.html").read_text()
+    chips = re.findall(r'class="chip" data-q="([^"]+)"', html)
+    assert chips and chips == browser.CHAT_STARTERS
+    for lvl, entries in pre["levels"].items():
+        assert sorted(entries["chat"]) == sorted(chips), lvl
+
+
+def test_prebuilt_chat_answers_match_the_engine(pre):
+    for lvl in ("1", "3"):
+        s = FakeStorage()
+        s.setItem("charlie:kv:sample_risk", lvl)
+        browser.init(s, DAY)
+        for q, body in pre["levels"][lvl]["chat"].items():
+            got = json.loads(browser.request("POST", "/api/chat", "{}", json.dumps({"messages": [{"role": "user", "content": q}]})))
+            assert got["status"] == 200 and got["body"] == _norm(body), q
+            assert body["reply"].rstrip("_ \n").endswith("Not financial advice. Paper trading only.")
+
+
+def test_static_js_serves_prebuilt_chat_only_for_a_first_question():
+    st = (ROOT / "web" / "static.js").read_text()
+    assert "POST /api/chat" in st and "messages.length === 1" in st

@@ -57,7 +57,8 @@ Updated: 2026-10-24 (morning shift, M1.6 prep)
   - `.github/workflows/pages.yml` builds the demo and deploys it to Pages after CI passes on `main`. It skips itself while the repo is private (`github.event.repository.private == false`), so merging it is safe before Chase decides to go public.
   - The public build self-hosts Pyodide 0.28.3. `build_demo.py --pyodide-dir` copies the 5 runtime files the demo fetches (about 12 MB, served gzipped) into `site/pyodide/` and points `static.js` at them, so visitors' browsers never call a third-party CDN. `check_site.py --no-cdn` enforces that, flagging any extra file in `site/pyodide/`. The CI e2e job uses the same self-hosted build, and a browser test asserts zero requests leave the site.
   - Review finding 7 (SRI or self-host) and finding 9 (cut-off Screener placeholder) are fixed.
-  - 113 unit tests and 9 browser tests pass 3x.
+  - Chat starter chips: `prebuilt.json` also holds each risk level's answers to the four chips, and `static.js` serves them when a chip is the first question, so a recruiter's first chat click is instant (finding 6, partly). Tests check the answers equal the engine's and that the chips work with Pyodide blocked. `prebuilt.json` is now 397 KB (60 KB gzipped).
+  - 116 unit tests and 10 browser tests pass 3x.
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress

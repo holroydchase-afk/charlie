@@ -152,3 +152,18 @@ def test_every_tab_passes_axe_and_fits(browser, site_url, axe_source, scheme, wi
         problems += [f"{tab}: {v}" for v in found]
     ctx.close()
     assert problems == []
+
+
+def test_first_screen_and_chat_starters_work_before_the_engine_loads(browser, site_url):
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    page = ctx.new_page()
+    page.route("**/pyodide.js", lambda route: route.abort())  # the engine never arrives
+    page.goto(site_url)
+    page.click("#ack-btn")
+    cards = page.locator("#ideas .card")
+    expect(cards.first).to_be_visible()
+    page.click("[data-tab=chat]")
+    page.click(".chip[data-q='How does the risk slider work?']")
+    expect(page.locator("#chat-log .msg.bot").last).to_contain_text("Not financial advice. Paper trading only.")
+    expect(page.locator("#chat-log .msg.bot").last).to_contain_text("level")
+    ctx.close()
