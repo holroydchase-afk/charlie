@@ -5,6 +5,7 @@ CHARLIE_CHROMIUM points at a Chromium binary; CHARLIE_PYODIDE_DIR serves a local
 instead of the CDN (for sandboxes that can't reach it).
 """
 import functools
+import re
 import os
 import sys
 import threading
@@ -87,6 +88,13 @@ def test_chat_panel_and_reply_show_the_disclaimer(page):
     page.keyboard.press("Enter")
     reply = page.locator("#chat-log .msg.bot").last
     expect(reply).to_contain_text(NFA, timeout=120_000)
+
+
+def test_profile_shows_the_sample_and_can_load_its_resume(page):
+    page.click("[data-tab=profile]")
+    expect(page.locator("#profile-view h2")).to_have_text("Alex Rivera's circle (sample)")
+    page.click("#use-sample")
+    expect(page.locator("textarea[name=resume_text]")).to_have_value(re.compile("Registered Nurse"))
 
 
 def test_reset_demo_clears_local_data(page):

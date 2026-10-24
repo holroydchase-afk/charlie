@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (night shift, M1.3, M1.4, M1.7 and M1.8)
+Updated: 2026-10-24 (night shift, M1.3, M1.4, M1.7, M1.8 and M1.9)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -51,13 +51,14 @@ Updated: 2026-10-24 (night shift, M1.3, M1.4, M1.7 and M1.8)
   - `tests/test_a11y.py` covers the tab wiring and fails on TODO or placeholder text or a link that goes nowhere. The one `href="#"` now points at `#profile`.
   - 104 unit tests pass 3x. The 8 browser tests passed 3x here with Pyodide served locally.
 - M1.8 README (same branch, PR #2): the top now has the CI badge, a "Try the demo" line (coming soon; it becomes a link when M1.6 is live), a phone screenshot of the built demo (`docs/screenshots/demo-phone.png`, fictional sample person), and a "Why I built it" paragraph. The project layout and status are refreshed. The MIT license was already there.
+- M1.9 recruiter-ready review (same branch, PR #2): `docs/reviews/2026-10-24-recruiter-ready.md` ranks 10 findings. All 4 P1s are fixed: the nudge copy, the tab ARIA, the orphaned "…or paste it" label in the demo, and "Alex Rivera (sample)'s circle". There's also a P2 fix: a demo-only "Use the sample resume" button. Open P2s are the engine wait for interactive features on slow phones, SRI or self-hosting for Pyodide, and real-phone checks. 107 unit tests pass 3x and 9 browser tests pass.
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-M1.9 recruiter-ready review: rank ux-reviewer, qa-tdd and privacy-security findings in `docs/reviews/2026-10-24-recruiter-ready.md` and fix every P0 and P1. M1.5 and M1.6 wait on Chase. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
+M1 is built. What's left needs Chase: merge #1 then #2, answer the engine card (M1.3 makes Pyodide the clear pick), and M1.5 (the pre-public privacy review of the whole git history, then his decision to make the repo public). After that comes M1.6, the Pages deploy (add SRI or self-host Pyodide, review finding 7). Meanwhile, shifts can take on the open P2s in the review. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
 
 ## Decisions to review
 - M1.8: the README's "Why I built it" paragraph is written in Chase's voice from the project's stated goals (Munger's circle of competence, research first, safe by default). Chase should edit it before the repo goes public.
@@ -87,6 +88,7 @@ M1.9 recruiter-ready review: rank ux-reviewer, qa-tdd and privacy-security findi
 - Portfolio page: not yet (added after the demo passes the recruiter-ready bar, via an INTAKE to Product Studio).
 - Live demo: not yet. Planned at chaseholroyd.com/charlie/, a static Pyodide build deployed by `pages.yml` from `main` after CI passes (PLAN M1.6, needs the repo public).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
+- 2026-10-24: recruiter-ready review done with no open P0 or P1 (`docs/reviews/2026-10-24-recruiter-ready.md`). The demo now has "Use the sample resume" (M1.9, not deployed).
 - 2026-10-24: README now opens with the demo line, a phone screenshot and "Why I built it" (M1.8).
 - 2026-10-24: the demo build passes axe WCAG 2.2 AA on every tab, with keyboard-navigable tabs (M1.7, not deployed).
 - 2026-10-24: the demo build has a sample-data banner with a link back to chaseholroyd.com and a Reset demo button (M1.4, not deployed).

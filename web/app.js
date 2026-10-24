@@ -204,7 +204,7 @@ async function loadProfile() {
 function renderProfile() {
   const p = state.profile; if (!p) return;
   $("#profile-view").innerHTML = `
-    <h2>${p.name ? esc(p.name) + "'s circle" : "Your circle"}</h2>
+    <h2>${!p.name ? "Your circle" : / \(sample\)$/.test(p.name) ? esc(p.name.replace(/ \(sample\)$/, "")) + "'s circle (sample)" : esc(p.name) + "'s circle"}</h2>
     <p>${esc(p.summary)}</p>
     <div class="callout small">${esc(p.caution)}</div>
     ${p.domains.map((d) => `<div class="domain">
@@ -455,6 +455,10 @@ window.addEventListener("charlie:engine", (e) => {
   $("#engine-status").classList.toggle("hidden", e.detail.ready);
   if (e.detail.error) toast("Charlie's engine couldn't load. Check your connection and try again.");
 });
+$("#use-sample").onclick = async () => {  // demo only: show the fictional resume behind the sample ideas
+  const text = await window.charlieStatic?.sampleResume();
+  if (text) { const t = $("#profile-form").resume_text; t.value = text; t.focus(); }
+};
 $("#reset-demo").onclick = () => {
   try { Object.keys(localStorage).filter((k) => k.startsWith("charlie:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
   location.reload();

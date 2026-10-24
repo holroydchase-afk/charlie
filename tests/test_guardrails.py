@@ -63,3 +63,22 @@ def test_site_check_reads_the_python_zip_too(tmp_path):
         z.writestr("charlie/leak.py", 'URL = "https://api.anthropic.com/v1/messages"\n')
     r = _check(site)
     assert r.returncode == 1 and "api.anthropic.com" in r.stdout
+
+
+def test_demo_profile_form_reads_right_without_upload():
+    html = (WEB / "index.html").read_text()
+    form = html[html.index('id="profile-form"'):]
+    form = form[:form.index("</form>")]
+    assert re.search(r'class="server-only"[^>]*>…or paste it<', form)
+    assert re.search(r'class="static-only hidden"[^>]*>Paste a resume<', form)
+    assert re.search(r'<button[^>]*id="use-sample"[^>]*class="[^"]*static-only hidden', form)
+
+
+def test_prebuilt_carries_the_fictional_sample_resume():
+    from charlie import browser, demo
+    assert browser.prebuild("2026-10-22")["sample_resume"] == demo.SAMPLE_RESUME
+
+
+def test_sample_name_reads_naturally_in_the_circle_heading():
+    js = (WEB / "app.js").read_text()
+    assert "'s circle (sample)" in js

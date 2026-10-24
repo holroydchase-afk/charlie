@@ -68,6 +68,7 @@
 
   window.charlieStatic = {
     start,
+    sampleResume: async () => (await prebuilt)?.sample_resume ?? "",
     async request(method, path, body) {
       const hit = fromPrebuilt(await prebuilt, method, path, body);
       if (hit) return { status: 200, body: hit };

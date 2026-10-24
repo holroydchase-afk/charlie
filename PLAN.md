@@ -56,8 +56,8 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 - **M1.8** README and one story. Status: done except the live demo link (it arrives with M1.6) and Chase's edit of "Why I built it" (shipped on `claude/project-thread-74d6f6`, PR #2).
   - [ ] README opens with the CI badge, a "Try the demo" link, a phone screenshot and why Chase built it, and has an MIT license.
   - [x] HANDOFF.md has the Portfolio / public presence section, and README, demo and portfolio copy agree on stage and features.
-- **M1.9** Recruiter-ready review. Status: todo. Branch: `m1.9-recruiter-ready`.
-  - [ ] ux-reviewer, qa-tdd and privacy-security findings are ranked in `docs/reviews/<date>-recruiter-ready.md`.
+- **M1.9** Recruiter-ready review. Status: review done and all P0/P1 fixed; the portfolio ask waits on M1.6 (shipped on `claude/project-thread-74d6f6`, PR #2).
+  - [x] ux-reviewer, qa-tdd and privacy-security findings are ranked in `docs/reviews/<date>-recruiter-ready.md`.
   - [ ] All P0 and P1 findings are fixed, then Chase is asked to add Charlie to the portfolio.
 
 Not in M1: resume file upload in the demo (paste and the sample resume are enough), Claude chat, live data, accounts.

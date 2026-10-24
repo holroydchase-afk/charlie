@@ -17,7 +17,7 @@ from datetime import date
 
 from .browser_store import PREFIX, BrowserStore
 from .data.market import MarketData
-from .demo import SAMPLE_LEVEL, sample_profile
+from .demo import SAMPLE_LEVEL, SAMPLE_RESUME, sample_profile
 from .handlers import Api
 
 INVALID_IF_KEYS = [PREFIX + k for k in ("kv:profile", "kv:intake", "positions", "screens")]
@@ -74,4 +74,5 @@ def prebuild(today_iso: str, count: int = 3) -> dict:
             entries[f"GET {path}"] = get(path)
         levels[str(lvl)] = entries
     return {"date": today_iso, "default_risk": SAMPLE_LEVEL, "invalid_if_keys": INVALID_IF_KEYS,
+            "sample_resume": SAMPLE_RESUME,  # fictional; the "Use the sample resume" button fills the form with it
             "common": common, "levels": levels}
