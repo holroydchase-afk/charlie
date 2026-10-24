@@ -53,9 +53,9 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 - **M1.7** Phone, desktop and accessibility. Status: done (shipped on `claude/project-thread-74d6f6`, PR #2).
   - [x] Playwright screenshots at 390x844 and 1280x800, light and dark, show no overflow or clipped payoff charts.
   - [x] An axe check passes WCAG 2.2 AA on every tab, and there are no dead links or TODO text.
-- **M1.8** README and one story. Status: todo. Branch: `m1.8-readme-story`.
+- **M1.8** README and one story. Status: done except the live demo link (it arrives with M1.6) and Chase's edit of "Why I built it" (shipped on `claude/project-thread-74d6f6`, PR #2).
   - [ ] README opens with the CI badge, a "Try the demo" link, a phone screenshot and why Chase built it, and has an MIT license.
-  - [ ] HANDOFF.md has the Portfolio / public presence section, and README, demo and portfolio copy agree on stage and features.
+  - [x] HANDOFF.md has the Portfolio / public presence section, and README, demo and portfolio copy agree on stage and features.
 - **M1.9** Recruiter-ready review. Status: todo. Branch: `m1.9-recruiter-ready`.
   - [ ] ux-reviewer, qa-tdd and privacy-security findings are ranked in `docs/reviews/<date>-recruiter-ready.md`.
   - [ ] All P0 and P1 findings are fixed, then Chase is asked to add Charlie to the portfolio.

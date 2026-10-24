@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (night shift, M1.3, M1.4 and M1.7)
+Updated: 2026-10-24 (night shift, M1.3, M1.4, M1.7 and M1.8)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -44,20 +44,23 @@ Updated: 2026-10-24 (night shift, M1.3, M1.4 and M1.7)
   - `tools/check_site.py` fails on key patterns or any URL host other than the Pyodide CDN, chaseholroyd.com and the SVG namespace. It also scans inside `charlie.zip`. CI builds the site and runs it.
   - `tests/e2e/` holds Playwright (Python) tests on the built demo: the disclaimer on every idea card, the chat panel and the reply; the banner, back link and sample nudge; and the reset. They run with `CHARLIE_E2E=1` in a new CI `e2e` job, which loads Pyodide from the CDN. They passed 3x here with Pyodide served locally. The CI job itself hasn't run yet.
   - README has a "Static demo" section. Unit tests: 101 pass 3x, and the e2e module is skipped without `CHARLIE_E2E`.
+  - The CI `e2e` job passed on GitHub (a0efcc3). There, Pyodide loaded from the jsDelivr CDN and the chat answered, so the public CDN path is now verified.
 - M1.7 phone, desktop and accessibility (same branch, PR #2):
   - axe (WCAG 2.2 AA) across every tab, the notice and the ticker drawer, in light and dark, found one issue: the tab bar was `role="tablist"` with plain buttons inside. The tabs now follow the ARIA tabs pattern, with `role="tab"`, `aria-selected`, `aria-controls`, tab panels, roving tabindex, and arrow, Home and End keys. axe now passes.
   - `tests/e2e` runs axe on every tab at 390x844 and 1280x800 in light and dark. It also checks for horizontal overflow and clipped payoff charts. CI installs axe-core for the e2e job.
   - `tests/test_a11y.py` covers the tab wiring and fails on TODO or placeholder text or a link that goes nowhere. The one `href="#"` now points at `#profile`.
   - 104 unit tests pass 3x. The 8 browser tests passed 3x here with Pyodide served locally.
+- M1.8 README (same branch, PR #2): the top now has the CI badge, a "Try the demo" line (coming soon; it becomes a link when M1.6 is live), a phone screenshot of the built demo (`docs/screenshots/demo-phone.png`, fictional sample person), and a "Why I built it" paragraph. The project layout and status are refreshed. The MIT license was already there.
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
 
 ## In progress
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-Check that the new CI `e2e` job passes on GitHub (it's the first run that loads Pyodide from the CDN). Then M1.8, the README and story: a "Try the demo" link (it goes live only after M1.6), a phone screenshot of the built demo, and why Chase built it, with positioning playing the copy role. M1.5 and M1.6 wait on Chase. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
+M1.9 recruiter-ready review: rank ux-reviewer, qa-tdd and privacy-security findings in `docs/reviews/2026-10-24-recruiter-ready.md` and fix every P0 and P1. M1.5 and M1.6 wait on Chase. Needs Chase: the engine call (Decisions to review) and merging #1, then #2.
 
 ## Decisions to review
+- M1.8: the README's "Why I built it" paragraph is written in Chase's voice from the project's stated goals (Munger's circle of competence, research first, safe by default). Chase should edit it before the repo goes public.
 - M1.4: the back link and Reset demo sit in a banner strip right under the header, not in the header row, because the phone header is already full.
 - M1.3: the demo's data is pinned to the build date (status, ideas and the drawer all say that date), because the prebuilt answers are made at build time. M1.6 should rebuild on a schedule if a fresh date matters. Also: before saving anything, the demo visitor is the fictional sample person, not a blank default.
 - M1.2: the demo's daily-ideas cache keeps only the latest day in `localStorage`, and the demo hides resume upload and the Claude opt-in (PLAN: paste and the sample resume are enough). `chat()` gained `allow_llm`, which static mode sets to False.
@@ -84,6 +87,7 @@ Check that the new CI `e2e` job passes on GitHub (it's the first run that loads 
 - Portfolio page: not yet (added after the demo passes the recruiter-ready bar, via an INTAKE to Product Studio).
 - Live demo: not yet. Planned at chaseholroyd.com/charlie/, a static Pyodide build deployed by `pages.yml` from `main` after CI passes (PLAN M1.6, needs the repo public).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
+- 2026-10-24: README now opens with the demo line, a phone screenshot and "Why I built it" (M1.8).
 - 2026-10-24: the demo build passes axe WCAG 2.2 AA on every tab, with keyboard-navigable tabs (M1.7, not deployed).
 - 2026-10-24: the demo build has a sample-data banner with a link back to chaseholroyd.com and a Reset demo button (M1.4, not deployed).
 - 2026-10-24: the demo build (`tools/build_demo.py`, not deployed) now opens on the sample person's prebuilt ideas in under 2 s on a throttled phone, with data pinned to the build date.

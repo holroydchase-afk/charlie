@@ -6,6 +6,14 @@
 
 > Education and paper trading only. Charlie never places real orders and is not financial advice.
 
+**Try the demo:** coming soon at chaseholroyd.com/charlie/. It runs entirely in your browser on a fictional sample person and simulated prices, with no sign-up. Until it's live, `python tools/build_demo.py site` builds it locally (see [Static demo](#static-demo-no-server)).
+
+<img src="docs/screenshots/demo-phone.png" alt="Charlie on a phone: today's ideas for the fictional sample person at the Conservative risk level, led by a cash-secured put on Abbott Laboratories" width="320">
+
+## Why I built it
+
+Most trading apps start from the trade. Charlie starts from the person. Charlie Munger's rule was to stay inside your circle of competence, so Charlie first works out what you already understand from your job and your life. Only then does it look for good businesses there, and it offers the most conservative way to act on one until you choose otherwise. It's also an example of how I like to build products: research first ([docs/RESEARCH.md](docs/RESEARCH.md)), safety rules enforced in code and tests rather than in copy, and one tested Python engine that runs both on a server and in the browser.
+
 ## Quick start
 
 ```bash
@@ -75,14 +83,19 @@ charlie/
   engine.py        daily ideas, screener, ticker analysis
   chat.py          Claude tool-use chat + offline fallback
   portfolio.py     paper position marking
-  store.py         SQLite persistence
-  server.py        FastAPI API + static web app
+  handlers.py      every API endpoint's logic, shared by the server and the browser demo
+  store.py         SQLite persistence (local app)
+  browser_store.py the same interface on the browser's localStorage (demo)
+  server.py        FastAPI wrapper: uploads, Claude resume read, Origin check
+  browser.py       Pyodide entry point and the demo's prebuilt first screen
+  demo.py          the fictional sample person
   data/            market facade, Cboe and SEC adapters, mock generator
-web/               single-page UI (no build step)
-tests/             pytest suite (35 tests)
+web/               single-page UI (no build step); static.js runs it on Pyodide
+tools/             build_demo.py (static site), check_site.py (no keys, no stray hosts)
+tests/             pytest suite; tests/e2e has the Playwright + axe browser tests
 ```
 
-Run tests with `python -m pytest -q`.
+Run tests with `CHARLIE_DATA=mock CHARLIE_LLM=off python -m pytest -q`.
 
 ## Known limits (MVP)
 
@@ -101,7 +114,7 @@ Run tests with `python -m pytest -q`.
 
 ## Plan and status
 
-Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). Next up (M1) is a static, no-login demo on sample data at chaseholroyd.com/charlie/.
+Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). M1 is the static, no-login demo on sample data at chaseholroyd.com/charlie/. It's built and tested, and it goes live after a privacy review and the switch to a public repo.
 
 ## License
 
