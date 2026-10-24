@@ -96,3 +96,48 @@ def test_reset_demo_clears_local_data(page):
     expect(page.locator("#ideas .card").first).to_be_visible()
     keys = page.evaluate("Object.keys(localStorage).filter((k) => k.startsWith('charlie:'))")
     assert "charlie:kv:sample_risk" not in keys
+
+
+AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]
+
+
+@pytest.fixture(scope="module")
+def axe_source():
+    path = os.environ.get("CHARLIE_AXE_JS")
+    if not path:
+        pytest.fail("set CHARLIE_AXE_JS to axe-core's axe.min.js (CI installs axe-core with npm)")
+    return Path(path).read_text()
+
+
+def _wait_for_engine_if_needed(page):
+    page.wait_for_timeout(300)
+    page.wait_for_function("document.querySelector('#engine-status').classList.contains('hidden')", timeout=120_000)
+    page.wait_for_timeout(300)
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("width,height", [(390, 844), (1280, 800)])
+def test_every_tab_passes_axe_and_fits(browser, site_url, axe_source, scheme, width, height):
+    ctx = browser.new_context(viewport={"width": width, "height": height}, color_scheme=scheme)
+    page = ctx.new_page()
+    page.goto(site_url)
+    expect(page.locator("#ideas .card").first).to_be_visible()
+    page.click("#ack-btn")
+    problems = []
+    for tab in ["today", "profile", "screener", "chat", "paper", "learn"]:
+        page.click(f"[data-tab={tab}]")
+        _wait_for_engine_if_needed(page)
+        if page.evaluate("document.documentElement.scrollWidth > innerWidth"):
+            problems.append(f"{tab}: horizontal overflow")
+        clipped = page.evaluate("""[...document.querySelectorAll('.tab.active svg.payoff')].filter((svg) => {
+            const r = svg.getBoundingClientRect(), box = svg.parentElement.getBoundingClientRect();
+            return r.width < 50 || r.left < box.left - 1 || r.right > box.right + 1;
+        }).length""")
+        if clipped:
+            problems.append(f"{tab}: {clipped} clipped payoff chart(s)")
+        page.add_script_tag(content=axe_source)
+        found = page.evaluate("(tags) => axe.run(document, {runOnly: tags}).then((r) => r.violations.map((v) => "
+                              "v.id + ' ' + v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(', ')))", AXE_TAGS)
+        problems += [f"{tab}: {v}" for v in found]
+    ctx.close()
+    assert problems == []

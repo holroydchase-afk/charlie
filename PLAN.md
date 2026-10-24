@@ -50,9 +50,9 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 - **M1.6** Pages deploy. Status: blocked on M1.5. Branch: `m1.6-pages-deploy`.
   - [ ] `pages.yml` builds `site/` and deploys from `main` only after CI passes.
   - [ ] The demo loads at chaseholroyd.com/charlie/ with relative paths and no console errors.
-- **M1.7** Phone, desktop and accessibility. Status: todo. Branch: `m1.7-responsive-a11y`.
-  - [ ] Playwright screenshots at 390x844 and 1280x800, light and dark, show no overflow or clipped payoff charts.
-  - [ ] An axe check passes WCAG 2.2 AA on every tab, and there are no dead links or TODO text.
+- **M1.7** Phone, desktop and accessibility. Status: done (shipped on `claude/project-thread-74d6f6`, PR #2).
+  - [x] Playwright screenshots at 390x844 and 1280x800, light and dark, show no overflow or clipped payoff charts.
+  - [x] An axe check passes WCAG 2.2 AA on every tab, and there are no dead links or TODO text.
 - **M1.8** README and one story. Status: todo. Branch: `m1.8-readme-story`.
   - [ ] README opens with the CI badge, a "Try the demo" link, a phone screenshot and why Chase built it, and has an MIT license.
   - [ ] HANDOFF.md has the Portfolio / public presence section, and README, demo and portfolio copy agree on stage and features.

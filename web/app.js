@@ -154,7 +154,10 @@ function ideaCard(idea) {
 
 // ---------------------------------------------------------------- tabs
 function showTab(name) {
-  $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $$(".tabs button").forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+  });
   $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
   history.replaceState(null, "", `#${name}`);
@@ -456,6 +459,15 @@ $("#reset-demo").onclick = () => {
   try { Object.keys(localStorage).filter((k) => k.startsWith("charlie:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
   location.reload();
 };
+// Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump.
+$(".tabs").addEventListener("keydown", (e) => {
+  const tabs = $$(".tabs button"), i = tabs.indexOf(document.activeElement);
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (i < 0 || next === undefined) return;
+  e.preventDefault();
+  const t = tabs[(next + tabs.length) % tabs.length];
+  t.focus(); showTab(t.dataset.tab);
+});
 $("#footer-disclaimer").onclick = (e) => e.currentTarget.classList.toggle("open");
 $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); } catch (_) {} $("#ack").classList.add("hidden"); };
 

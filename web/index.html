@@ -29,17 +29,17 @@
   </div>
 
   <nav class="tabs" role="tablist">
-    <button data-tab="today" class="active">Today</button>
-    <button data-tab="profile">Profile</button>
-    <button data-tab="screener">Screener</button>
-    <button data-tab="chat">Chat</button>
-    <button data-tab="paper">Paper portfolio</button>
-    <button data-tab="learn">Learn</button>
+    <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
+    <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
+    <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
+    <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
+    <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Paper portfolio</button>
+    <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
   </nav>
 
   <main>
     <!-- TODAY -->
-    <section id="tab-today" class="tab active">
+    <section id="tab-today" class="tab active" role="tabpanel" aria-labelledby="tabbtn-today">
       <div class="section-head">
         <div>
           <h1>Today's ideas</h1>
@@ -54,14 +54,14 @@
       </div>
       <div id="profile-nudge" class="callout hidden">
         <span id="nudge-lead">You haven't set up a profile yet, so these come from a generic starter circle.</span>
-        <a href="#" data-goto="profile">Add your resume and interests</a> to personalize them.
+        <a href="#profile" data-goto="profile">Add your resume and interests</a> to personalize them.
       </div>
       <div id="ideas" class="cards"></div>
       <div id="ideas-skipped" class="muted small"></div>
     </section>
 
     <!-- PROFILE -->
-    <section id="tab-profile" class="tab">
+    <section id="tab-profile" class="tab" role="tabpanel" aria-labelledby="tabbtn-profile">
       <div class="section-head">
         <div>
           <h1>Your circle of competence</h1>
@@ -111,7 +111,7 @@
     </section>
 
     <!-- SCREENER -->
-    <section id="tab-screener" class="tab">
+    <section id="tab-screener" class="tab" role="tabpanel" aria-labelledby="tabbtn-screener">
       <div class="section-head">
         <div>
           <h1>Screener</h1>
@@ -149,7 +149,7 @@
     </section>
 
     <!-- CHAT -->
-    <section id="tab-chat" class="tab">
+    <section id="tab-chat" class="tab" role="tabpanel" aria-labelledby="tabbtn-chat">
       <div class="chat-wrap panel">
         <div id="chat-log" class="chat-log">
           <div class="msg bot">Hi, I'm Charlie. Ask me about today's ideas, any company in your circle, or how a strategy works.
@@ -171,7 +171,7 @@
     </section>
 
     <!-- PAPER -->
-    <section id="tab-paper" class="tab">
+    <section id="tab-paper" class="tab" role="tabpanel" aria-labelledby="tabbtn-paper">
       <div class="section-head">
         <div>
           <h1>Paper portfolio</h1>
@@ -184,7 +184,7 @@
     </section>
 
     <!-- LEARN -->
-    <section id="tab-learn" class="tab">
+    <section id="tab-learn" class="tab" role="tabpanel" aria-labelledby="tabbtn-learn">
       <div class="section-head">
         <div>
           <h1>Learn</h1>
