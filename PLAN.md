@@ -44,8 +44,8 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
   - [x] The header links back to chaseholroyd.com, and a "Reset demo" button clears local data.
   - [x] A CI privacy check fails on API key patterns or calls to hosts other than the Pyodide CDN.
   - [x] Playwright tests assert the disclaimer on each idea and in chat, and the back link.
-- **M1.5** Pre-public privacy review. Status: todo. Branch: `m1.5-public-review`.
-  - [ ] privacy-security reviews the whole git history, `samples/` and docs for secrets or real personal data, and logs findings.
+- **M1.5** Pre-public privacy review. Status: review done (`docs/reviews/2026-10-24-pre-public-privacy.md`, PR #2); waiting on Chase's decision to go public. Branch: `m1.5-public-review`.
+  - [x] privacy-security reviews the whole git history, `samples/` and docs for secrets or real personal data, and logs findings.
   - [ ] Chase decides to make the repo public (needed for Pages). Until then M1.6 is blocked.
 - **M1.6** Pages deploy. Status: blocked on M1.5. Branch: `m1.6-pages-deploy`.
   - [ ] `pages.yml` builds `site/` and deploys from `main` only after CI passes.
