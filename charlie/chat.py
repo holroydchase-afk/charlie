@@ -16,7 +16,7 @@ from . import engine, portfolio
 from .data.market import MarketData
 from .profile import Profile
 from .store import Store
-from .strategies import RISK_LEVELS, STRATEGIES
+from .strategies import NFA, RISK_LEVELS, STRATEGIES
 from .universe import DOMAINS, TICKERS, lookup
 
 MODEL = os.environ.get("CHARLIE_MODEL", "claude-opus-5-5")
@@ -276,7 +276,6 @@ def chat_rules(text: str, ctx: ToolContext) -> str:
         lines = [f"Today's ideas at **{r['risk_label']}** ({r['data_source']}):"]
         for i in r["ideas"]:
             lines.append(f"- {i['name']} (score {i['charlie_score']}): {_trade_line(i['trade'])}")
-        lines.append("Education and paper trading only, not financial advice.")
         return "\n".join(lines)
 
     return ("I can help with:\n- **\"What are today's ideas?\"**\n- **\"Tell me about COST\"** (any ticker or company)\n"
@@ -285,11 +284,11 @@ def chat_rules(text: str, ctx: ToolContext) -> str:
             "_Running in offline mode. Set ANTHROPIC_API_KEY for full conversational answers._")
 
 
-def chat(messages: list[dict], md: MarketData, store: Store, profile: Profile) -> dict:
+def chat(messages: list[dict], md: MarketData, store: Store, profile: Profile, allow_llm: bool = True) -> dict:
     ctx = ToolContext(md, store, profile)
     last = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
     mode = "rules"
-    if llm_available():
+    if allow_llm and llm_available():
         try:
             reply = chat_claude(messages, ctx)
             mode = "claude"
@@ -303,4 +302,10 @@ def chat(messages: list[dict], md: MarketData, store: Store, profile: Profile) -
         if key not in seen:
             seen.add(key)
             cards.append(t)
-    return {"reply": reply, "mode": mode, "cards": cards[:3]}
+    return {"reply": with_disclaimer(reply), "mode": mode, "cards": cards[:3]}
+
+
+def with_disclaimer(reply: str) -> str:
+    """Every chat answer ends with the disclaimer, whatever produced it."""
+    reply = reply.rstrip()
+    return reply if reply.rstrip("_ ").endswith(NFA) else f"{reply}\n\n_{NFA}_"

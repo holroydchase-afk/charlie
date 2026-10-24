@@ -1,5 +1,7 @@
-data/
+/data/
 __pycache__/
 *.pyc
 .pytest_cache/
 .env
+/build/
+/site/

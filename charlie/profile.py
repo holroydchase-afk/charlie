@@ -269,7 +269,7 @@ def build_profile(
     top_labels = ", ".join(d["label"] for d in domains[:3])
     summary = (f"Your circle of competence centers on {top_labels}."
                + (f" About {years} years of work history detected." if years else ""))
-    caution = ("Knowing an industry is an edge for *finding* ideas, not proof they're safe. "
+    caution = ("Knowing an industry is an edge for finding ideas, not proof they're safe. "
                "Research shows familiarity makes companies feel less risky than they are, so "
                "Charlie sizes every idea by its objective risk, not by how well you know it.")
 

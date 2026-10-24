@@ -17,6 +17,9 @@ from datetime import date
 
 from .options_math import expected_move, prob_above
 
+# Added by code to every trade and chat reply (CLAUDE.md hard rule), never left to a prompt.
+NFA = "Not financial advice. Paper trading only."
+
 STRATEGIES = {
     "shares": {
         "label": "Buy shares", "min_level": 1, "outlook": "bullish, long-term",
@@ -191,6 +194,7 @@ def _finish(strategy: str, symbol: str, spot: float, legs: list[dict], contracts
         "risk": STRATEGIES[strategy]["risk"],
         "learn": STRATEGIES[strategy]["learn"],
         "min_level": STRATEGIES[strategy]["min_level"],
+        "disclaimer": NFA,
     }
     if extra:
         out.update(extra)

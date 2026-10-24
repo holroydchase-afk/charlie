@@ -6,27 +6,49 @@
 
 > Education and paper trading only. Charlie never places real orders and is not financial advice.
 
+**Try the demo:** coming soon at chaseholroyd.com/charlie/. It runs entirely in your browser on a fictional sample person and simulated prices, with no sign-up. Until it's live, `python tools/build_demo.py site` builds it locally (see [Static demo](#static-demo-no-server)).
+
+<img src="docs/screenshots/demo-phone.png" alt="Charlie on a phone: today's ideas for the fictional sample person at the Conservative risk level, led by a cash-secured put on Abbott Laboratories" width="320">
+
+## Why I built it
+
+Most trading apps start from the trade. Charlie starts from the person. Charlie Munger's rule was to stay inside your circle of competence, so Charlie first works out what you already understand from your job and your life. Only then does it look for good businesses there, and it offers the most conservative way to act on one until you choose otherwise. It's also an example of how I like to build products: research first ([docs/RESEARCH.md](docs/RESEARCH.md)), safety rules enforced in code and tests rather than in copy, and one tested Python engine that runs both on a server and in the browser.
+
 ## Quick start
 
 ```bash
 pip install -r requirements.txt
-python -m uvicorn charlie.server:app --port 8000
+python -m uvicorn charlie.server:app --host 127.0.0.1 --port 8000
 # open http://localhost:8000
 ```
 
-Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas.
+Keep it on `127.0.0.1`. The local app is single-user with no login, so don't expose it on your network.
+
+Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas. Your resume stays in the local `data/` folder. The app never sends it back out, and **Delete my data** on Profile removes it.
 
 Optional settings (environment variables):
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | unset | Turns on Claude for chat (with tools) and a deeper resume read. Without it, chat runs on simple rules. |
+| `ANTHROPIC_API_KEY` | unset | Turns on Claude for chat (with tools). It also allows a deeper resume read, but only if you tick the opt-in box on Profile, since that sends the text to Anthropic's API. Without a key, chat runs on simple rules. |
 | `CHARLIE_DATA` | `auto` | `auto` tries free live data and falls back to demo data; `mock` is offline only; `live` errors instead of falling back. |
 | `CHARLIE_SEC_UA` | placeholder | SEC asks for `"AppName you@example.com"` (use your own contact; never commit it) as the User-Agent. Set this before using live fundamentals. |
 | `CHARLIE_MODEL` | `claude-opus-5-5` | Claude model for chat. |
 | `CHARLIE_DB` | `data/charlie.db` | SQLite file for profile, saved screens, and paper trades. |
 
 The header badge shows **Demo data** whenever numbers are simulated.
+
+### Static demo (no server)
+
+The same app also runs fully in the browser on sample data, with the Python engine in [Pyodide](https://pyodide.org). This is what the portfolio demo uses.
+
+```bash
+python tools/build_demo.py site          # web app + charlie.zip + prebuilt first screen
+python tools/check_site.py site          # no keys, no hosts beyond the Pyodide CDN
+python -m http.server 8001 --bind 127.0.0.1 --directory site   # open http://127.0.0.1:8001/
+```
+
+The first screen comes from `prebuilt.json`, so it appears right away while Pyodide loads. Everything a visitor enters stays in their browser's `localStorage`, and **Reset demo** clears it. Browser tests: `pip install playwright && python -m playwright install chromium && CHARLIE_E2E=1 python -m pytest tests/e2e`.
 
 ## What's in the MVP
 
@@ -61,14 +83,19 @@ charlie/
   engine.py        daily ideas, screener, ticker analysis
   chat.py          Claude tool-use chat + offline fallback
   portfolio.py     paper position marking
-  store.py         SQLite persistence
-  server.py        FastAPI API + static web app
+  handlers.py      every API endpoint's logic, shared by the server and the browser demo
+  store.py         SQLite persistence (local app)
+  browser_store.py the same interface on the browser's localStorage (demo)
+  server.py        FastAPI wrapper: uploads, Claude resume read, Origin check
+  browser.py       Pyodide entry point and the demo's prebuilt first screen
+  demo.py          the fictional sample person
   data/            market facade, Cboe and SEC adapters, mock generator
-web/               single-page UI (no build step)
-tests/             pytest suite (35 tests)
+web/               single-page UI (no build step); static.js runs it on Pyodide
+tools/             build_demo.py (static site), check_site.py (no keys, no stray hosts)
+tests/             pytest suite; tests/e2e has the Playwright + axe browser tests
 ```
 
-Run tests with `python -m pytest -q`.
+Run tests with `CHARLIE_DATA=mock CHARLIE_LLM=off python -m pytest -q`.
 
 ## Known limits (MVP)
 
@@ -87,7 +114,7 @@ Run tests with `python -m pytest -q`.
 
 ## Plan and status
 
-Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). Next up (M1) is a static, no-login demo on sample data at chaseholroyd.com/charlie/.
+Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). M1 is the static, no-login demo on sample data at chaseholroyd.com/charlie/. It's built and tested, and it goes live after a privacy review and the switch to a public repo.
 
 ## License
 

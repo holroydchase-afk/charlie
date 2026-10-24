@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Charlie engine spike</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 0; padding: 16px; background: #f7f6f2; color: #1d2329; }
+    @media (prefers-color-scheme: dark) { body { background: #121518; color: #e8eaec; } .idea { background: #1a1f23; border-color: #2b3238; } }
+    main { max-width: 720px; margin: 0 auto; }
+    .idea { background: #fff; border: 1px solid #e3e1da; border-radius: 10px; padding: 12px 14px; margin: 10px 0; }
+    .muted { opacity: .7; font-size: 13px; }
+    code { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Charlie engine spike</h1>
+    <p class="muted">M1.1 test page: the real Python engine running in this browser with Pyodide, on demo data for a fictional sample person. Not the demo itself.</p>
+    <p id="status">Loading Python…</p>
+    <div id="ideas"></div>
+    <p class="muted" id="timings"></p>
+    <p class="muted">Not financial advice. Paper trading only. Sample data, not real prices.</p>
+  </main>
+  <script src="spike.js"></script>
+</body>
+</html>
