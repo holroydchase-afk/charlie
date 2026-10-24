@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (morning shift, M1.6 prep)
+Updated: 2026-10-24 (morning shift, M1.6 prep and chat starters)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -55,7 +55,7 @@ Updated: 2026-10-24 (morning shift, M1.6 prep)
 - M1.5 part 1, pre-public privacy review (same branch, PR #2): `docs/reviews/2026-10-24-pre-public-privacy.md`. No keys, real resumes, data files or real emails were found in any file across all 13 commits on the 3 branches. One P2 is Chase's call: his two original commits carry his personal Gmail address as the commit author. Part 2, deciding to make the repo public, is Chase's.
 - M1.6 prep (same branch, PR #2). Nothing deploys yet:
   - `.github/workflows/pages.yml` builds the demo and deploys it to Pages after CI passes on `main`. It skips itself while the repo is private (`github.event.repository.private == false`), so merging it is safe before Chase decides to go public.
-  - The public build self-hosts Pyodide 0.28.3. `build_demo.py --pyodide-dir` copies the 5 runtime files the demo fetches (about 12 MB, served gzipped) into `site/pyodide/` and points `static.js` at them, so visitors' browsers never call a third-party CDN. `check_site.py --no-cdn` enforces that, flagging any extra file in `site/pyodide/`. The CI e2e job uses the same self-hosted build, and a browser test asserts zero requests leave the site.
+  - The public build self-hosts Pyodide 0.28.3. `build_demo.py --pyodide-dir` copies the 5 runtime files the demo fetches (about 12 MB, served gzipped) into `site/pyodide/` and points `static.js` at them, so visitors' browsers never call a third-party CDN. `check_site.py --no-cdn` enforces that, flagging any extra file in `site/pyodide/`. The CI e2e job uses the same self-hosted build (npm-packed Pyodide), and a browser test asserts zero requests leave the site. That job passed on GitHub on d3b7c1b.
   - Review finding 7 (SRI or self-host) and finding 9 (cut-off Screener placeholder) are fixed.
   - Chat starter chips: `prebuilt.json` also holds each risk level's answers to the four chips, and `static.js` serves them when a chip is the first question, so a recruiter's first chat click is instant (finding 6, partly). Tests check the answers equal the engine's and that the chips work with Pyodide blocked. `prebuilt.json` is now 397 KB (60 KB gzipped).
   - 116 unit tests and 10 browser tests pass 3x.
