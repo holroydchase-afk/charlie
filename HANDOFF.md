@@ -65,7 +65,7 @@ Updated: 2026-10-24 (Polish Freeze; M2 parked)
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-Polish Freeze is on. Waiting on Chase: does his "merge anything pending" (Oct 24, 15:13Z) still stand? PR #2 already contains #1 (it fixes #1's red CI) and could be merged on its own. Then, under the freeze: UI polish toward 8/10 (baseline 2/10), scored by ux-reviewer at 390 and 1280 px, after the day's job-hunt gate is met. Still Chase's: the engine card and the decision to go public.
+Oct 25: Chase approved merging, so PR #2 merged into main with a merge commit, and that landed #1 too. Main has everything through M1.9. Next, under the Polish Freeze: UI polish toward 8/10 (baseline 2/10), scored by ux-reviewer at 390 and 1280 px, after the day's job-hunt gate is met. Still Chase's: the engine card and the decision to go public (Pages stays off while the repo is private).
 
 ## Parked (Polish Freeze)
 Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI toward 8/10 (baseline 2/10); never merge, deploy or publish.
