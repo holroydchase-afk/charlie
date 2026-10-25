@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import sqlite3
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -29,6 +28,8 @@ def _now() -> str:
 
 class Store:
     def __init__(self, path: str | Path | None = None):
+        import sqlite3  # here, not at the top: the browser demo imports this module but uses BrowserStore
+
         path = Path(path or os.environ.get("CHARLIE_DB", "data/charlie.db"))
         if str(path) != ":memory:":
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,6 +54,9 @@ class Store:
         self._exec("INSERT INTO kv(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v=excluded.v",
                    (key, json.dumps(value)))
 
+    def delete(self, key: str) -> None:
+        self._exec("DELETE FROM kv WHERE k=?", (key,))
+
     # screens
     def save_screen(self, name: str, criteria: dict) -> dict:
         sid = uuid.uuid4().hex[:10]
@@ -74,6 +78,9 @@ class Store:
 
     def daily_put(self, day: str, level: int, profile_hash: str, payload: dict) -> None:
         self._exec("INSERT OR REPLACE INTO daily VALUES(?,?,?,?)", (day, level, profile_hash, json.dumps(payload)))
+
+    def clear_daily(self) -> None:
+        self._exec("DELETE FROM daily")
 
     # paper positions
     def open_position(self, trade: dict, note: str = "") -> dict:

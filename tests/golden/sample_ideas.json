@@ -1,0 +1,59 @@
+{
+ "date": "2026-10-22",
+ "risk_level": 2,
+ "data_source": "mock (demo data, not real prices)",
+ "disclaimer": "Not financial advice. Paper trading only.",
+ "ideas": [
+  {
+   "symbol": "ABT",
+   "strategy": "cash_secured_put",
+   "score": 76,
+   "legs": [
+    [
+     "sell",
+     "put",
+     122.5,
+     "2026-12-04",
+     1
+    ]
+   ],
+   "max_loss": 12135.0,
+   "breakeven": 121.35,
+   "pop": 0.802
+  },
+  {
+   "symbol": "MRK",
+   "strategy": "cash_secured_put",
+   "score": 59,
+   "legs": [
+    [
+     "sell",
+     "put",
+     79.0,
+     "2026-12-04",
+     1
+    ]
+   ],
+   "max_loss": 7813.0,
+   "breakeven": 78.13,
+   "pop": 0.805
+  },
+  {
+   "symbol": "LULU",
+   "strategy": "shares",
+   "score": 80,
+   "legs": [
+    [
+     "buy",
+     "stock",
+     null,
+     null,
+     16
+    ]
+   ],
+   "max_loss": 2458.56,
+   "breakeven": 153.66,
+   "pop": null
+  }
+ ]
+}

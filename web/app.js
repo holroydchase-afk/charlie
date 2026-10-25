@@ -5,7 +5,17 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const state = { meta: null, profile: null, risk: 2, chat: [], loaded: {} };
 
 // ---------------------------------------------------------------- helpers
+// One UI, two backends: the local server over fetch, or (static demo) the same Python
+// handlers running in Pyodide, exposed by static.js as window.charlieStatic.
 async function api(path, opts = {}) {
+  if (window.charlieStatic) {
+    let data = null;
+    if (opts.body instanceof FormData) data = Object.fromEntries([...opts.body].filter(([, v]) => typeof v === "string"));
+    else if (typeof opts.body === "string") data = JSON.parse(opts.body);
+    const r = await window.charlieStatic.request(opts.method || "GET", path, data);
+    if (r.status >= 400) throw new Error(r.body.detail || `Request failed (${r.status})`);
+    return r.body;
+  }
   const res = await fetch(path, opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
@@ -14,6 +24,9 @@ async function api(path, opts = {}) {
 const postJSON = (path, data) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const money = (x, d = 0) => (x === null || x === undefined) ? "—" : (x < 0 ? "-$" : "$") + Math.abs(x).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+// Rendered by code on every trade surface (CLAUDE.md hard rule).
+const NFA = "Not financial advice. Paper trading only.";
+const nfa = () => `<p class="nfa">${NFA}</p>`;
 const pct = (x, d = 0) => (x === null || x === undefined) ? "—" : `${(x * 100).toFixed(d)}%`;
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
@@ -114,7 +127,8 @@ function tradeBlock(t, { withActions = true } = {}) {
     ${withActions ? `<div class="actions">
       <button class="primary" data-paper="${id}">Paper trade this</button>
       <button class="ghost" data-copy="${id}">Copy ticket</button>
-    </div>` : ""}`;
+    </div>` : ""}
+    ${nfa()}`;
 }
 function ideaCard(idea) {
   const a = idea.analysis, t = idea.trade, th = idea.thesis, ch = a.charlie;
@@ -134,12 +148,17 @@ function ideaCard(idea) {
     </div>
     <details><summary>Charlie score breakdown</summary>${factorBars(ch)}<p class="muted small">Fundamentals: ${esc(ch.data_source)}</p></details>
     <p class="muted small"><em>${esc(th.munger)}</em></p>
+    ${nfa()}
   </article>`;
 }
 
 // ---------------------------------------------------------------- tabs
 function showTab(name) {
-  $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $$(".tabs button").forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+  });
+  $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
   history.replaceState(null, "", `#${name}`);
   ({ today: loadIdeas, profile: renderProfile, screener: initScreener, paper: loadPaper, learn: renderLearn, chat: () => $("#chat-input").focus() }[name] || (() => {}))();
@@ -170,18 +189,22 @@ async function loadProfile() {
   state.profile = r.profile;
   state.risk = r.profile.risk_level;
   $("#profile-nudge").classList.toggle("hidden", r.saved);
+  if (window.charlieStatic && !r.saved)  // the demo starts as the fictional sample person, not a blank profile
+    $("#nudge-lead").textContent = `These ideas are for ${r.profile.name.replace(/\s*\(sample\)$/, "")}, a fictional sample person.`;
   syncRisk();
   const f = $("#profile-form"), i = r.intake || {};
+  f.resume_text.dataset.ph ??= f.resume_text.placeholder;
+  f.resume_text.placeholder = f.resume_text.dataset.ph;
   if (i.interests !== undefined) {
     f.interests.value = i.interests || ""; f.brands.value = i.brands || ""; f.holdings.value = i.holdings || "";
     f.capital.value = i.capital || 25000; f.risk_level.value = i.risk_level || 2;
-    if (i.resume_text) f.resume_text.placeholder = `Saved resume on file (${i.resume_text.length.toLocaleString()} characters). Paste again to replace.`;
+    if (i.resume_chars) f.resume_text.placeholder = `Saved resume on file (${i.resume_chars.toLocaleString()} characters). Paste again to replace.`;
   }
 }
 function renderProfile() {
   const p = state.profile; if (!p) return;
   $("#profile-view").innerHTML = `
-    <h2>${p.name ? esc(p.name) + "'s circle" : "Your circle"}</h2>
+    <h2>${!p.name ? "Your circle" : / \(sample\)$/.test(p.name) ? esc(p.name.replace(/ \(sample\)$/, "")) + "'s circle (sample)" : esc(p.name) + "'s circle"}</h2>
     <p>${esc(p.summary)}</p>
     <div class="callout small">${esc(p.caution)}</div>
     ${p.domains.map((d) => `<div class="domain">
@@ -198,7 +221,7 @@ async function submitProfile(e) {
   e.preventDefault();
   const f = e.target, fd = new FormData(f);
   fd.set("use_ai", f.use_ai.checked ? "true" : "false");
-  if (!f.resume.files.length) fd.delete("resume");
+  if (!f.resume.files.length || window.charlieStatic) fd.delete("resume");
   $("#profile-status").textContent = "Reading your resume and building your circle…";
   try {
     const r = await api("/api/profile", { method: "POST", body: fd });
@@ -279,7 +302,7 @@ function renderChatMsg(role, text, cards = []) {
   div.innerHTML = role === "user" ? esc(text) : md(text) + cards.map((t) => {
     const id = `c${Math.random().toString(36).slice(2, 8)}`; window._trades = window._trades || {}; window._trades[id] = t;
     return `<div class="mini"><b>${esc(t.symbol)} · ${esc(t.label)}</b>${t.expiry ? ` · ${esc(t.expiry)}` : ""}<br>Max loss ${money(t.max_loss)} · Breakeven ${t.breakeven ? money(t.breakeven, 2) : "—"}${t.pop ? ` · ${pct(t.pop)} chance of profit` : ""}
-      <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div></div>`;
+      <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
   }).join("");
   $("#chat-log").appendChild(div); div.scrollIntoView({ behavior: "smooth", block: "end" });
   return div;
@@ -294,7 +317,8 @@ async function sendChat(text) {
     pending.remove();
     state.chat.push({ role: "assistant", content: r.reply });
     renderChatMsg("bot", r.reply, r.cards);
-    $("#chat-mode").textContent = r.mode === "claude" ? "Answered by Claude using Charlie's tools." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    $("#chat-mode").textContent = r.mode === "claude" ? "Answered by Claude using Charlie's tools."
+      : window.charlieStatic ? "Demo mode: rule-based answers on sample data." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
   } catch (e) { pending.innerHTML = esc(e.message); state.chat.pop(); }
 }
 
@@ -372,6 +396,7 @@ async function openTicker(sym) {
       <div class="card-head"><div><div class="card-title">${esc(d.name)}<span class="sym">${esc(d.symbol)} · ${money(d.quote.price, 2)} (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span></div>
       <div class="muted small">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · data: ${esc(d.quote.source)}</div></div>
       <span class="grade ${ch.grade}">Charlie ${ch.score} · ${ch.grade}</span></div>
+      ${nfa()}
       ${sparkline(d.history)}
       <div class="chips">${(d.familiarity_why.length ? d.familiarity_why : ["Outside your stated circle"]).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>
       <h3>Munger checklist</h3>${factorBars(ch)}
@@ -417,6 +442,36 @@ $("#screen-form").addEventListener("submit", (e) => runScreen(e));
 $("#save-screen").onclick = () => { if (!$("#screen-form").save_name.value.trim()) return toast("Name the screen first"); runScreen(null, true); };
 $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#chat-input").value; $("#chat-input").value = ""; sendChat(v); });
 $("#refresh-paper").onclick = loadPaper;
+$("#delete-profile").onclick = async () => {
+  if (!confirm("Delete your saved profile and resume text from this computer? Paper trades are kept.")) return;
+  try {
+    await api("/api/profile", { method: "DELETE" });
+    $("#profile-form").reset(); await loadProfile(); renderProfile();
+    toast("Profile and resume deleted");
+  } catch (err) { toast(err.message); }
+};
+// Static demo: say so while a control waits for the engine, so nothing looks dead.
+window.addEventListener("charlie:engine", (e) => {
+  $("#engine-status").classList.toggle("hidden", e.detail.ready);
+  if (e.detail.error) toast("Charlie's engine couldn't load. Check your connection and try again.");
+});
+$("#use-sample").onclick = async () => {  // demo only: show the fictional resume behind the sample ideas
+  const text = await window.charlieStatic?.sampleResume();
+  if (text) { const t = $("#profile-form").resume_text; t.value = text; t.focus(); }
+};
+$("#reset-demo").onclick = () => {
+  try { Object.keys(localStorage).filter((k) => k.startsWith("charlie:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
+  location.reload();
+};
+// Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump.
+$(".tabs").addEventListener("keydown", (e) => {
+  const tabs = $$(".tabs button"), i = tabs.indexOf(document.activeElement);
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (i < 0 || next === undefined) return;
+  e.preventDefault();
+  const t = tabs[(next + tabs.length) % tabs.length];
+  t.focus(); showTab(t.dataset.tab);
+});
 $("#footer-disclaimer").onclick = (e) => e.currentTarget.classList.toggle("open");
 $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); } catch (_) {} $("#ack").classList.add("hidden"); };
 
@@ -428,10 +483,17 @@ $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); 
     $("#ack-text").textContent = meta.disclaimer;
     let acked = false; try { acked = localStorage.getItem("charlie-ack") === "1"; } catch (_) {}
     if (!acked) $("#ack").classList.remove("hidden");
-    $("#chat-mode").textContent = status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    $("#chat-mode").textContent = status.static ? "Demo mode: rule-based answers on sample data."
+      : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
+      $$(".server-only").forEach((el) => el.classList.add("hidden"));
+      $$(".static-only").forEach((el) => el.classList.remove("hidden"));
+    }
     await loadProfile();
     renderProfile();
     const tab = location.hash.slice(1);
     showTab(["today", "profile", "screener", "chat", "paper", "learn"].includes(tab) ? tab : "today");
+    // Static demo: the first screen came from prebuilt answers; load the engine once it has painted.
+    requestAnimationFrame(() => setTimeout(() => window.charlieStatic?.start(), 50));
   } catch (e) { $("#ideas").innerHTML = `<div class="panel">Couldn't start: ${esc(e.message)}</div>`; }
 })();

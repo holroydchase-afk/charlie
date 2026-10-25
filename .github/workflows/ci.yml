@@ -1,0 +1,59 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Test
+        env:
+          CHARLIE_DATA: mock
+          CHARLIE_LLM: "off"
+        run: python -m pytest -q
+      - name: Privacy check
+        run: |
+          # Fail on committed secrets or real email addresses. Placeholders on example.com are fine.
+          hits=$(git grep -nIE 'sk-ant-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{16}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' -- . ':!.github/workflows/ci.yml' ':!.claude/agents' \
+            | grep -vE '@(example\.(com|org)|anthropic\.com)|noreply@' || true)
+          if [ -n "$hits" ]; then echo "$hits"; echo "::error::Possible secret or real email committed."; exit 1; fi
+          echo "ok"
+      - name: Demo site check
+        run: |
+          # The static demo may call only the Pyodide CDN and must carry no keys (PLAN M1.4).
+          python tools/build_demo.py site
+          python tools/check_site.py site
+
+  e2e:
+    # The built demo in Chromium: disclaimers on ideas and chat, the sample banner and back link, reset.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          pip install -r requirements.txt playwright==1.56.0
+          python -m playwright install --with-deps chromium
+          npm install --no-save --no-audit --no-fund axe-core@4.10.3
+          # The same self-hosted Pyodide that pages.yml ships.
+          npm pack pyodide@0.28.3 --silent
+          mkdir pyodide-pkg && tar -xzf pyodide-0.28.3.tgz -C pyodide-pkg --strip-components=1
+      - name: Browser tests
+        env:
+          CHARLIE_E2E: "1"
+          CHARLIE_AXE_JS: node_modules/axe-core/axe.min.js
+          CHARLIE_PYODIDE_DIR: pyodide-pkg
+        run: python -m pytest -q tests/e2e

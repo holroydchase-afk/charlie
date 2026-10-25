@@ -23,19 +23,23 @@
     </div>
     <span id="data-badge" class="badge">data…</span>
   </header>
+  <div id="demo-banner" class="demo-banner static-only hidden" role="note">
+    <span>Sample demo: the resume and market data are made up, and anything you enter stays in this browser.</span>
+    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <button id="reset-demo" class="link-btn" type="button">Reset demo</button></span>
+  </div>
 
   <nav class="tabs" role="tablist">
-    <button data-tab="today" class="active">Today</button>
-    <button data-tab="profile">Profile</button>
-    <button data-tab="screener">Screener</button>
-    <button data-tab="chat">Chat</button>
-    <button data-tab="paper">Paper portfolio</button>
-    <button data-tab="learn">Learn</button>
+    <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
+    <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
+    <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
+    <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
+    <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Paper portfolio</button>
+    <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
   </nav>
 
   <main>
     <!-- TODAY -->
-    <section id="tab-today" class="tab active">
+    <section id="tab-today" class="tab active" role="tabpanel" aria-labelledby="tabbtn-today">
       <div class="section-head">
         <div>
           <h1>Today's ideas</h1>
@@ -49,15 +53,15 @@
         </div>
       </div>
       <div id="profile-nudge" class="callout hidden">
-        You haven't set up a profile yet, so these come from a generic starter circle.
-        <a href="#" data-goto="profile">Add your resume and interests</a> to personalize them.
+        <span id="nudge-lead">You haven't set up a profile yet, so these come from a generic starter circle.</span>
+        <a href="#profile" data-goto="profile">Add your resume and interests</a> to personalize them.
       </div>
       <div id="ideas" class="cards"></div>
       <div id="ideas-skipped" class="muted small"></div>
     </section>
 
     <!-- PROFILE -->
-    <section id="tab-profile" class="tab">
+    <section id="tab-profile" class="tab" role="tabpanel" aria-labelledby="tabbtn-profile">
       <div class="section-head">
         <div>
           <h1>Your circle of competence</h1>
@@ -66,10 +70,11 @@
       </div>
       <div class="grid2">
         <form id="profile-form" class="panel">
-          <label>Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
+          <label class="server-only">Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
             <input type="file" name="resume" accept=".pdf,.docx,.txt,.md">
           </label>
-          <label>…or paste it
+          <button id="use-sample" type="button" class="link-btn small static-only hidden">Use the sample resume</button>
+          <label><span class="server-only">…or paste it</span><span class="static-only hidden">Paste a resume</span>
             <textarea name="resume_text" rows="6" placeholder="Paste your resume or LinkedIn summary"></textarea>
           </label>
           <label>What do you read about or follow closely?
@@ -95,8 +100,11 @@
               </select>
             </label>
           </div>
-          <label class="check"><input type="checkbox" name="use_ai" checked> Let Claude read my resume too (when an API key is configured)</label>
-          <button type="submit" class="primary">Build my profile</button>
+          <label class="check server-only"><input type="checkbox" name="use_ai"> Also let Claude read my resume (sends the text to Anthropic's API; only works when an API key is set)</label>
+          <div class="actions">
+            <button type="submit" class="primary">Build my profile</button>
+            <button type="button" class="ghost" id="delete-profile">Delete my data</button>
+          </div>
           <p id="profile-status" class="muted small"></p>
         </form>
         <div id="profile-view" class="panel"></div>
@@ -104,7 +112,7 @@
     </section>
 
     <!-- SCREENER -->
-    <section id="tab-screener" class="tab">
+    <section id="tab-screener" class="tab" role="tabpanel" aria-labelledby="tabbtn-screener">
       <div class="section-head">
         <div>
           <h1>Screener</h1>
@@ -133,7 +141,7 @@
         <label class="check"><input type="checkbox" name="exclude_red_flags"> Skip anything with red flags</label>
         <div class="row gap span-all">
           <button type="submit" class="primary">Run screen</button>
-          <input name="save_name" placeholder="Name to save this screen">
+          <input name="save_name" placeholder="Screen name" aria-label="Name to save this screen">
           <button type="button" id="save-screen" class="ghost">Save</button>
         </div>
         <div id="saved-screens" class="span-all chips"></div>
@@ -142,7 +150,7 @@
     </section>
 
     <!-- CHAT -->
-    <section id="tab-chat" class="tab">
+    <section id="tab-chat" class="tab" role="tabpanel" aria-labelledby="tabbtn-chat">
       <div class="chat-wrap panel">
         <div id="chat-log" class="chat-log">
           <div class="msg bot">Hi, I'm Charlie. Ask me about today's ideas, any company in your circle, or how a strategy works.
@@ -159,11 +167,12 @@
           <button class="primary">Send</button>
         </form>
         <div id="chat-mode" class="muted small"></div>
+        <p class="nfa">Not financial advice. Paper trading only.</p>
       </div>
     </section>
 
     <!-- PAPER -->
-    <section id="tab-paper" class="tab">
+    <section id="tab-paper" class="tab" role="tabpanel" aria-labelledby="tabbtn-paper">
       <div class="section-head">
         <div>
           <h1>Paper portfolio</h1>
@@ -176,7 +185,7 @@
     </section>
 
     <!-- LEARN -->
-    <section id="tab-learn" class="tab">
+    <section id="tab-learn" class="tab" role="tabpanel" aria-labelledby="tabbtn-learn">
       <div class="section-head">
         <div>
           <h1>Learn</h1>
@@ -205,6 +214,7 @@
 
   <footer class="disclaimer" id="footer-disclaimer"></footer>
   <div id="toast" class="toast hidden"></div>
+  <div id="engine-status" class="engine-status hidden" role="status" aria-live="polite">Starting Charlie's engine. The first visit takes a few seconds…</div>
   <script src="/static/app.js"></script>
 </body>
 </html>
