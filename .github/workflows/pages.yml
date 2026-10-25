@@ -43,7 +43,7 @@ jobs:
       - name: Check the demo
         # No keys, and no hosts at all beyond the portfolio link: the runtime is served from this site.
         run: python tools/check_site.py site --no-cdn
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
