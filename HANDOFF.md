@@ -66,6 +66,7 @@ Updated: 2026-10-24 (Polish Freeze; M2 parked)
 
 ## Exact next step
 Oct 25: Chase approved merging, so PR #2 merged into main with a merge commit, and that landed #1 too. Main has everything through M1.9. Next, under the Polish Freeze: UI polish toward 8/10 (baseline 2/10), scored by ux-reviewer at 390 and 1280 px, after the day's job-hunt gate is met. Still Chase's: the engine card and the decision to go public (Pages stays off while the repo is private).
+Oct 25 to 26: Chase said "merge dependabot". Merged #3, #4, #6, #7, #9, #10 and #12. The rest (#5, #8 and #13: checkout v7, upload-pages-artifact v5, anthropic>=2.1.0) conflicted or hadn't run CI, so they're applied in one PR instead. The handoff check fails on every Dependabot PR because they don't touch HANDOFF.md, so expect that.
 
 ## Parked (Polish Freeze)
 Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI toward 8/10 (baseline 2/10); never merge, deploy or publish.
