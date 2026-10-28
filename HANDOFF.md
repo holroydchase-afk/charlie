@@ -3,7 +3,7 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-24 (Polish Freeze; M2 parked)
+Updated: 2026-10-28 (studio refresh: agents by default)
 
 ## Done
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
@@ -60,6 +60,7 @@ Updated: 2026-10-24 (Polish Freeze; M2 parked)
   - Chat starter chips: `prebuilt.json` also holds each risk level's answers to the four chips, and `static.js` serves them when a chip is the first question, so a recruiter's first chat click is instant (finding 6, partly). Tests check the answers equal the engine's and that the chips work with Pyodide blocked. `prebuilt.json` is now 397 KB (60 KB gzipped).
   - 116 unit tests and 10 browser tests pass 3x.
 - Phone tab bar (M1.7 P2): the right edge fades so the cut-off tab reads as "more", the scrollbar is hidden, and the active tab scrolls into view. Checked with Playwright at 390 and 1280, light and dark, with no errors or overflow. The footer "overlap" was a false alarm: the page already pads 72px below content.
+- Studio refresh, agents by default (Oct 28, branch `claude/project-thread-on5nrq`): re-synced `.claude/agents/` from studio-agents (adds `architect`; `engineer` now asks architect about new dependencies and workflows). CLAUDE.md's Studio agents section is now the studio template: the main session is the chief of staff and routes each task staff-pm, qa-tdd (red), engineer, qa-tdd (3x green), then ux-reviewer, privacy-security and positioning as needed. New `scripts/check-agents.sh` (table matches `.claude/agents/`) and `scripts/check-logs.mjs` (no secrets in `console.*`, roots `web` and `spike` in `studio-checks.json`) run in pytest (`tests/test_studio_checks.py`) and in ci.yml. New `agents-check.yml` fails a PR without an `Agents:` line, or one that changes code without naming qa-tdd.
 
 ## In progress
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
@@ -73,6 +74,7 @@ Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI towar
 - "Chase uses it daily", laptop first (Chase's pick on Oct 24): M2.1 live data verified on his laptop, plus a README "use it yourself" setup; M2.2 an earnings and ex-dividend check before any short-option idea; M2.3 a morning summary of the day's ideas; M2.4 an idea track record. A phone version with hosting and a login would come after that.
 
 ## Decisions to review
+- Oct 28 studio refresh: kept the repo's `.claude/settings.json` (same as the template) and `handoff-check.yml` (newer checkout@v7); `agents-check.yml` also uses v7. `studio-checks.json` scans `web/` and `spike/` and bans the extra word `resume` in log calls.
 - Oct 24, decided by Chase: Charlie is also a real product he'll use, laptop first. Parked minutes later by the Polish Freeze (see below).
 - M1.6 prep: the public demo self-hosts Pyodide instead of loading it from jsDelivr. That's more privacy (no third party sees visitors) for about 12 MB of hosting on Pages. To undo, drop `--pyodide-dir` in `pages.yml` and use `check_site.py` without `--no-cdn`.
 - M1.5: the history review recommends leaving the two original commits as they are (a rewrite would change every SHA). Chase decides whether the author email on them matters to him.
