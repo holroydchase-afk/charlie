@@ -21,6 +21,11 @@ jobs:
           CHARLIE_DATA: mock
           CHARLIE_LLM: "off"
         run: python -m pytest -q
+      - name: Studio checks
+        # Agent roster matches CLAUDE.md; console.* calls never log secrets (studio-agents templates).
+        run: |
+          bash scripts/check-agents.sh
+          node scripts/check-logs.mjs
       - name: Privacy check
         run: |
           # Fail on committed secrets or real email addresses. Placeholders on example.com are fine.

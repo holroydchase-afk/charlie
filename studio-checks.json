@@ -1,0 +1,6 @@
+{
+  "logs": {
+    "roots": ["web", "spike"],
+    "banned": ["resume"]
+  }
+}
