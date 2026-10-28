@@ -23,6 +23,16 @@ DISCLAIMER = ("Charlie is an educational tool for paper trading. It is not a bro
               "Options' before trading real money. Data may be delayed, incomplete, or simulated.")
 
 
+# Input limits (CHL-PS5, PS12): both the server and the demo's router go through these.
+MAX_CAPITAL = 1e9
+MAX_SHARES = 1e9
+MAX_RESUME_CHARS = 50_000  # the profile is built from at most this much resume text (CHL-PS3)
+MAX_SCREEN_NAME = 100
+MAX_NOTE = 500
+MAX_CHAT_CONTENT = 4000
+MAX_CHAT_MESSAGES = 40
+
+
 class ApiError(Exception):
     def __init__(self, status: int, detail: str):
         super().__init__(detail)
@@ -38,7 +48,9 @@ def parse_holdings(holdings: str) -> dict[str, int]:
     for part in holdings.replace(";", ",").split(","):
         bits = part.replace(":", " ").split()
         if len(bits) == 2 and bits[1].replace(".", "").isdigit():
-            hold[bits[0].upper()] = int(float(bits[1]))
+            n = float(bits[1])
+            if math.isfinite(n) and n <= MAX_SHARES:  # an absurd count is dropped, never a crash (CHL-PS5)
+                hold[bits[0].upper()] = int(n)
     return hold
 
 
@@ -65,6 +77,14 @@ def _number(v, field: str) -> float:
         raise ApiError(422, f"{field} must be a number, not {v!r}.")
     if not math.isfinite(x):
         raise ApiError(422, f"{field} must be a finite number.")
+    return x
+
+
+def check_capital(v) -> float:
+    """Paper capital must be a finite number above 0 and at most $1 billion (CHL-PS5)."""
+    x = _number(25000 if v is None or v == "" else v, "capital")
+    if not 0 < x <= MAX_CAPITAL:
+        raise ApiError(422, "capital must be more than $0 and at most $1,000,000,000.")
     return x
 
 
@@ -176,20 +196,39 @@ class Api:
 
     def delete_profile(self, everything: bool = False) -> dict:
         """Delete the profile and resume. With everything=True also wipe saved screens, paper
-        trades and cached ideas (the "Delete my data" button's default)."""
+        trades, cached ideas and the live-data cache (the "Delete my data" button's default)."""
         if everything:
             self.store.wipe()
-            return {"ok": True, "deleted": ["profile", "resume", "saved screens", "paper trades", "cached ideas"]}
+            self._clear_market_cache()
+            return {"ok": True, "deleted": ["profile", "resume", "saved screens", "paper trades", "cached ideas",
+                                            "cached market data"]}
         self.store.delete("profile")
         self.store.delete("intake")
         self.store.delete("sample_risk")
         self.store.clear_daily()
         return {"ok": True}
 
+    def _clear_market_cache(self) -> None:
+        """Remove the cached quotes, chains, history and filings (CHL-PS8): their file names are the
+        tickers the profile pointed to. Only the cache's own kind folders are touched."""
+        import shutil
+        from pathlib import Path
+
+        from .data.market import TTL
+        cache = getattr(self.md, "cache_dir", None)
+        if not cache:
+            return
+        for kind in TTL:
+            d = Path(cache) / kind
+            if d.is_dir() and not d.is_symlink():
+                shutil.rmtree(d, ignore_errors=True)
+
     def save_profile(self, text: str = "", interests: str = "", brands: str = "", holdings: str = "",
                      capital: float = 25000, risk_level: int = 2, name: str = "", boosts=None) -> dict:
+        capital = check_capital(capital)
         if not text:
             text = self.store.get("intake", {}).get("resume_text", "")
+        text = text[:MAX_RESUME_CHARS]
         p = build_profile(text, interests, brands, parse_holdings(holdings), capital, risk_level, name,
                           this_year=self.md.today.year,
                           domain_boosts=boosts[0] if boosts else None,
@@ -197,7 +236,7 @@ class Api:
         if boosts:
             p.source = "rules + claude"
         self.store.put("profile", p.to_dict())
-        self.store.put("intake", {"resume_text": text[:50000], "interests": interests, "brands": brands,
+        self.store.put("intake", {"resume_text": text, "interests": interests, "brands": brands,
                                   "holdings": holdings, "capital": capital, "risk_level": risk_level, "name": name})
         return {"profile": p.to_dict(), "resume_chars": len(text)}
 
@@ -216,6 +255,7 @@ class Api:
         p = self.current_profile()
         level = max(1, min(5, risk or p.risk_level))
         day = self.md.today.isoformat()
+        count = max(1, min(3, count))  # the engine clamps too; clamp first so the cache key can't grow (CHL-PS12)
         h = profile_hash(p) + f"-{count}"
         if not refresh:
             cached = self.store.daily_get(day, level, h)
@@ -232,6 +272,8 @@ class Api:
 
     def screen(self, criteria: dict | None = None, risk: int | None = None, name: str | None = None,
                save: bool = False) -> dict:
+        if name is not None and len(str(name)) > MAX_SCREEN_NAME:
+            raise ApiError(422, f"name must be at most {MAX_SCREEN_NAME} characters.")
         criteria = clean_criteria(criteria or {})
         result = engine.screen(self.md, self.current_profile(), criteria, risk)
         if save and name:
@@ -247,6 +289,11 @@ class Api:
 
     # chat
     def chat(self, messages) -> dict:
+        if isinstance(messages, list) and len(messages) > MAX_CHAT_MESSAGES:
+            raise ApiError(422, f"messages: at most {MAX_CHAT_MESSAGES} per request.")
+        if any(isinstance(m, dict) and isinstance(m.get("content"), str) and len(m["content"]) > MAX_CHAT_CONTENT
+               for m in messages or []):
+            raise ApiError(422, f"content: each message must be at most {MAX_CHAT_CONTENT} characters.")
         msgs = [m for m in messages or [] if isinstance(m, dict) and m.get("role") in ("user", "assistant")
                 and isinstance(m.get("content"), str)]
         if not msgs or msgs[-1]["role"] != "user":
@@ -258,6 +305,8 @@ class Api:
         return portfolio.summary(self.md, self.store)
 
     def paper_open(self, trade: dict, note: str = "") -> dict:
+        if len(note or "") > MAX_NOTE:
+            raise ApiError(422, f"note must be at most {MAX_NOTE} characters.")
         t = trade if isinstance(trade, dict) else {}
         if not t.get("legs") or not t.get("symbol") or t.get("strategy") not in STRATEGIES:
             raise ApiError(400, "not a valid trade")
@@ -308,7 +357,7 @@ class Api:
                 if m == "POST":  # the form's fields; there are no file uploads or Claude reading in the demo
                     return 200, self.save_profile(
                         str(b.get("resume_text", "")), str(b.get("interests", "")), str(b.get("brands", "")),
-                        str(b.get("holdings", "")), float(b.get("capital") or 25000), _int(b.get("risk_level"), 2),
+                        str(b.get("holdings", "")), check_capital(b.get("capital")), _int(b.get("risk_level"), 2),
                         str(b.get("name", "")),
                         boosts=None if self.static or not _bool(b.get("use_ai")) else self._enrich(b))
             if m == "POST" and seg == ["profile", "risk"]:
@@ -338,4 +387,4 @@ class Api:
 
     def _enrich(self, b: dict):
         from .llm_profile import enrich
-        return enrich(str(b.get("resume_text", "")), f"{b.get('interests', '')}\n{b.get('brands', '')}")
+        return enrich(str(b.get("resume_text", ""))[:MAX_RESUME_CHARS], f"{b.get('interests', '')}\n{b.get('brands', '')}")

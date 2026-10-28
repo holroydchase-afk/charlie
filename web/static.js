@@ -7,10 +7,11 @@
 // made by the same Python at build time (a test proves they match). While the visitor hasn't
 // changed anything (none of pre.invalid_if_keys stored), those answers are served instantly,
 // before and after the engine is up. app.js calls start() after its first render so Pyodide doesn't compete with it.
-// ?pyodide=<base url> overrides where Pyodide loads from (local testing); ?date=YYYY-MM-DD pins the day.
+// ?date=YYYY-MM-DD pins the day. Pyodide loads only from the base below (build_demo points it at
+// the self-hosted copy); there is no URL override, so a shared link can't load another script (CHL-PS1).
 (function () {
   const params = new URLSearchParams(location.search);
-  const base = params.get("pyodide") || "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/";
+  const base = "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/";
   const SAMPLE_RISK_KEY = "charlie:kv:sample_risk";
 
   function openStorage() {

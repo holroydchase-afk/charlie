@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS positions (
 """
 
 
+# Anchored to the repo root, never the current directory: resumes live only in the gitignored /data/ (CHL-PS7).
+DEFAULT_DB = Path(__file__).resolve().parents[1] / "data" / "charlie.db"
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -30,13 +34,15 @@ class Store:
     def __init__(self, path: str | Path | None = None):
         import sqlite3  # here, not at the top: the browser demo imports this module but uses BrowserStore
 
-        path = Path(path or os.environ.get("CHARLIE_DB", "data/charlie.db"))
+        path = Path(path or os.environ.get("CHARLIE_DB") or DEFAULT_DB)
         if str(path) != ":memory:":
             path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.Lock()
         with self._lock:
+            # Deleted rows are overwritten with zeros, whatever this SQLite build's default is (CHL-PS4).
+            self._conn.execute("PRAGMA secure_delete=ON")
             self._conn.executescript(SCHEMA)
 
     def _exec(self, sql: str, args=()):
@@ -63,6 +69,8 @@ class Store:
             for table in ("kv", "screens", "daily", "positions"):
                 self._conn.execute(f"DELETE FROM {table}")
             self._conn.commit()
+            # Rebuild the file so no freed page still holds the resume, even if secure_delete is off (CHL-PS4).
+            self._conn.execute("VACUUM")
 
     # screens
     def save_screen(self, name: str, criteria: dict) -> dict:

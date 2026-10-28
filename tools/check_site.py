@@ -6,6 +6,10 @@ its host is in ALLOWED: the Pyodide CDN (the one network call the demo may make)
 portfolio link, and the SVG namespace in the favicon. --no-cdn drops the CDN too, for a
 self-hosted build. The vendored Pyodide runtime in site/pyodide/ is not scanned: it's the
 unmodified npm release, and its stdlib mentions many URLs it never calls.
+
+It also fails (CHL-PS1) when index.html has no Content-Security-Policy meta, when that CSP lets
+scripts or fetches come from any host beyond the allowed CDN, and when static.js reads the
+?pyodide= parameter (a URL a link could point at another site's script) without a same-origin check.
 """
 
 from __future__ import annotations
@@ -21,6 +25,10 @@ ALLOWED = {"cdn.jsdelivr.net", "chaseholroyd.com", "www.w3.org"}
 VENDORED = "pyodide"
 TEXT = {".html", ".js", ".css", ".json", ".py", ".txt", ".md"}
 URL = re.compile(r"https?://([A-Za-z0-9.-]+)")
+CSP_META = re.compile(r'<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>', re.I)
+PYODIDE_PARAM = re.compile(r'\.get\(\s*["\']pyodide["\']\s*\)')
+ORIGIN_GUARD = re.compile(r"\.origin\s*===?\s*location\.origin|location\.origin\s*===?\s*[^;]*\.origin")
+SAFE_SOURCES = {"'self'", "'wasm-unsafe-eval'"}
 KEYS = re.compile(r"sk-ant-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|xox[abpr]-[A-Za-z0-9-]{10,}")
 
 
@@ -48,6 +56,50 @@ def check(site: Path, allowed: set[str] = ALLOWED) -> list[str]:
             for host in URL.findall(line):
                 if host.lower() not in allowed:
                     problems.append(f"{name}:{n}: URL to {host}, which isn't on the allowed list")
+    problems += check_csp(site, allowed)
+    return problems
+
+
+def _csp_directives(html: str) -> dict[str, list[str]] | None:
+    m = CSP_META.search(html)
+    if not m:
+        return None
+    content = re.search(r'content=(["\'])(.*?)\1', m.group(0), re.S)
+    out: dict[str, list[str]] = {}
+    for part in (content.group(2) if content else "").split(";"):
+        bits = part.split()
+        if bits:
+            out[bits[0].lower()] = bits[1:]
+    return out
+
+
+def check_csp(site: Path, allowed: set[str] = ALLOWED) -> list[str]:
+    """The page must carry a strict meta CSP, and static.js must not load Pyodide from a URL parameter."""
+    problems = []
+    csp = _csp_directives((site / "index.html").read_text("utf-8", "replace"))
+    if csp is None:
+        problems.append("index.html: no Content-Security-Policy meta tag (CSP)")
+    else:
+        hosts = {f"https://{h}" for h in allowed if h == "cdn.jsdelivr.net"}
+        if csp.get("default-src") != ["'self'"]:
+            problems.append(f"index.html: CSP default-src must be 'self', not {' '.join(csp.get('default-src', [])) or 'missing'}")
+        for d in ("script-src", "connect-src"):
+            if d not in csp:
+                problems.append(f"index.html: CSP has no {d}")
+                continue
+            bad = [v for v in csp[d] if v not in SAFE_SOURCES | hosts]
+            if bad:
+                problems.append(f"index.html: CSP {d} allows {' '.join(bad)}; only 'self', 'wasm-unsafe-eval'"
+                                f"{' and the Pyodide CDN' if hosts else ''} are allowed")
+        for d in ("object-src", "base-uri"):
+            if csp.get(d) != ["'none'"]:
+                problems.append(f"index.html: CSP {d} must be 'none'")
+    static = site / "static.js"
+    if static.exists():
+        for n, line in enumerate(static.read_text("utf-8", "replace").splitlines(), 1):
+            if PYODIDE_PARAM.search(line) and not ORIGIN_GUARD.search(line):
+                problems.append(f"static.js:{n}: reads the ?pyodide= parameter with no same-origin check, "
+                                "so a link could load another site's script")
     return problems
 
 

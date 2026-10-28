@@ -23,6 +23,10 @@ TTL = {"options": 15 * 60, "history": 12 * 3600, "facts": 7 * 86400, "ciks": 30 
 OFFLINE_BACKOFF = 300  # after a network failure in auto mode, skip live calls for 5 minutes
 
 
+# Anchored to the repo root, never the current directory (CHL-PS7).
+DEFAULT_CACHE = Path(__file__).resolve().parents[2] / "data" / "cache"
+
+
 def _today_from_env() -> date:
     v = os.environ.get("CHARLIE_TODAY")
     return date.fromisoformat(v) if v else date.today()
@@ -35,7 +39,7 @@ class MarketData:
             raise ValueError(f"CHARLIE_DATA must be one of {MODES}, not {mode!r}")
         self.mode = mode
         self.today = today or _today_from_env()
-        self.cache_dir = Path(cache_dir or os.environ.get("CHARLIE_CACHE", "data/cache"))
+        self.cache_dir = Path(cache_dir or os.environ.get("CHARLIE_CACHE") or DEFAULT_CACHE)
         self._lock = threading.Lock()
         self._mem: dict[tuple, object] = {}
         self._offline_until = 0.0

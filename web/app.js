@@ -226,7 +226,7 @@ function ideaCard(idea) {
 }
 function factorBars(ch) {
   return `<div class="factors">${ch.factors.map((f) => `
-    <div class="factor"><span>${esc(f.key[0].toUpperCase() + f.key.slice(1))}</span><div class="bar"><span style="width:${f.score}%"></span></div><b class="num">${f.score}</b>
+    <div class="factor"><span>${esc(f.key[0].toUpperCase() + f.key.slice(1))}</span><div class="bar"><span data-bar="${Number(f.score) || 0}"></span></div><b class="num">${f.score}</b>
     <div class="why">${esc(f.reason)}</div></div>`).join("")}</div>`;
 }
 // Friendly states (UX14): skeletons while loading, one plain sentence and Try again on failure.
@@ -242,6 +242,9 @@ function errorState(text, err, retryAttr) {
     ${!plain && err && !window.charlieStatic ? `<details><summary>Technical details</summary>${esc(err.message)}</details>` : ""}</div>`;
 }
 const retries = {};
+// Bar widths are set through the DOM, not inline style attributes, so the CSP needs no 'unsafe-inline' (CHL-PS1).
+new MutationObserver(() => $$("[data-bar]").forEach((el) => { el.style.width = `${el.dataset.bar}%`; el.removeAttribute("data-bar"); }))
+  .observe(document.body, { childList: true, subtree: true });
 function retryButton(fn) { const id = `r${Math.random().toString(36).slice(2, 8)}`; retries[id] = fn; return `data-retry="${id}"`; }
 
 // ---------------------------------------------------------------- tabs
@@ -325,7 +328,7 @@ function renderProfile() {
     <div class="callout small">${esc(p.caution)}</div>
     ${p.domains.map((d) => `<div class="domain">
       <div class="row gap"><b class="grow">${esc(d.label)}</b><span class="muted small">ETF ${esc(d.etf)}</span></div>
-      <div class="bar" title="familiarity ${d.familiarity}"><span style="width:${d.familiarity}%"></span></div>
+      <div class="bar" title="familiarity ${d.familiarity}"><span data-bar="${Number(d.familiarity) || 0}"></span></div>
       <div class="muted small">${esc(d.blurb)}</div>
       <div class="chips">${d.evidence.map((e) => `<span class="chip">${esc(e)}</span>`).join("")}</div>
     </div>`).join("")}
@@ -694,12 +697,14 @@ $("#refresh-paper").onclick = loadPaper;
 window.addEventListener("resize", () => { if ($("#tab-chat").classList.contains("active")) sizeChat(); });
 $("#delete-profile").onclick = async () => {
   const where = window.charlieStatic ? "this browser" : "this computer";
-  if (!confirm(`Delete all your Charlie data from ${where}? This removes your profile, resume, saved screens, paper trades and saved ideas. You can't undo this.`)) return;
+  const what = window.charlieStatic ? "profile, resume, saved screens, paper trades and saved ideas"
+    : "profile, resume, saved screens, paper trades, saved ideas and saved market data";
+  if (!confirm(`Delete all your Charlie data from ${where}? This removes your ${what}. You can't undo this.`)) return;
   try {
     await api("/api/profile?all=true", { method: "DELETE" });
     $("#profile-form").reset(); await loadProfile(); renderProfile();
     state.loaded.screener && loadSavedScreens();
-    toast("Done. Your profile, resume, saved screens, paper trades and saved ideas are deleted.", 4000);
+    toast(`Done. Your ${what} are deleted.`, 4000);
   } catch (err) { toast(err.message); }
 };
 // Static demo: say so while a control waits for the engine, so nothing looks dead.

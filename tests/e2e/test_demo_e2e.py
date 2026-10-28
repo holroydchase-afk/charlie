@@ -81,6 +81,9 @@ def _wait_for_engine_if_needed(page):
 def test_every_tab_passes_axe_and_fits(browser, site_url, axe_source, scheme, width, height):
     ctx = browser.new_context(viewport={"width": width, "height": height}, color_scheme=scheme)
     page = ctx.new_page()
+    # The demo's CSP (CHL-PS1) blocks inline scripts, so axe is served as a same-origin file instead.
+    axe_url = site_url.rsplit("/", 1)[0] + "/__axe.min.js"
+    page.route(axe_url, lambda route: route.fulfill(body=axe_source, content_type="text/javascript"))
     page.goto(site_url)
     expect(page.locator("#ideas .card").first).to_be_visible()
     page.click("#ack-btn")
@@ -96,7 +99,7 @@ def test_every_tab_passes_axe_and_fits(browser, site_url, axe_source, scheme, wi
         }).length""")
         if clipped:
             problems.append(f"{tab}: {clipped} clipped payoff chart(s)")
-        page.add_script_tag(content=axe_source)
+        page.add_script_tag(url=axe_url)
         found = page.evaluate("(tags) => axe.run(document, {runOnly: tags}).then((r) => r.violations.map((v) => "
                               "v.id + ' ' + v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(', ')))", AXE_TAGS)
         problems += [f"{tab}: {v}" for v in found]

@@ -126,7 +126,7 @@ def test_router_matches_the_fastapi_endpoints(api, md, tmp_path, monkeypatch):
     from charlie import server
     monkeypatch.setattr(server, "store", Store(str(tmp_path / "r.db")))
     monkeypatch.setattr(server, "md", lambda: md)
-    client = TestClient(server.app)
+    client = TestClient(server.app, base_url="http://127.0.0.1:8000")
     for path in ("/api/meta", "/api/profile", "/api/screens", "/api/paper", "/api/ideas?count=2",
                  "/api/ticker/KO?risk=3"):
         status, body = api.route("GET", path)
