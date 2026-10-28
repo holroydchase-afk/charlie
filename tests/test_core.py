@@ -253,3 +253,41 @@ def test_ticker_detail(md, profile):
     d = ticker_detail(md, profile, "ISRG", level=3)
     assert d["history"] and d["trades"]
     assert any(b["strategy"] == "long_call" for b in d["blocked"])
+
+
+# ---------------------------------------------------------------- CHL-UX16 the card's one-line thesis
+def _ux16_profiles():
+    from charlie.demo import sample_profile
+    return {"resume": build_profile(RESUME, interests="GLP-1 drugs, FDA approvals, $ISRG", brands="Costco, Lululemon",
+                                    holdings={"ABT": 100}, capital=40000, risk_level=2),
+            "demo_sample": sample_profile(TODAY)}
+
+
+@pytest.mark.parametrize("who", ["resume", "demo_sample"])
+@pytest.mark.parametrize("level", [1, 2, 3, 4, 5])
+def test_UX16_thesis_headline_gives_a_reason_and_the_downside_not_the_score(md, who, level):
+    """CHL-UX16: thesis.summary[0] is the line the idea card shows. It must not repeat the score
+    badge; it names the strongest business reason (a number from a checklist strength) and the
+    price where the trade starts losing money (the breakeven)."""
+    import re
+    r = daily_ideas(md, _ux16_profiles()[who], level, count=3)
+    assert r["ideas"]
+    for i in r["ideas"]:
+        t, s = i["trade"], i["analysis"]["charlie"]
+        line = i["thesis"]["summary"][0]
+        assert "Charlie score" not in line, f"{t['symbol']}: headline repeats the score badge: {line!r}"
+        assert f"({s['grade']})" not in line, f"{t['symbol']}: headline repeats the grade: {line!r}"
+        assert len(line) <= 180, f"{t['symbol']}: headline is {len(line)} chars, want one line: {line!r}"
+        # The downside: the breakeven price, with plain words about losing money.
+        assert t["breakeven"], f"{t['symbol']}: trade has no breakeven"
+        prices = {f"${t['breakeven']:,.2f}", f"${t['breakeven']:.2f}"}
+        assert any(p in line for p in prices), f"{t['symbol']}: headline doesn't name the breakeven {prices}: {line!r}"
+        assert re.search(r"\blos[es]\b|\blosing\b|\bloss\b", line, re.I), f"{t['symbol']}: headline doesn't say where you'd lose: {line!r}"
+        # The reason: a number from a business strength (not the familiarity factor, which the
+        # card already shows as chips), or from the best business factor when none is strong.
+        business = [f for f in s["factors"] if f["key"] != "competence"]
+        strong = [f for f in business if f["score"] >= 60] or [max(business, key=lambda f: f["score"])]
+        reason_part = line.replace(f"${t['breakeven']:,.2f}", "").replace(f"${t['breakeven']:.2f}", "")
+        numbers = {n for f in strong for n in re.findall(r"\d+(?:\.\d+)?%", f["reason"])}
+        assert any(re.search(rf"(?<![\d.]){re.escape(n)}", reason_part) for n in numbers), (
+            f"{t['symbol']}: headline names no concrete strength (want one of {sorted(numbers)}): {line!r}")

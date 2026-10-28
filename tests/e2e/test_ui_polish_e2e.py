@@ -216,7 +216,8 @@ def test_UX10_paper_empty_state_has_a_button_to_today(make_page, site_url):
 
 def test_UX10_paper_stats_are_visible_tiles_and_zero_is_neutral(make_page, site_url):
     pg = _open(make_page, site_url, PHONE)
-    pg.click("[data-tab=paper]")
+    # UX23 hides the stats while there are no paper trades, so open one first.
+    _open_one_paper_trade(pg)
     expect(pg.locator("#paper-stats .metric").first).to_be_visible()
     found = pg.evaluate("""() => {
         const page = getComputedStyle(document.body).backgroundColor, ink = getComputedStyle(document.body).color;
@@ -308,3 +309,270 @@ def test_UX15_focus_visible_ring_uses_the_accent(make_page, site_url):
         const accent = getComputedStyle(probe).color; probe.remove();
         return {style: s.outlineStyle, color: s.outlineColor, accent, id: document.activeElement.id}; }""")
     assert ring["style"] != "none" and ring["color"] == ring["accent"], ring
+
+
+# ================================================================ round 2: CHL-UX16 to UX23 (AFTER report)
+def _set_risk(pg, level):
+    """Move the risk slider as a person would (change event), then wait for the cards to redraw."""
+    pg.locator("#risk").evaluate(
+        "(r, v) => { r.value = String(v); r.dispatchEvent(new Event('input', {bubbles: true}));"
+        " r.dispatchEvent(new Event('change', {bubbles: true})); }", level)
+    pg.wait_for_timeout(200)
+    expect(pg.locator("#ideas .card").first).to_be_visible(timeout=ENGINE)
+
+
+HERO_VALUES = """(root) => { const cards = [...root.querySelectorAll('.card')];
+    return [...root.querySelectorAll('.hero-m .metric')].filter((m) => m.checkVisibility()).map((m) => ({
+    k: m.querySelector('.k')?.textContent.trim() || '', v: m.querySelector('.v')?.textContent.trim() || '',
+    card: m.closest('.card')?.querySelector('.strategy-tag')?.textContent.trim() || '',
+    idx: cards.indexOf(m.closest('.card'))})); }"""
+
+
+# ---------------------------------------------------------------- CHL-UX16 the thesis line gives a reason
+@pytest.mark.parametrize("level", [1, 2, 4])
+def test_UX16_today_thesis_lines_never_repeat_the_charlie_score(make_page, site_url, level):
+    pg = _open(make_page, site_url, PHONE)
+    if level != 2:
+        _set_risk(pg, level)
+    theses = pg.locator("#ideas .card .thesis")
+    expect(theses.first).to_be_visible()
+    lines = theses.all_inner_texts()
+    assert len(lines) == pg.locator("#ideas .card").count(), "every idea card should have one thesis line"
+    assert [x for x in lines if "Charlie score" in x] == [], f"thesis lines repeat the score badge: {lines}"
+    no_downside = [x for x in lines if not re.search(r"\$\d[\d,]*\.\d\d", x)]
+    assert no_downside == [], f"thesis lines without the price where you'd lose money: {no_downside}"
+
+
+# ---------------------------------------------------------------- CHL-UX17 no "—" in the hero numbers
+@pytest.mark.parametrize("level", [1, 2], ids=["shares-only", "conservative"])
+def test_UX17_today_hero_metrics_never_show_a_dash(make_page, site_url, level):
+    pg = _open(make_page, site_url, PHONE)
+    if level != 2:
+        _set_risk(pg, level)
+        pg.wait_for_function("[...document.querySelectorAll('#ideas .card .strategy-tag')]"
+                             ".every((t) => t.textContent.startsWith('Buy shares'))", timeout=ENGINE)
+    found = pg.locator("#ideas").evaluate(HERO_VALUES)
+    assert found, "no hero metrics on Today"
+    dashes = [f"{x['card']}: {x['k']}" for x in found if x["v"] in ("—", "-", "–", "")]
+    assert dashes == [], f"hero metrics show a dash: {dashes}"
+    shares = [x for x in found if x["card"].startswith("Buy shares")]
+    if level == 1:
+        assert shares, "at level 1 every idea is a share purchase"
+    missing = sorted({x["idx"] for x in shares} - {x["idx"] for x in shares if x["k"] == "Money tied up"})
+    assert missing == [], f"share ideas without a 'Money tied up' hero tile: {missing}"
+    tied = [x["v"] for x in shares if x["k"] == "Money tied up"]
+    assert all(re.fullmatch(r"\$\d[\d,]*", v) for v in tied), f"'Money tied up' should be a dollar amount: {tied}"
+
+
+def test_UX17_screener_cards_show_money_tied_up_not_a_dash(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    pg.click("[data-tab=screener]")
+    cards = pg.locator("#screen-results .row-card")
+    expect(cards.first).to_be_visible(timeout=ENGINE)
+    found = cards.evaluate_all("""(cs) => cs.filter((c) => c.checkVisibility()).map((c) => ({
+        type: c.querySelector('.rc-top')?.innerText.replace(/\\s+/g, ' ').trim() || '',
+        cells: [...c.querySelectorAll('.rc-grid > span')].map((s) => ({
+            k: s.firstElementChild?.textContent.trim() || '', v: s.querySelector('b')?.textContent.trim() || ''}))}))""")
+    assert found
+    dashes = [f"{c['type']}: {x['k']}" for c in found for x in c["cells"] if x["v"] in ("—", "-", "–", "")]
+    assert dashes == [], f"screener cards show a dash: {dashes[:5]}"
+    shares = [c for c in found if "Buy shares" in c["type"]]
+    assert shares, "the default screen should include share purchases"
+    no_tied = [c["type"] for c in shares if not any(x["k"] == "Money tied up" for x in c["cells"])]
+    assert no_tied == [], f"share cards without 'Money tied up': {no_tied[:5]}"
+
+
+# ---------------------------------------------------------------- CHL-UX3 (updated for UX17)
+# UX3 asked for "Chance of profit" in every hero row; UX17 swaps that tile for "Money tied up" on
+# trades with no chance-of-profit estimate (share purchases). Both must still be three tiles.
+def test_UX3_UX17_hero_row_is_chance_or_money_tied_up_then_profit_and_loss(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    found = pg.locator("#ideas").evaluate(HERO_VALUES)
+    by_card = {}
+    for x in found:
+        by_card.setdefault(f"card {x['idx'] + 1} ({x['card']})", []).append(x["k"])
+    problems = [f"{c}: {ks}" for c, ks in by_card.items()
+                if len(ks) != 3 or ks[0] not in ("Chance of profit", "Money tied up") or ks[1:] != ["Max profit", "Max loss"]]
+    assert problems == []
+
+
+# ---------------------------------------------------------------- CHL-UX18 payoff chart labels
+CHART_LABELS = """(root) => [...root.querySelectorAll('svg.payoff')].filter((s) => s.checkVisibility()
+        && s.closest('.chart')?.dataset.chart && s.querySelector('.curve')).map((svg) => {
+    const card = svg.closest('.card');
+    const box = (t) => { const r = t.getBoundingClientRect();
+        return {text: t.textContent.trim(), cls: t.getAttribute('class') || '', l: r.left, r: r.right, t: r.top, b: r.bottom}; };
+    return {card: card?.querySelector('.strategy-tag')?.textContent.trim() || '',
+            sym: (card?.querySelector('[data-ticker]')?.dataset.ticker) || (document.querySelector('#drawer [data-ticker]')?.dataset.ticker) || '',
+            cardText: card ? card.innerText : '',
+            labels: [...svg.querySelectorAll('text')].filter((t) => t.checkVisibility()).map(box)};
+})"""
+
+
+def _chart_problems(charts):
+    problems = []
+    for c in charts:
+        name, labs = c["card"], c["labels"]
+        for i, a in enumerate(labs):
+            for b in labs[i + 1:]:
+                if a["l"] < b["r"] and b["l"] < a["r"] and a["t"] < b["b"] and b["t"] < a["b"]:
+                    problems.append(f"{name}: '{a['text']}' overlaps '{b['text']}'")
+        ys = [x for x in labs if "y-label" in x["cls"].split()]
+        xs = [x for x in labs if "x-label" in x["cls"].split()]
+        if not ys or not xs:
+            problems.append(f"{name}: want P&L labels (text.y-label) and price labels (text.x-label), got "
+                            f"{[(x['text'], x['cls']) for x in labs]}")
+            continue
+        for y in ys:
+            for x in xs:
+                same_x = y["l"] < x["r"] + 4 and x["l"] < y["r"] + 4
+                if same_x and abs((y["t"] + y["b"]) / 2 - (x["t"] + x["b"]) / 2) < 20:
+                    problems.append(f"{name}: P&L '{y['text']}' sits within 20px of price '{x['text']}'")
+        if not any(y["text"] == "$0" for y in ys):
+            problems.append(f"{name}: no '$0' baseline label among {[y['text'] for y in ys]}")
+        unsigned = [y["text"] for y in ys if y["text"] != "$0" and not re.match(r"^[+\-−]\$", y["text"])]
+        if unsigned:
+            problems.append(f"{name}: P&L labels need a + or − sign: {unsigned}")
+        cap = re.search(r"Shown for ([A-Z.]+) between \$[\d,]+ and \$[\d,]+", c["cardText"])
+        if not cap:
+            problems.append(f"{name}: no caption 'Shown for <SYM> between $X and $Y'")
+        elif c["sym"] and cap.group(1) != c["sym"]:
+            problems.append(f"{name}: caption names {cap.group(1)}, card is {c['sym']}")
+    return problems
+
+
+@pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
+def test_UX18_payoff_labels_dont_collide_and_have_a_caption(make_page, site_url, size):
+    pg = _open(make_page, site_url, size)
+    charts = pg.locator("#ideas").evaluate(CHART_LABELS)
+    assert charts, "no payoff charts on Today"
+    assert _chart_problems(charts) == []
+
+
+# ---------------------------------------------------------------- CHL-UX19 screener: results first on a phone
+FIRST_ROW_TOP = """() => { const r = [...document.querySelectorAll('#screen-results [data-row]')].find((x) => x.checkVisibility());
+    return r ? r.getBoundingClientRect().top + scrollY : null; }"""
+
+
+def test_UX19_phone_screener_shows_results_in_the_first_screen(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    pg.click("[data-tab=screener]")
+    expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)
+    pg.evaluate("scrollTo(0, 0)")
+    top = pg.evaluate(FIRST_ROW_TOP)
+    assert top is not None and top < 844, f"first screener result starts {top}px down the page at 390x844 (want < 844)"
+    edit = pg.locator("#tab-screener").get_by_role("button", name=re.compile("Edit filters", re.I))
+    expect(edit).to_be_visible()
+    expect(pg.locator("#strategy-select")).to_be_hidden()  # folded into the summary row
+    edit.click()
+    expect(pg.locator("#strategy-select")).to_be_visible()
+
+
+@pytest.mark.parametrize("level", [2, 4])
+def test_UX19_strategy_chips_above_the_level_are_disabled_and_allowed_ones_ticked(make_page, site_url, level):
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from charlie.strategies import STRATEGIES
+    pg = _open(make_page, site_url, DESKTOP)
+    if level != 2:
+        _set_risk(pg, level)
+    pg.click("[data-tab=screener]")
+    expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)
+    chips = pg.locator("#strategy-select input[name=strategies]").evaluate_all(
+        "(xs) => xs.map((x) => ({key: x.value, checked: x.checked, disabled: x.disabled,"
+        " label: x.closest('label')?.innerText.replace(/\\s+/g, ' ').trim() || ''}))")
+    assert {c["key"] for c in chips} == set(STRATEGIES)
+    problems = []
+    for c in chips:
+        need = STRATEGIES[c["key"]]["min_level"]
+        if need > level:
+            if not c["disabled"]:
+                problems.append(f"{c['label']}: needs level {need} but can be ticked at level {level}")
+            if f"(needs level {need})" not in c["label"]:
+                problems.append(f"{c['label']}: should say '(needs level {need})'")
+        else:
+            if c["disabled"] or not c["checked"]:
+                problems.append(f"{c['label']}: allowed at level {level}, should be enabled and ticked by default")
+            if "needs level" in c["label"]:
+                problems.append(f"{c['label']}: allowed, shouldn't say 'needs level'")
+    assert problems == []
+
+
+# ---------------------------------------------------------------- CHL-UX20 a number above the fold on a laptop
+def test_UX20_first_card_hero_metrics_are_in_the_first_laptop_screen(make_page, site_url):
+    pg = _open(make_page, site_url, DESKTOP)
+    pg.evaluate("scrollTo(0, 0)")
+    boxes = pg.locator("#ideas .card").first.locator(".hero-m .metric").evaluate_all(
+        "(ms) => ms.map((m) => { const r = m.getBoundingClientRect(); return {k: m.querySelector('.k').textContent, t: r.top, b: r.bottom}; })")
+    assert len(boxes) == 3
+    foot = pg.locator("#footer-disclaimer").bounding_box()
+    limit = min(800, foot["y"]) if foot else 800
+    out = [f"{b['k']}: {b['t']:.0f}-{b['b']:.0f}px" for b in boxes if b["t"] < 0 or b["b"] > limit]
+    assert out == [], f"card 1 hero metrics not fully visible above {limit:.0f}px at 1280x800: {out}"
+
+
+# ---------------------------------------------------------------- CHL-UX21 all six tabs fit at 390
+def test_UX21_all_six_tabs_fit_at_390_and_the_last_says_portfolio(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    tabs = pg.locator("[role=tab]")
+    expect(tabs).to_have_count(6)
+    expect(pg.locator("#tabbtn-paper")).to_have_text("Portfolio")
+    boxes = tabs.evaluate_all("""(ts) => ts.map((t) => { const r = t.getBoundingClientRect(), bar = t.parentElement.getBoundingClientRect();
+        return {name: t.textContent.trim(), l: r.left, r: r.right, barL: bar.left, barR: bar.right}; })""")
+    clipped = [f"{b['name']} {b['l']:.0f}-{b['r']:.0f}" for b in boxes
+               if b["l"] < max(0, b["barL"]) - 0.5 or b["r"] > min(390, b["barR"]) + 0.5]
+    assert clipped == [], f"tabs clipped at 390px: {clipped}"
+    pg.click("[data-tab=paper]")
+    expect(pg.locator("#tab-paper h1")).to_have_text("Paper portfolio")
+
+
+# ---------------------------------------------------------------- CHL-UX22 plain drawer labels
+def test_UX22_drawer_metric_labels_are_plain_words(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    pg.locator("#ideas .card [data-ticker]").first.click()
+    drawer = pg.locator("#drawer")
+    expect(drawer.locator("svg.payoff").first).to_be_visible()
+    labels = drawer.locator(".metric .k").all_inner_texts()
+    jargon = [k for k in labels if k.strip() in ("ROIC", "FCF yield", "ATM IV", "Op. margin", "Debt/Equity")]
+    assert jargon == [], f"drawer metric labels use jargon: {jargon}"
+    for plain in ["Return on capital", "Operating margin", "Free-cash yield", "Debt to equity"]:
+        assert plain in labels, f"drawer metrics miss '{plain}': {labels}"
+    text = drawer.inner_text()
+    bare = re.findall(r"\bROIC\b|\bFCF\b|\bATM IV\b", text)
+    assert bare == [], f"bare jargon in the drawer: {bare}"
+
+
+# ---------------------------------------------------------------- CHL-UX23 paper portfolio
+def test_UX23_empty_paper_portfolio_hides_stats_and_shows_the_button_high(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    pg.click("[data-tab=paper]")
+    btn = pg.locator("#paper-list").get_by_role("button", name=re.compile("today's ideas", re.I))
+    expect(btn).to_be_visible()
+    visible_stats = pg.locator("#paper-stats .metric").evaluate_all("(ms) => ms.filter((m) => m.checkVisibility()).length")
+    assert visible_stats == 0, f"{visible_stats} stat tiles show while there are no paper trades"
+    pg.evaluate("scrollTo(0, 0)")
+    b = btn.bounding_box()
+    bottom = b["y"] + b["height"] + pg.evaluate("scrollY")
+    assert bottom <= 600, f"'See today's ideas' ends {bottom:.0f}px down at 390x844 (want <= 600)"
+
+
+def _open_one_paper_trade(pg):
+    card = pg.locator("#ideas .card").first
+    sym = card.locator("[data-ticker]").get_attribute("data-ticker")
+    card.locator("[data-paper]").click()
+    expect(pg.locator("#toast")).to_contain_text("Paper trade opened", timeout=ENGINE)
+    pg.click("[data-tab=paper]")
+    expect(pg.locator("#paper-list [data-close]").first).to_be_attached(timeout=ENGINE)
+    return sym
+
+
+def test_UX23_open_position_close_button_says_close_trade(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    sym = _open_one_paper_trade(pg)
+    btn = pg.locator("#paper-list [data-close]").filter(visible=True).first
+    expect(btn).to_have_text("Close trade")
+    label = btn.get_attribute("aria-label") or ""
+    assert label.startswith(f"Close paper trade {sym}"), f"close button aria-label: {label!r}"
+    # With a position open, the stats come back.
+    expect(pg.locator("#paper-stats .metric").first).to_be_visible()
