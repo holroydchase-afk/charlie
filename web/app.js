@@ -84,14 +84,22 @@ function payoffAt(trade, px) {
   if (trade.strategy === "covered_call" || trade.strategy === "collar") pnl += (px - trade.spot) * 100 * trade.contracts;
   return pnl;
 }
+// P&L with its sign (UX18): "+$83", "−$3,174", or "$0" for the baseline.
+const signedMoney = (v) => (Math.round(v) === 0 ? "$0" : (v > 0 ? "+" : "−") + money(Math.abs(v)));
+const payoffRange = (t) => [t.spot * 0.7, t.spot * 1.3];
 function payoffSVG(trade, W = 520) {
-  const H = W < 480 ? 120 : 160, padL = 8, padR = 8, top = 18, bottom = 22;
-  const lo = trade.spot * 0.7, hi = trade.spot * 1.3, N = 80;
+  const H = W < 480 ? 112 : 160, padR = 8, top = 14, bottom = 24, gap = 8;
+  const [lo, hi] = payoffRange(trade), N = 80;
   const pts = [];
   for (let i = 0; i <= N; i++) { const px = lo + (hi - lo) * i / N; pts.push([px, payoffAt(trade, px)]); }
   const ys = pts.map((p) => p[1]);
   let yMin = Math.min(...ys, 0), yMax = Math.max(...ys, 0);
   if (yMax - yMin < 1) { yMax += 1; yMin -= 1; }
+  // P&L labels sit in a left gutter, price labels under the x-axis, so the two never share a corner.
+  const yLabs = [[0, "$0"]];
+  if (Math.round(yMax) !== 0) yLabs.push([yMax, signedMoney(yMax)]);
+  if (Math.round(yMin) !== 0) yLabs.push([yMin, signedMoney(yMin)]);
+  const padL = gap + 4 + Math.max(...yLabs.map(([, s]) => s.length)) * 7.2;
   const X = (px) => padL + (px - lo) / (hi - lo) * (W - padL - padR);
   const Y = (v) => top + (yMax - v) / (yMax - yMin) * (H - top - bottom);
   const path = pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
@@ -101,16 +109,18 @@ function payoffSVG(trade, W = 520) {
   };
   const be = trade.breakeven && trade.breakeven > lo && trade.breakeven < hi
     ? `<circle class="be" cx="${X(trade.breakeven).toFixed(1)}" cy="${Y(0).toFixed(1)}" r="4.5"/>` : "";
-  return `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Profit and loss at expiration, for stock prices from ${money(lo)} to ${money(hi)}">
+  // Keep the $0 label; drop an extreme label that would sit within 15px of it.
+  const shown = yLabs.filter(([v], i) => i === 0 || Math.abs(Y(v) - Y(0)) >= 15);
+  const yText = shown.map(([v, s]) => `<text class="y-label" x="${(padL - gap).toFixed(1)}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${s}</text>`).join("");
+  return `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Profit and loss at expiration, from ${signedMoney(yMin)} to ${signedMoney(yMax)}, for ${esc(trade.symbol)} prices from ${money(lo)} to ${money(hi)}">
     <path class="gain-area" d="${area((v) => Math.max(v, 0))}"/>
     <path class="loss-area" d="${area((v) => Math.min(v, 0))}"/>
     <line class="zero" x1="${padL}" x2="${W - padR}" y1="${Y(0)}" y2="${Y(0)}"/>
-    <line class="spot" x1="${X(trade.spot)}" x2="${X(trade.spot)}" y1="${top - 4}" y2="${H - bottom + 2}"/>
-    <path class="curve" d="${path}"/>${be}
-    <text x="${padL}" y="${H - 5}">${money(lo)}</text>
-    <text x="${W - padR}" y="${H - 5}" text-anchor="end">${money(hi)}</text>
-    <text x="${W - padR}" y="12" text-anchor="end">${money(yMax)}</text>
-    <text x="${W - padR}" y="${Math.min(H - bottom - 4, Y(yMin) - 4)}" text-anchor="end">${money(yMin)}</text>
+    <line class="axis" x1="${padL}" x2="${W - padR}" y1="${H - bottom}" y2="${H - bottom}"/>
+    <line class="spot" x1="${X(trade.spot)}" x2="${X(trade.spot)}" y1="${top - 4}" y2="${H - bottom}"/>
+    <path class="curve" d="${path}"/>${be}${yText}
+    <text class="x-label" x="${padL}" y="${H - 6}">${money(lo)}</text>
+    <text class="x-label" x="${W - padR}" y="${H - 6}" text-anchor="end">${money(hi)}</text>
   </svg>`;
 }
 function sparkSVG(hist, W = 640) {
@@ -129,9 +139,9 @@ function metric(k, v, cls = "", help = "") {
 }
 function heroMetrics(t) {  // UX3: the three numbers a new investor needs, same weight, no red alarm
   return `<div class="metrics hero-m">
-    ${metric("Chance of profit", t.pop ? pct(t.pop) : "—")}
+    ${t.pop ? metric("Chance of profit", pct(t.pop)) : metric("Money tied up", money(t.capital_required))}
     ${metric("Max profit", t.max_profit === null ? "Unlimited" : money(t.max_profit), "gain")}
-    ${metric("Max loss", money(t.max_loss), "loss", AT_ZERO.has(t.strategy) ? `only if ${esc(t.symbol)} fell to $0` : "worst case at expiry")}
+    ${metric("Max loss", money(t.max_loss), "loss", AT_ZERO.has(t.strategy) ? "if it hits $0" : "worst case")}
   </div>`;
 }
 function moreMetrics(t) {
@@ -145,7 +155,8 @@ function moreMetrics(t) {
 }
 function chartBlock(t) {  // the legend keeps "today" and breakeven readable above the chart
   return `<div class="chart-legend"><span class="key-spot">Today <b>${money(t.spot, 2)}</b></span><span class="key-be">Breakeven <b>${t.breakeven ? money(t.breakeven, 2) : "—"}</b></span><span class="wide-only">Profit or loss at expiration</span></div>
-    ${chartSlot("payoff", t)}`;
+    ${chartSlot("payoff", t)}
+    <p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>`;
 }
 function planTicket(t, { nested = false } = {}) {  // nested: already inside a <details>, so no second one
   return `<div class="two-col">
@@ -180,7 +191,7 @@ function tradeBlock(t, { withActions = true } = {}) {
     ${withActions ? tradeActions(id) : ""}
     ${nfa()}`;
 }
-function gradeLabel(ch) { return `Charlie score ${ch.score}/100 · ${ch.grade}`; }
+function gradeLabel(ch) { return `<span class="gword">Charlie score </span>${ch.score}/100 · ${ch.grade}`; }
 // Idea card (UX4): collapsed by default; plan, risks and order details are one tap away.
 function ideaCard(idea) {
   const a = idea.analysis, t = idea.trade, th = idea.thesis, ch = a.charlie, id = keepTrade(t);
@@ -351,6 +362,7 @@ async function onRisk() {
   const active = $(".tabs button.active").dataset.tab;
   if (active === "today") loadIdeas();
   if (active === "learn") renderLearn();
+  if (state.loaded.screener) syncStrategyChips();
   if (active === "screener") runScreen();
 }
 
@@ -358,12 +370,38 @@ async function onRisk() {
 const HIDDEN_FILTERS = { max_price: "", min_pop: "", min_annualized: "", min_iv: "", max_iv: "", dte_min: "25", dte_max: "55", delta: "" };
 function initScreener() {
   if (state.loaded.screener) return; state.loaded.screener = true;
-  const chip = (name, value, label) => `<label class="chip chip-check"><input type="checkbox" name="${name}" value="${value}"> ${esc(label)}</label>`;
+  const chip = (name, value, label, extra = "") => `<label class="chip chip-check"><input type="checkbox" name="${name}" value="${value}"> ${esc(label)}${extra}</label>`;
   $("#domain-select").innerHTML = state.meta.domains.map((d) => chip("domains", d.key, d.label)).join("");
   $("#strategy-select").innerHTML = Object.entries(state.meta.strategies).sort((a, b) => a[1].min_level - b[1].min_level)
-    .map(([k, s]) => chip("strategies", k, `${s.label}${s.min_level > 1 ? ` (level ${s.min_level}+)` : ""}`)).join("");
+    .map(([k, s]) => chip("strategies", k, s.label, `<span class="need hidden"> (needs level ${s.min_level})</span>`)).join("");
+  syncStrategyChips(true);
   loadSavedScreens();
   runScreen();  // UX9: results on first open, no click needed
+}
+// UX19: the trade types the risk slider allows are ticked by default; the rest are disabled and say why.
+function syncStrategyChips(first = false) {
+  $$("#strategy-select input[name=strategies]").forEach((o) => {
+    const need = state.meta.strategies[o.value].min_level, blocked = need > state.risk;
+    if (blocked) o.checked = false;
+    else if (first || o.disabled) o.checked = true;  // newly allowed types start ticked
+    o.disabled = blocked;
+    o.closest("label").classList.toggle("disabled", blocked);
+    o.closest("label").querySelector(".need").classList.toggle("hidden", !blocked);
+  });
+}
+// UX19: on a phone the form folds into one summary row after a run, so results come first.
+function screenSummary() {
+  const c = readCriteria(), f = $("#screen-form");
+  const scope = c.scope === "list" ? `${c.symbols.length} ticker${c.symbols.length === 1 ? "" : "s"}` : f.scope.selectedOptions[0].text;
+  const parts = [scope];
+  if (c.min_score !== null) parts.push(`score ${c.min_score}+`);
+  parts.push(`${c.strategies.length} trade type${c.strategies.length === 1 ? "" : "s"}`);
+  if (c.max_capital !== null) parts.push(`up to ${money(c.max_capital)}`);
+  $("#screen-summary-text").textContent = parts.join(" · ");
+}
+function foldScreenForm(folded) {  // CSS folds it only under 600px
+  $("#tab-screener").classList.toggle("screen-folded", folded);
+  if (folded) screenSummary();
 }
 function countHiddenFilters() {
   const f = $("#screen-form");
@@ -388,7 +426,7 @@ function writeCriteria(c) {
   f.symbols.value = (c.symbols || []).join(", ");
   $("#symbols-field").classList.toggle("hidden", f.scope.value !== "list");
   $$("input[name=domains]", f).forEach((o) => { o.checked = (c.domains || []).includes(o.value); });
-  $$("input[name=strategies]", f).forEach((o) => { o.checked = (c.strategies || []).includes(o.value); });
+  $$("input[name=strategies]", f).forEach((o) => { o.checked = !o.disabled && (!(c.strategies || []).length || c.strategies.includes(o.value)); });
   for (const n of ["min_score", "max_price", "min_pop", "max_capital", "min_annualized", "min_iv", "max_iv", "dte_min", "dte_max", "delta"]) f[n].value = c[n] ?? "";
   f.exclude_red_flags.checked = !!c.exclude_red_flags;
   countHiddenFilters();
@@ -409,15 +447,18 @@ async function runScreen(e, save = false) {
     const label = (s) => state.meta.strategies[s].label;
     const demoPrice = (x) => (x.price_source === "mock" && /^mixed/.test(r.data_source) ? " · demo price" : "");
     const pop = (x) => (x.trade.pop ? pct(x.trade.pop) : "—");
+    // UX17: trades with no chance-of-profit estimate (shares) show the money they tie up instead of a dash.
+    const firstCell = (x) => (x.trade.pop ? ["Chance of profit", pct(x.trade.pop)] : ["Money tied up", money(x.trade.capital_required)]);
     const maxp = (x) => (x.trade.max_profit === null ? "Unlimited" : money(x.trade.max_profit));
     box.innerHTML = unknown + (r.results.length ? `<p class="muted small results-line">${r.total} trade${r.total === 1 ? "" : "s"} match. ${r.filtered_out} compan${r.filtered_out === 1 ? "y" : "ies"} didn't pass your filters. Searched: ${esc(r.strategies.map(label).join(", "))}.</p>
       <div class="row-cards">${r.results.map((x, i) => `<button type="button" class="row-card" data-row="${i}">
         <span class="rc-top"><span><b>${esc(x.symbol)}</b> <span class="muted small">${esc(x.trade.label)}</span></span><span class="muted small num">Score ${x.score}</span></span>
-        <span class="rc-grid"><span><span>Max loss</span><b>${money(x.trade.max_loss)}</b></span><span><span>Max profit</span><b>${maxp(x)}</b></span><span><span>Chance of profit</span><b>${pop(x)}</b></span></span>
+        <span class="rc-grid"><span><span>${firstCell(x)[0]}</span><b>${firstCell(x)[1]}</b></span><span><span>Max profit</span><b>${maxp(x)}</b></span><span><span>Max loss</span><b>${money(x.trade.max_loss)}</b></span></span>
       </button>`).join("")}</div>
-      <div class="table-wrap has-cards"><table><thead><tr><th>Stock</th><th>Trade type</th><th class="num">Score</th><th class="num">Price</th><th class="num">Price swings (IV)</th><th class="num">Max loss</th><th class="num">Max profit</th><th class="num">Chance of profit</th><th class="num">Yearly rate</th><th>Expires</th></tr></thead><tbody>
-      ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b><div class="muted small">${esc(x.domain_label || "")}${demoPrice(x)}</div></td><td>${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${money(x.price, 2)}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${maxp(x)}</td><td class="num">${pop(x)}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td>${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
+      <div class="table-wrap has-cards"><table><thead><tr><th>Stock</th><th>Trade type</th><th class="num">Score</th><th class="num">Price swings (IV)</th><th class="num">Max loss</th><th class="num">Max profit</th><th class="num">Chance of profit</th><th class="num">Yearly rate</th><th>Expires</th></tr></thead><tbody>
+      ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b> <span class="muted small num">${money(x.price, 2)}</span><div class="muted small sector" title="${esc(x.domain_label || "")}">${esc(x.domain_label || "")}${demoPrice(x)}</div></td><td class="nowrap">${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${maxp(x)}</td><td class="num">${pop(x)}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td class="nowrap">${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
       </tbody></table></div>` : `<div class="panel state"><p>No trades match these filters. Try loosening one, or move the risk slider up to search more trade types.</p></div>`);
+    foldScreenForm(true);
   } catch (err) { box.innerHTML = errorState("Couldn't run this screen. Check your connection and try again.", err, retryButton(() => runScreen())); }
 }
 async function loadSavedScreens() {
@@ -496,10 +537,11 @@ async function loadPaper() {
     return;
   }
   const stat = (k, v, cls = "") => `<div class="metric ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
-  $("#paper-stats").innerHTML = stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), signCls(r.open_pnl)) +
+  // UX23: no stats while there's nothing to measure; the empty state's button sits high instead.
+  $("#paper-stats").innerHTML = !r.positions.length ? "" : stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), signCls(r.open_pnl)) +
     stat("Realized P&L", money(r.realized_pnl), signCls(r.realized_pnl)) + stat("Most you could lose (open trades)", money(r.capital_at_risk)) + stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) +
     (r.scratch ? stat("Scratch ($0) closes", r.scratch) : "");
-  const closeBtn = (p) => (p.status === "open" ? `<button class="ghost" data-close="${p.id}" aria-label="Close ${esc(p.symbol)} ${esc(p.trade.label)}">Close</button>` : "");
+  const closeBtn = (p) => (p.status === "open" ? `<button class="ghost" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
   $("#paper-list").innerHTML = r.positions.length ? `
     <div class="pos-cards">${r.positions.map((p) => `<div class="pos-card">
       <div class="rc-top"><span><b>${esc(p.symbol)}</b> <span class="muted small">${esc(p.trade.label)}</span></span><span class="muted small">${esc(p.status)}</span></div>
@@ -587,7 +629,7 @@ async function openTicker(sym) {
       <h3>Munger checklist</h3>${factorBars(ch)}
       ${ch.red_flags.length ? `<h3>Red flags (inversion)</h3><ul class="tight flags">${ch.red_flags.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div class="metrics">
-        ${[["ROIC", pct(f.roic)], ["Gross margin", pct(f.gross_margin)], ["Op. margin", pct(f.op_margin)], ["FCF yield", pct(f.fcf_yield, 1)], ["Debt/Equity", f.debt_to_equity?.toFixed?.(1) ?? "—"], ["Revenue growth", pct(f.rev_growth)], ["P/E", f.pe ?? "—"], ["ATM IV", d.atm_iv ? pct(d.atm_iv) : "—"]].map(([k, v]) => metric(k, v)).join("")}
+        ${[["Return on capital", pct(f.roic)], ["Gross margin", pct(f.gross_margin)], ["Operating margin", pct(f.op_margin)], ["Free-cash yield", pct(f.fcf_yield, 1)], ["Debt to equity", f.debt_to_equity?.toFixed?.(1) ?? "—"], ["Revenue growth", pct(f.rev_growth)], ["Price to earnings", f.pe ?? "—"], ["Expected price swings (IV)", d.atm_iv ? pct(d.atm_iv) : "—"]].map(([k, v]) => metric(k, v)).join("")}
       </div>
       <p class="muted small">Financials: ${f.source === "mock" ? "sample numbers, illustrative and not real filings." : esc(f.source)}${f.fiscal_year ? ` (FY${f.fiscal_year})` : ""}</p>
       <h2 class="mt-lg">Ways to express it at your risk level</h2>
@@ -641,6 +683,7 @@ $("#idea-count").onchange = () => loadIdeas();
 $("#profile-form").addEventListener("submit", submitProfile);
 $("#screen-form").addEventListener("submit", (e) => runScreen(e));
 $("#screen-form").addEventListener("input", countHiddenFilters);
+$("#edit-filters").onclick = () => { foldScreenForm(false); $("#screen-form").scope.focus(); };
 $("#screen-form").scope.addEventListener("change", (e) => {
   $("#symbols-field").classList.toggle("hidden", e.target.value !== "list");
   if (e.target.value === "list") $("#screen-form").symbols.focus();

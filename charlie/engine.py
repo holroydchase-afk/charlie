@@ -11,6 +11,7 @@ Selection follows Munger's process more than a quant model:
 from __future__ import annotations
 
 import hashlib
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -87,13 +88,66 @@ def _public(a: dict) -> dict:
     return {k: v for k, v in a.items() if not k.startswith("_")}
 
 
+_PCT = re.compile(r"\d+(?:\.\d+)?%")
+
+
+def _strength_phrase(f: dict) -> str | None:
+    """One plain clause from a business factor's reason, keeping its own % number."""
+    reason = f["reason"]
+    m = _PCT.search(reason)
+    if not m:
+        return None
+    n = m.group(0)
+    if f["key"] == "quality":
+        return f"earns {n} on the capital it invests"
+    if f["key"] == "moat":
+        steady = reason.split(" and ", 1)[1].replace(" year to year", "") if " and " in reason else ""
+        return f"keeps {n} of sales as operating profit" + (f", {steady} year to year" if steady else "")
+    if f["key"] == "value":
+        return f"yields {n} in free cash a year at today's price"
+    if f["key"] == "balance":
+        if "shrinking" in reason:
+            return f"buys back its own shares (count down {n} a year)"
+        if "growing" in reason:
+            return f"has a share count growing {n} a year"
+        return f"keeps a steady share count (within {n} a year)"
+    return reason.split(",")[0]
+
+
+def _headline(a: dict, trade: dict) -> str:
+    """CHL-UX16: the card's one line. The strongest business reason (a real number from a checklist
+    strength, never the score badge) plus the price where the trade starts losing money."""
+    s = a["charlie"]
+    business = sorted((f for f in s["factors"] if f["key"] != "competence"), key=lambda f: -f["score"])
+    strong = [f for f in business if f["score"] >= 60] or business[:1]
+    # A business reason reads better than a balance-sheet one, so balance goes last among strengths.
+    strong.sort(key=lambda f: f["key"] == "balance")
+    reason = next((p for p in map(_strength_phrase, strong) if p), None)
+    name = a["name"]
+    first = f"{name} {reason}." if reason else f"{name} is a {s['lynch_category'].lower()}."
+    be, spot = trade.get("breakeven"), trade.get("spot")
+    if not be or not spot:
+        return first
+    pct = abs(1 - be / spot) * 100
+    if trade["strategy"] == "shares":
+        risk = f"You lose money if it falls below ${be:,.2f}, today's price."
+    elif be <= spot:
+        risk = f"You'd only lose money below ${be:,.2f}, about {pct:.0f}% down."
+    else:
+        risk = f"You lose money unless it's above ${be:,.2f} at expiry, about {pct:.0f}% up."
+    line = f"{first} {risk}"
+    if len(line) > 180:  # long company names: drop the name, keep the reason and the risk
+        line = f"{(reason or s['lynch_category'].lower()).capitalize()}. {risk}"
+    return line
+
+
 def _thesis(a: dict, trade: dict) -> dict:
     s = a["charlie"]
     fac = {f["key"]: f for f in s["factors"]}
     strengths = [f for f in sorted(s["factors"], key=lambda f: -f["score"]) if f["score"] >= 60][:3]
     weak = [f for f in s["factors"] if f["score"] < 45]
     why_you = a["familiarity_why"] or ["broad, durable franchise outside your stated circle"]
-    lines = [f"{a['name']} is a {s['lynch_category'].lower()} with a Charlie score of {s['score']} ({s['grade']})."]
+    lines = [_headline(a, trade)]
     for f in strengths:
         lines.append(f"{f['key'].capitalize()}: {f['reason']}.")
     inversion = list(s["red_flags"])

@@ -19,8 +19,8 @@
     <span id="data-badge" class="badge">Loading…</span>
   </header>
   <div id="demo-banner" class="demo-banner static-only hidden" role="note">
-    <span><b>Sample data.</b> Anything you enter stays in this browser.</span>
-    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <span aria-hidden="true">·</span> <button id="reset-demo" class="link-btn" type="button">Reset demo</button></span>
+    <span><b>Sample data.</b><span class="wide-only"> Anything you enter stays in this browser.</span></span>
+    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <span aria-hidden="true">·</span> <button id="reset-demo" class="link-btn" type="button">Reset<span class="wide-only"> demo</span></button></span>
   </div>
 
   <nav class="tabs" role="tablist">
@@ -28,7 +28,7 @@
     <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
     <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
     <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
-    <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Paper portfolio</button>
+    <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Portfolio</button>
     <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
   </nav>
 
@@ -41,14 +41,18 @@
     <!-- TODAY -->
     <section id="tab-today" class="tab active" role="tabpanel" aria-labelledby="tabbtn-today">
       <div class="hero">
+        <div class="hero-main">
         <h1>Stock ideas from what you already know</h1>
         <p class="hero-how">Charlie reads your resume, finds the industries you know, scores companies with a Munger-style checklist, and suggests 1 to 3 paper-trade ideas a day.</p>
+        </div>
+        <div class="hero-side">
         <p id="profile-nudge" class="hero-whose muted">Showing a starter circle. <a href="#profile" data-goto="profile">Add your resume</a> to make it yours.</p>
         <ul class="proof" aria-label="What makes Charlie different">
           <li>Resume to circle of competence</li>
           <li>Munger checklist score</li>
           <li>Max loss on every trade</li>
         </ul>
+        </div>
       </div>
       <div class="section-head">
         <div>
@@ -79,10 +83,11 @@
           <label class="server-only">Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
             <input type="file" name="resume" accept=".pdf,.docx,.txt,.md">
           </label>
-          <button id="use-sample" type="button" class="link-btn small static-only hidden">Use the sample resume</button>
-          <label><span class="server-only">…or paste it</span><span class="static-only hidden">Paste a resume</span>
-            <textarea name="resume_text" rows="6" placeholder="Paste your resume or LinkedIn summary"></textarea>
-          </label>
+          <div class="label-row">
+            <label for="resume-text"><span class="server-only">…or paste it</span><span class="static-only hidden">Paste a resume</span></label>
+            <button id="use-sample" type="button" class="link-btn small static-only hidden">or use the sample</button>
+          </div>
+          <textarea id="resume-text" name="resume_text" rows="6" placeholder="Paste your resume or LinkedIn summary"></textarea>
           <label>What do you read about or follow closely?
             <textarea name="interests" rows="3" placeholder="e.g. AI chips, NVIDIA earnings, hospital staffing, EV batteries, $COST"></textarea>
           </label>
@@ -124,6 +129,10 @@
           <h1>Screener</h1>
           <p class="muted">Set your own criteria and Charlie finds trades that fit.</p>
         </div>
+      </div>
+      <div id="screen-summary" class="panel screen-summary">
+        <span id="screen-summary-text" class="grow small"></span>
+        <button type="button" id="edit-filters" class="ghost">Edit filters</button>
       </div>
       <form id="screen-form" class="panel screen-form">
         <div class="screen-main">

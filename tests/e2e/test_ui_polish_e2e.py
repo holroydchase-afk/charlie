@@ -85,9 +85,10 @@ def test_UX3_UX4_idea_cards_are_short_with_three_hero_metrics(make_page, site_ur
         metrics = card.evaluate(VISIBLE_METRICS)
         if len(metrics) != 3:
             problems.append(f"card {i + 1}: {len(metrics)} visible metric tiles, want exactly 3: {metrics}")
-        for label in ["Chance of profit", "Max profit", "Max loss"]:
+        # UX17: a trade with no chance-of-profit estimate (shares) shows "Money tied up" in that tile.
+        for label in [("Chance of profit", "Money tied up"), ("Max profit",), ("Max loss",)]:
             if not any(m.startswith(label) for m in metrics):
-                problems.append(f"card {i + 1}: hero metrics miss '{label}'")
+                problems.append(f"card {i + 1}: hero metrics miss '{' or '.join(label)}'")
         # Hard rules: the disclaimer and the breakeven stay visible on the collapsed card.
         if NFA not in card.evaluate(VISIBLE_NFA):
             problems.append(f"card {i + 1}: no visible disclaimer outside a closed <details>")
