@@ -62,9 +62,9 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 
 ### Release run (Oct 28, `docs/plans/2026-10-28-release.md`; the Polish Freeze was lifted by Chase)
 
-- **M1.10** Works for real: fix CHL-R1 to R8, each with a failing qa-tdd test first. Status: done (branch `claude/project-thread-hpanpa`; `tests/test_works_for_real.py` green; qa-tdd 3x and ux-reviewer pending before the PR).
+- **M1.10** Works for real: fix CHL-R1 to R8, each with a failing qa-tdd test first. Status: done (branch `claude/project-thread-hpanpa`; `tests/test_works_for_real.py` green; all suites 3x green; PR "M1.10: works for real"). New copy gets its ux-reviewer pass in M1.11.
   - [x] Every R-item's test is green.
-  - [ ] Fresh-DB walkthrough in mock and `CHARLIE_DATA=auto` with no 5xx and no console errors, 3x green by qa-tdd.
+  - [x] Fresh-DB walkthrough in mock and `CHARLIE_DATA=auto` with no 5xx and no console errors; 157 unit + 10 browser tests green 3x.
 - **M1.11** UI to 8/10: ux-reviewer scores the local app and the demo at 390 and 1280 px, light and dark; fix every P0/P1 and P2s until 8/10. Status: todo.
 - **M1.12** Harden: a pytest for every core endpoint (happy path and bad input), profile validation 422s, chat refusal wording, no resume in logs, SQLite `secure_delete`, `check-logs` over `charlie/`. Status: todo.
 - **M1.13** Enhancements: A, idea track record vs SPY; B, exit-plan alerts on paper positions. Status: todo.
