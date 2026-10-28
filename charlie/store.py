@@ -94,6 +94,13 @@ class Store:
     def daily_put(self, day: str, level: int, profile_hash: str, payload: dict) -> None:
         self._exec("INSERT OR REPLACE INTO daily VALUES(?,?,?,?)", (day, level, profile_hash, json.dumps(payload)))
 
+    def daily_before(self, day: str) -> list[dict]:
+        """Every snapshot from days before `day`, newest first: [{day, level, profile_hash, payload}]."""
+        rows = self._exec("SELECT day, level, profile_hash, payload FROM daily WHERE day < ? ORDER BY day DESC",
+                          (day,)).fetchall()
+        return [{"day": r["day"], "level": r["level"], "profile_hash": r["profile_hash"],
+                 "payload": json.loads(r["payload"])} for r in rows]
+
     def clear_daily(self) -> None:
         self._exec("DELETE FROM daily")
 

@@ -19,7 +19,8 @@ NFA = "Not financial advice. Paper trading only."
 
 
 @pytest.fixture(scope="session")
-def site_url(tmp_path_factory):
+def site_dir(tmp_path_factory):
+    """The built demo folder (built once per session)."""
     sys.path.insert(0, str(ROOT / "tools"))
     try:
         import build_demo
@@ -27,8 +28,13 @@ def site_url(tmp_path_factory):
         sys.path.pop(0)
     # With CHARLIE_PYODIDE_DIR the runtime is self-hosted, exactly as pages.yml builds it.
     pyodide = os.environ.get("CHARLIE_PYODIDE_DIR")
-    site = build_demo.build(tmp_path_factory.mktemp("e2e") / "site", day="2026-10-22",
-                            pyodide_dir=Path(pyodide) if pyodide else None)
+    return Path(build_demo.build(tmp_path_factory.mktemp("e2e") / "site", day="2026-10-22",
+                                 pyodide_dir=Path(pyodide) if pyodide else None))
+
+
+@pytest.fixture(scope="session")
+def site_url(site_dir):
+    site = site_dir
     handler = functools.partial(type("Quiet", (SimpleHTTPRequestHandler,), {"log_message": lambda *a: None}),
                                 directory=str(site))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)

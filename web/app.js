@@ -292,6 +292,46 @@ async function loadIdeas(refresh = false) {
   } catch (e) {
     box.innerHTML = errorState("Couldn't load ideas. Check your connection and try again.", e, retryButton(() => loadIdeas(refresh)));
   }
+  loadTrackRecord();
+}
+// M1.13: past ideas graded at today's price, next to SPY over the same days. The stock's move, not a trade's P&L.
+const signedPct = (x) => (x === null || x === undefined) ? "—" : `${x > 0 ? "+" : x < 0 ? "−" : ""}${Math.abs(x * 100).toFixed(1)}%`;
+const TRACK_SHOWN = 6;  // newer ideas show; older ones fold behind "Show older ideas"
+function trackItem(it) {
+  const be = it.above_breakeven === null ? "" : `<span class="be-chip ${it.above_breakeven ? "above" : "below"}">${it.above_breakeven ? "Above" : "Below"} breakeven <span class="num">${money(it.breakeven, 2)}</span></span>`;
+  return `<li class="track-item" title="${esc(it.outcome)}">
+    <div class="ti-head"><b>${esc(it.symbol)}</b> <span class="muted small">${esc(it.label)}</span><span class="ti-date muted small num">Idea on ${esc(it.date)}</span></div>
+    <div class="ti-grid">
+      <span><span>Then → now</span><b class="num">${money(it.entry_price, 2)} → ${money(it.price_today, 2)}</b></span>
+      <span><span>Stock</span><b class="num ${signCls(it.underlying_move_pct)}">${signedPct(it.underlying_move_pct)}</b></span>
+      <span><span>SPY<span class="wide-only">, same days</span></span><b class="num">${signedPct(it.spy_move_pct)}</b></span>
+    </div>
+    ${be}<span class="sr-only">${esc(it.outcome)}</span>
+  </li>`;
+}
+let trackSeq = 0;
+async function loadTrackRecord() {
+  const box = $("#track-body"), seq = ++trackSeq;
+  if (!box) return;
+  let r;
+  try { r = await api("/api/track-record"); } catch (e) {
+    if (seq === trackSeq) box.innerHTML = errorState("Couldn't load past ideas. Check your connection and try again.", e, retryButton(loadTrackRecord));
+    return;
+  }
+  if (seq !== trackSeq) return;
+  $("#track-sample").classList.toggle("hidden", !r.sample);
+  if (!r.items.length) {
+    box.innerHTML = `<div class="panel state track-empty"><p>No past ideas yet. Come back tomorrow.</p><p class="muted small">Each day's ideas are kept here and checked against SPY.</p>${nfa()}</div>`;
+    return;
+  }
+  const s = r.summary, shown = r.items.slice(0, TRACK_SHOWN), older = r.items.slice(TRACK_SHOWN);
+  box.innerHTML = `<div class="panel track-panel">
+    <p class="track-sum"><b>${s.above_breakeven} of ${s.count}</b> past ideas are above breakeven today. Average stock move <b class="num">${signedPct(s.avg_underlying_move_pct)}</b>; SPY over the same days <b class="num">${signedPct(s.avg_spy_move_pct)}</b>.</p>
+    <ul class="track-list">${shown.map(trackItem).join("")}</ul>
+    ${older.length ? `<details class="track-older"><summary>Show ${older.length} older idea${older.length === 1 ? "" : "s"}</summary><ul class="track-list">${older.map(trackItem).join("")}</ul></details>` : ""}
+    <p class="muted small track-note">${r.sample ? "Sample data: the engine's ideas on simulated prices from past days. " : ""}Options aren't re-priced, so this isn't a trade's profit or loss. Past moves don't predict future ones.</p>
+    ${nfa()}
+  </div>`;
 }
 // Where the numbers came from, in the header badge. Prices and fundamentals are labeled separately,
 // so live prices next to demo earnings never read as fully live (CHL-R2, CHL-R4).
@@ -480,7 +520,7 @@ async function runScreen(e, save = false) {
       </button>`).join("")}</div>
       <div class="table-wrap has-cards"><table><thead><tr><th>Stock</th><th>Trade type</th><th class="num">Score</th><th class="num">Price swings (IV)</th><th class="num">Max loss</th><th class="num">Max profit</th><th class="num">Chance of profit</th><th class="num">Yearly rate</th><th>Expires</th></tr></thead><tbody>
       ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b> <span class="muted small num">${money(x.price, 2)}</span><div class="muted small sector" title="${esc(x.domain_label || "")}">${esc(x.domain_label || "")}${demoPrice(x)}</div></td><td class="nowrap">${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${maxp(x)}</td><td class="num">${pop(x)}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td class="nowrap">${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="panel state"><p>No trades match these filters. Try loosening one, or move the risk slider up to search more trade types.</p></div>`);
+      </tbody></table></div>${nfa()}` : `<div class="panel state"><p>No trades match these filters. Try loosening one, or move the risk slider up to search more trade types.</p></div>`);
     foldScreenForm(true);
   } catch (err) { box.innerHTML = errorState("Couldn't run this screen. Check your connection and try again.", err, retryButton(() => runScreen())); }
 }
@@ -570,18 +610,23 @@ async function loadPaper() {
   const entryText = (p) => (p.entry_value < 0 ? `You received ${money(-p.entry_value)}` : `You paid ${money(p.entry_value)}`);
   const nowText = (p) => (p.current_value < 0 ? `${p.status === "open" ? "Cost to close" : "Closed for"} ${money(-p.current_value)}`
     : `${p.status === "open" ? "Worth" : "Closed at"} ${money(p.current_value)}`);
+  // M1.13: exit-plan alerts, one chip per rule that fired; the message is the chip's title and, on phones, a line below.
+  const ALERT_LABEL = { take_profit: "Take profit?", time: "Near expiry", breakeven: "Below breakeven" };
+  const chips = (p, srText = true) => (p.alerts || []).map((a) => `<span class="alert-chip" data-alert="${esc(a.type)}" title="${esc(a.message)}">${esc(ALERT_LABEL[a.type] || a.type)}${srText ? `<span class="sr-only">: ${esc(a.message)}</span>` : ""}</span>`).join("");
+  const alertBlock = (p) => (p.alerts?.length ? `<div class="alert-row">${chips(p, false)}</div><ul class="alert-msgs">${p.alerts.map((a) => `<li>${esc(a.message)}</li>`).join("")}</ul>` : "");
   const closeBtn = (p) => (p.status === "open" ? `<button class="ghost" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
   $("#paper-list").innerHTML = r.positions.length ? `
     <div class="pos-cards">${r.positions.map((p) => `<div class="pos-card">
       <div class="rc-top"><span><b>${esc(p.symbol)}</b> <span class="muted small">${esc(p.trade.label)}</span></span><span class="muted small">${esc(p.status)}</span></div>
+      ${alertBlock(p)}
       <div class="small muted rc-money">${entryText(p)} · ${nowText(p)}</div>
       <div class="rc-grid"><span><span>P&L</span><b class="pos-pnl ${signCls(p.pnl)} num">${money(p.pnl)}</b></span><span><span>% of max profit</span><b class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</b></span><span><span>${p.trade.expiry ? "Expires" : "Opened"}</span><b class="num">${esc(p.trade.expiry || p.opened.slice(0, 10))}</b></span></div>
       ${closeBtn(p) ? `<div class="actions">${closeBtn(p)}</div>` : ""}</div>`).join("")}</div>
     <div class="table-wrap has-cards"><table><thead><tr><th>Opened</th><th>Stock</th><th>Trade type</th><th class="num">Entry</th><th class="num">Now</th><th class="num">P&L</th><th class="num">% of max profit</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-    ${r.positions.map((p) => `<tr><td class="num">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
-      <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}</td>
+    ${r.positions.map((p) => `<tr><td class="num nowrap">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small nowrap">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
+      <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}${p.alerts?.length ? `<div class="alert-row">${chips(p)}</div>` : ""}</td>
       <td>${closeBtn(p)}</td></tr>`).join("")}
-    </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>`
+    </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>${nfa()}`
     : `<div class="panel state"><div class="icon" aria-hidden="true">$</div><h2>No paper trades yet</h2>
        <p>Pick an idea on Today and tap Paper trade this to practice with pretend money.</p>
        <button type="button" class="primary" data-goto="today">See today's ideas</button></div>`;

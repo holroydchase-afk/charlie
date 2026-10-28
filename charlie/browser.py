@@ -75,6 +75,7 @@ def prebuild(today_iso: str, count: int = 3) -> dict:
         for i in ideas["ideas"]:
             path = f"/api/ticker/{i['trade']['symbol']}?risk={lvl}"
             entries[f"GET {path}"] = get(path)
+        entries["GET /api/track-record"] = get("/api/track-record")  # shown under the ideas on Today
         entries["chat"] = {}
         for q in CHAT_STARTERS:
             body = json.dumps({"messages": [{"role": "user", "content": q}]})
