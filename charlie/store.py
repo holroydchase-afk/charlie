@@ -57,6 +57,13 @@ class Store:
     def delete(self, key: str) -> None:
         self._exec("DELETE FROM kv WHERE k=?", (key,))
 
+    def wipe(self) -> None:
+        """Delete everything: profile, resume, saved screens, cached ideas and paper trades."""
+        with self._lock:
+            for table in ("kv", "screens", "daily", "positions"):
+                self._conn.execute(f"DELETE FROM {table}")
+            self._conn.commit()
+
     # screens
     def save_screen(self, name: str, criteria: dict) -> dict:
         sid = uuid.uuid4().hex[:10]

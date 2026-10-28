@@ -74,7 +74,7 @@ class MarketData:
             if self.mode == "live":
                 raise
             with self._lock:
-                if isinstance(e, (OSError, ConnectionError)) or "requests" in type(e).__module__:
+                if _is_outage(e):
                     self._offline_until = time.monotonic() + OFFLINE_BACKOFF
                 msg = f"{what}: {type(e).__name__}: {e}"[:200]
                 if msg not in self._errors:
@@ -82,12 +82,16 @@ class MarketData:
             return fallback()
 
     def _memo(self, key: tuple, fn):
+        """Remember results per process; outside mock mode they expire with the quote cache,
+        so a long-running server keeps picking up fresh delayed prices."""
+        now = time.monotonic()
         with self._lock:
-            if key in self._mem:
-                return self._mem[key]
+            hit = self._mem.get(key)
+            if hit and (self.mode == "mock" or now - hit[0] < TTL["options"]):
+                return hit[1]
         val = fn()
         with self._lock:
-            self._mem[key] = val
+            self._mem[key] = (now, val)
         return val
 
     def _options_payload(self, symbol: str) -> dict:
@@ -99,22 +103,23 @@ class MarketData:
     def history(self, symbol: str) -> list[dict]:
         symbol = symbol.upper()
 
-        def live():
-            from . import cboe
-            rows = cboe.parse_history(self._cached("history", symbol, lambda: cboe.fetch_history(symbol)))
-            if not rows:
-                raise ValueError("empty history")
-            return rows
-
         return self._memo(("history", symbol), lambda: self._live(
-            f"history {symbol}", live, lambda: mock.history(symbol, self.today)))
+            f"history {symbol}", lambda: self._live_history(symbol), lambda: mock.history(symbol, self.today)))
+
+    def _live_history(self, symbol: str) -> list[dict]:
+        from . import cboe
+        rows = cboe.parse_history(self._cached("history", symbol, lambda: cboe.fetch_history(symbol)))
+        if not rows:
+            raise ValueError("empty history")
+        return rows
 
     def quote(self, symbol: str) -> dict:
         symbol = symbol.upper()
 
         def live():
             from . import cboe
-            closes = [r["close"] for r in self.history(symbol) if r.get("close")]
+            # live closes only, so a live price never gets a 52-week range from demo history
+            closes = [r["close"] for r in self._live_history(symbol) if r.get("close")]
             q = cboe.parse_quote(self._options_payload(symbol), symbol, closes)
             if not q["price"]:
                 raise ValueError("no price in Cboe payload")
@@ -171,6 +176,8 @@ class MarketData:
             notes.append("Live SEC fundamentals are off until CHARLIE_SEC_UA is set ('AppName your-email').")
         if self.mode == "mock":
             notes.append("Demo data only (CHARLIE_DATA=mock). Prices are simulated.")
+        elif self._errors and self._live_hits:
+            notes.append("Some live data was unavailable, so those names show demo data.")
         elif self._errors:
             notes.append("Live data unreachable, showing demo data where needed.")
         with self._lock:
@@ -179,9 +186,25 @@ class MarketData:
                 "today": self.today.isoformat(),
                 "live_ok": self.mode != "mock" and not self._errors and self._live_hits > 0,
                 "sec_user_agent_set": _sec_ready(),
+                # Prices can be live while scores still use illustrative fundamentals; say which.
+                "fundamentals": "live (SEC)" if self.mode != "mock" and _sec_ready() else "demo",
                 "errors": list(self._errors),
                 "notes": notes,
             }
+
+
+def _is_outage(e: Exception) -> bool:
+    """True when the source itself is unreachable (worth a backoff for every symbol), as opposed
+    to one bad symbol (a 4xx) or one odd payload."""
+    try:
+        import requests
+        if isinstance(e, requests.HTTPError):
+            return False
+        if isinstance(e, requests.RequestException):
+            return True
+    except ImportError:
+        pass
+    return isinstance(e, (OSError, ConnectionError, TimeoutError))
 
 
 def _sec_ready() -> bool:

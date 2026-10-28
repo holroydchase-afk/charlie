@@ -40,6 +40,18 @@ class BrowserStore:
     def delete(self, key: str) -> None:
         self._s.removeItem(PREFIX + "kv:" + key)
 
+    def wipe(self) -> None:
+        """Delete every "charlie:" entry (profile, resume, screens, cached ideas, paper trades)."""
+        keys = {PREFIX + n for n in ("screens", "daily", "positions")}
+        keys |= {PREFIX + "kv:" + k for k in ("profile", "intake", "sample_risk")}
+        try:  # window.localStorage can list its keys; a minimal stand-in may not
+            n = int(self._s.length)
+            keys |= {k for k in (self._s.key(i) for i in range(n)) if isinstance(k, str) and k.startswith(PREFIX)}
+        except (AttributeError, TypeError, ValueError):
+            pass
+        for k in keys:
+            self._s.removeItem(k)
+
     # screens
     def save_screen(self, name: str, criteria: dict) -> dict:
         s = {"id": uuid.uuid4().hex[:10], "name": name, "criteria": criteria, "created": _now()}
