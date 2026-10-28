@@ -83,22 +83,125 @@ class Profile:
 
 # --------------------------------------------------------------------------- text
 
+# Upload limits (CHL-PS3): a resume is a few pages, so anything far bigger is refused before parsing.
+MAX_ZIP_MEMBERS = 200
+MAX_ZIP_UNPACKED = 20_000_000
+MAX_ZIP_RATIO = 100
+MAX_PDF_PAGES = 30
+MAX_TEXT_CHARS = 100_000
+# CHL-PS14: pypdf parses every content-stream operator in Python, so a tiny file whose stream inflates to
+# tens of MB burns minutes and GBs. A real resume's pages decode to tens of KB, so 2 MB in all is plenty.
+MAX_PDF_CONTENT = 2_000_000
+_PDF_DECODE_LIMIT = 10_000_000  # pypdf's own per-stream inflate caps, lowered from its 75 MB default
+
+
+class FileTooComplex(ValueError):
+    """The upload unpacks to far more than a resume would (a decompression bomb, or simply huge)."""
+
+
+def _check_zip(data: bytes) -> None:
+    import zipfile
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        infos = z.infolist()
+        unpacked = sum(i.file_size for i in infos)
+        if len(infos) > MAX_ZIP_MEMBERS:
+            raise FileTooComplex(f"{len(infos)} parts in the file (max {MAX_ZIP_MEMBERS})")
+        if unpacked > MAX_ZIP_UNPACKED:
+            raise FileTooComplex(f"unpacks to {unpacked:,} bytes (max {MAX_ZIP_UNPACKED:,})")
+        if unpacked > MAX_ZIP_RATIO * max(len(data), 1):
+            raise FileTooComplex(f"unpacks to over {MAX_ZIP_RATIO}x its size")
+
+
+def _pdf_stream_size(stream, budget: int) -> int:
+    """Decoded size of one PDF stream, inflating at most budget + 1 bytes for plain Flate streams."""
+    import zlib
+    filters = stream.get("/Filter")
+    filters = [] if filters is None else [str(f) for f in (filters if isinstance(filters, list) else [filters])]
+    raw = getattr(stream, "_data", None)
+    if raw is not None and not filters:
+        return len(raw)
+    if raw is not None and filters in (["/FlateDecode"], ["/Fl"]):
+        try:
+            return len(zlib.decompressobj().decompress(raw, budget + 1))
+        except zlib.error:
+            pass  # damaged stream: let pypdf (and its recovery) measure it below
+    try:  # other filter chains: pypdf decodes under its lowered limits
+        return len(stream.get_data())
+    except Exception as e:
+        raise FileTooComplex(f"a PDF stream couldn't be decoded within limits ({type(e).__name__})")
+
+
+def _check_pdf(pages) -> None:
+    """Refuse a PDF whose page content (and the forms the pages draw) decodes to over MAX_PDF_CONTENT
+    bytes, before any text extraction. A stream shared by many pages counts once per page, since pypdf
+    parses it once per page."""
+    import pypdf.filters as pf
+    for name in ("ZLIB_MAX_OUTPUT_LENGTH", "LZW_MAX_OUTPUT_LENGTH", "RUN_LENGTH_MAX_OUTPUT_LENGTH"):
+        if getattr(pf, name, 0) > _PDF_DECODE_LIMIT:
+            setattr(pf, name, _PDF_DECODE_LIMIT)
+    total = 0
+
+    def add(stream):
+        nonlocal total
+        total += _pdf_stream_size(stream, MAX_PDF_CONTENT - total)
+        if total > MAX_PDF_CONTENT:
+            raise FileTooComplex(f"page content decodes to over {MAX_PDF_CONTENT:,} bytes")
+
+    def forms(resources, seen, depth):
+        xobjects = (resources or {}).get("/XObject") if hasattr(resources, "get") else None
+        if depth > 5 or not xobjects:
+            return
+        for ref in xobjects.get_object().values():
+            obj = ref.get_object()
+            if obj.get("/Subtype") != "/Form" or id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            add(obj)
+            forms(obj.get("/Resources"), seen, depth + 1)
+
+    for page in pages:
+        contents = page.get("/Contents")
+        if contents is not None:
+            contents = contents.get_object()
+            for part in (contents if isinstance(contents, list) else [contents]):
+                add(part.get_object())
+        res = page.get("/Resources")
+        forms(res.get_object() if res is not None else None, set(), 0)
+
+
+def _capped(parts) -> str:
+    """Join text parts, stopping once MAX_TEXT_CHARS is reached."""
+    out, size = [], 0
+    for part in parts:
+        out.append(part)
+        size += len(part) + 1
+        if size >= MAX_TEXT_CHARS:
+            break
+    return "\n".join(out)[:MAX_TEXT_CHARS]
+
+
 def extract_text(filename: str, data: bytes) -> str:
-    """Pull plain text out of a PDF, DOCX, or text upload."""
+    """Pull plain text out of a PDF, DOCX, or text upload: at most 30 PDF pages and 100k characters.
+    Raises FileTooComplex for a .docx, or a PDF's page content, that would unpack to far more than a resume."""
     name = (filename or "").lower()
     if name.endswith(".pdf") or data[:4] == b"%PDF":
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(data))
-        return "\n".join((page.extract_text() or "") for page in reader.pages)
+        pages = [reader.pages[i] for i in range(min(len(reader.pages), MAX_PDF_PAGES))]
+        _check_pdf(pages)  # before pypdf parses a single operator (CHL-PS14)
+        return _capped((p.extract_text() or "") for p in pages)
     if name.endswith(".docx") or data[:2] == b"PK":
+        _check_zip(data)  # before python-docx unpacks anything
         import docx
         doc = docx.Document(io.BytesIO(data))
-        parts = [p.text for p in doc.paragraphs]
-        for table in doc.tables:
-            for row in table.rows:
-                parts.extend(cell.text for cell in row.cells)
-        return "\n".join(parts)
-    return data.decode("utf-8", errors="ignore")
+
+        def parts():
+            yield from (p.text for p in doc.paragraphs)
+            for table in doc.tables:
+                for row in table.rows:
+                    yield from (cell.text for cell in row.cells)
+        return _capped(parts())
+    return data[:MAX_TEXT_CHARS * 4].decode("utf-8", errors="ignore")[:MAX_TEXT_CHARS]
 
 
 def _norm(text: str) -> str:

@@ -79,7 +79,7 @@ def client(tmp_path, monkeypatch, mock_md):
     from charlie import server
     monkeypatch.setattr(server, "store", Store(str(tmp_path / "t.db")))
     monkeypatch.setattr(server, "md", lambda: mock_md)
-    return TestClient(server.app, raise_server_exceptions=False)
+    return TestClient(server.app, base_url="http://127.0.0.1:8000", raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -237,7 +237,7 @@ def test_CHL_R4_status_reports_demo_fundamentals_with_live_prices(monkeypatch, t
     md.quote("ABT")  # one live hit, so prices really are live
     monkeypatch.setattr(server, "store", Store(str(tmp_path / "t.db")))
     monkeypatch.setattr(server, "md", lambda: md)
-    s = TestClient(server.app).get("/api/status").json()
+    s = TestClient(server.app, base_url="http://127.0.0.1:8000").get("/api/status").json()
     assert s["data"]["fundamentals"] == "demo"
 
 
@@ -333,7 +333,7 @@ def test_CHL_R7_win_rate_ignores_scratch_trades(tmp_path, monkeypatch, mock_md):
     _closed(store, mock_md, "KO", +50.0)
     _closed(store, mock_md, "PEP", -50.0)
     _closed(store, mock_md, "MCD", 0.0)
-    s = TestClient(server.app).get("/api/paper").json()
+    s = TestClient(server.app, base_url="http://127.0.0.1:8000").get("/api/paper").json()
     assert s["scratch"] == 1
     assert s["win_rate"] == 0.5  # 1 win / (1 win + 1 loss)
 
@@ -344,7 +344,7 @@ def test_CHL_R7_only_scratch_trades_have_no_win_rate(tmp_path, monkeypatch, mock
     monkeypatch.setattr(server, "store", store)
     monkeypatch.setattr(server, "md", lambda: mock_md)
     _closed(store, mock_md, "KO", 0.0)
-    s = TestClient(server.app).get("/api/paper").json()
+    s = TestClient(server.app, base_url="http://127.0.0.1:8000").get("/api/paper").json()
     assert s["scratch"] == 1 and s["win_rate"] is None
 
 
