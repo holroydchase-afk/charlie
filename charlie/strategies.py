@@ -22,13 +22,15 @@ NFA = "Not financial advice. Paper trading only."
 
 STRATEGIES = {
     "shares": {
-        "label": "Buy shares", "min_level": 1, "outlook": "bullish, long-term",
+        "label": "Buy shares", "explainer_title": "How buying shares works",
+        "min_level": 1, "outlook": "bullish, long-term",
         "risk": "You can lose what you put in, but there's no expiration clock.",
         "learn": ("Owning the business outright. Munger's default: buy a wonderful company at a fair price "
                   "and sit on your hands. No leverage, no expiry, no options math."),
     },
     "cash_secured_put": {
-        "label": "Cash-secured put", "min_level": 2, "outlook": "neutral to bullish; happy to own lower",
+        "label": "Cash-secured put", "explainer_title": "What is a cash-secured put?",
+        "min_level": 2, "outlook": "neutral to bullish; happy to own lower",
         "risk": "If the stock falls below the strike you buy 100 shares at the strike (minus the premium).",
         "learn": ("You sell someone the right to sell you 100 shares at a lower price, and set the cash aside to "
                   "cover it. You get paid now. If the stock stays above the strike, you keep the premium; if it "
@@ -36,40 +38,46 @@ STRATEGIES = {
                   "limit order that pays you while you wait. Same downside as owning the stock, minus the premium."),
     },
     "covered_call": {
-        "label": "Covered call", "min_level": 2, "outlook": "neutral to mildly bullish on shares you own",
+        "label": "Covered call", "explainer_title": "What is a covered call?",
+        "min_level": 2, "outlook": "neutral to mildly bullish on shares you own",
         "risk": "Caps your upside at the strike; shares can still fall.",
         "learn": ("You own 100 shares and sell someone the right to buy them from you at a higher price. You earn "
                   "the premium as extra income. If the stock rises past the strike, your shares get sold at that "
                   "price (still a profit). The trade-off: you give up gains above the strike."),
     },
     "collar": {
-        "label": "Collar", "min_level": 3, "outlook": "protect shares you own",
+        "label": "Collar", "explainer_title": "What is a collar?",
+        "min_level": 3, "outlook": "protect shares you own",
         "risk": "Limits both downside and upside on shares you already hold.",
         "learn": ("On shares you own, buy a put (insurance) and pay for it by selling a call. Your losses are "
                   "floored at the put strike and your gains capped at the call strike. Good for protecting a big "
                   "winner without selling it."),
     },
     "bull_put_spread": {
-        "label": "Bull put credit spread", "min_level": 3, "outlook": "neutral to bullish",
+        "label": "Bull put credit spread", "explainer_title": "What is a bull put credit spread?",
+        "min_level": 3, "outlook": "neutral to bullish",
         "risk": "Max loss is fixed: the width between strikes minus the credit.",
         "learn": ("A cash-secured put with a safety net: you sell one put and buy a cheaper, lower-strike put. "
                   "You collect less premium, but your worst case is known and small, and it ties up far less "
                   "cash than buying 100 shares."),
     },
     "bull_call_spread": {
-        "label": "Bull call debit spread", "min_level": 4, "outlook": "bullish over the next 1-3 months",
+        "label": "Bull call debit spread", "explainer_title": "What is a bull call debit spread?",
+        "min_level": 4, "outlook": "bullish over the next 1-3 months",
         "risk": "You can lose the whole debit if the stock doesn't rise.",
         "learn": ("Buy a call and sell a higher-strike call against it. Cheaper than a call alone, with a defined "
                   "maximum gain and a defined maximum loss (what you paid)."),
     },
     "leaps_call": {
-        "label": "LEAPS call (stock replacement)", "min_level": 4, "outlook": "bullish over 9-18 months",
+        "label": "LEAPS call (stock replacement)", "explainer_title": "What is a LEAPS call?",
+        "min_level": 4, "outlook": "bullish over 9-18 months",
         "risk": "Can lose the full premium; time decay is slow but real.",
         "learn": ("A long-dated, in-the-money call that moves almost like the stock for a fraction of the cost. "
                   "Leverage, so size it small. Munger would remind you leverage is how smart people go broke."),
     },
     "long_call": {
-        "label": "Long call", "min_level": 5, "outlook": "bullish, near-term move expected",
+        "label": "Long call", "explainer_title": "What is a long call?",
+        "min_level": 5, "outlook": "bullish, near-term move expected",
         "risk": "Most short-dated calls expire worthless; you can lose 100% quickly.",
         "learn": ("The lottery-ticket trade most beginners start with. Time decay works against you every day, "
                   "and you need the move to happen fast. Kept at the top of the slider for a reason."),
@@ -83,7 +91,7 @@ RISK_LEVELS = {
         "plain": "Plain share purchases, each about 5% of your paper capital. Options wait in Learn until you're ready."},
     2: {"label": "Conservative", "max_risk_pct": 0.05, "max_collateral_pct": 0.5,
         "prefs": ["covered_call", "cash_secured_put", "shares"],
-        "blurb": "Income strategies on companies you'd be glad to own: covered calls and cash-secured puts at ~0.20 delta, 30-50 days out.",
+        "blurb": "Income strategies on companies you'd be glad to own: covered calls and cash-secured puts about 20% likely to be assigned, 30-50 days out.",
         "plain": "Steady-income trades on companies you'd be happy to own."},
     3: {"label": "Moderate", "max_risk_pct": 0.05, "max_collateral_pct": 0.5,
         "prefs": ["cash_secured_put", "bull_put_spread", "covered_call", "collar", "shares"],
@@ -185,6 +193,7 @@ def _finish(strategy: str, symbol: str, spot: float, legs: list[dict], contracts
     out = {
         "strategy": strategy,
         "label": STRATEGIES[strategy]["label"],
+        "explainer_title": STRATEGIES[strategy]["explainer_title"],
         "symbol": symbol,
         "spot": round(spot, 2),
         "legs": legs,

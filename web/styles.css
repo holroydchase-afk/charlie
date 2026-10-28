@@ -153,6 +153,7 @@ legend { font-size: var(--fs-sm); font-weight: 600; padding: 0; margin-bottom: v
 /* Grade badge (UX13) */
 .grade { font-weight: 700; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); white-space: nowrap; border: 1px solid transparent; font-size: var(--fs-sm); line-height: 1.25; text-align: right; flex: none; }
 .grade .gscore { display: block; }
+.grade .gcap { display: none; }
 .grade .gmore { display: block; font-weight: 500; font-size: var(--fs-xs); }
 .grade .gmore::after { content: ""; display: inline-block; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-top: 1.5px solid currentColor; transform: rotate(45deg); margin-left: 5px; vertical-align: 1px; }
 button.grade:hover { border-color: currentColor; }
@@ -361,8 +362,9 @@ button.row-card:hover { border-color: var(--accent); }
   .strategy-tag { font-size: var(--fs-xs); }
   .card-title .sym { display: block; margin-left: 0; }
   .rank { vertical-align: 1px; }
-  /* Compact badge on phones ("76/100 · A"), so the title and sector get the width; aria-label keeps the full words. */
-  .card-head .grade .gword { display: none; }
+  /* Compact badge on phones ("Score 76 · A", UX34), so the title and sector get the width; aria-label keeps the full words. */
+  .card-head .grade .gword, .card-head .grade .gout { display: none; }
+  .card-head .grade .gcap { display: inline; }
   .metrics.hero-m { gap: var(--s2); }
   .hero-m .metric { padding: 8px; }
   .why-chips .chip { font-size: var(--fs-xs); }
@@ -400,4 +402,28 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .hero h1 { max-width: none; }
   .hero-how { margin-bottom: 0; }
   .hero-side .proof { flex-direction: column; align-items: flex-start; }
+}
+/* UX28: the top idea's numbers in the phone's first screen */
+.hero-top-idea { display: none; }
+@media (max-width: 600px) {
+  .hero-top-idea:not(.hidden) { display: block; margin-top: var(--s3); padding: 10px var(--s3); min-height: 44px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-sm); text-decoration: none; }
+}
+/* UX30: entry and now in words on the phone position card */
+.pos-card .rc-money { margin-top: var(--s1); }
+/* UX31: banner targets at least 24px tall */
+.demo-actions a, #reset-demo { display: inline-flex; align-items: center; min-height: 24px; padding-block: 4px; }
+/* UX29: reflow at 320px, no horizontal page scroll */
+@media (max-width: 600px) {
+  .card .actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .card .actions button { min-width: 0; white-space: normal; }
+}
+@media (max-width: 400px) {
+  .risk-control { width: 100%; gap: var(--s2); }
+  .risk-control input { flex: 1 1 auto; width: auto; min-width: 0; }
+}
+/* UX35: on phones the disabled trade types fold into one line */
+.locked-note { display: none; margin: var(--s2) 0 0; }
+@media (max-width: 600px) {
+  #strategy-select .chip-check.disabled { display: none; }
+  .locked-note:not(.hidden) { display: block; }
 }

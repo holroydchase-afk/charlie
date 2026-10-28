@@ -158,7 +158,7 @@ class Api:
         return {
             "risk_levels": {k: {"label": v["label"], "blurb": v["blurb"], "plain": v["plain"], "max_risk_pct": v["max_risk_pct"]}
                             for k, v in RISK_LEVELS.items()},
-            "strategies": {k: {kk: v[kk] for kk in ("label", "min_level", "outlook", "risk", "learn")}
+            "strategies": {k: {kk: v[kk] for kk in ("label", "explainer_title", "min_level", "outlook", "risk", "learn")}
                            for k, v in STRATEGIES.items()},
             "domains": [{"key": d.key, "label": d.label} for d in DOMAINS],
             "tickers": [{"symbol": t.symbol, "name": t.name, "domain": t.domain} for t in TICKERS],
