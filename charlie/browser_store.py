@@ -77,6 +77,18 @@ class BrowserStore:
         d["payloads"][f"{level}|{profile_hash}"] = payload
         self._save("daily", d)
 
+    def daily_before(self, day: str) -> list[dict]:
+        """Same shape as Store.daily_before; only the latest day is kept here."""
+        d = self._load("daily", {})
+        if not isinstance(d, dict) or not isinstance(d.get("day"), str) or d["day"] >= day:
+            return []
+        out = []
+        for key, payload in (d.get("payloads") or {}).items():
+            level, _, h = key.partition("|")
+            if level.isdigit():
+                out.append({"day": d["day"], "level": int(level), "profile_hash": h, "payload": payload})
+        return out
+
     def clear_daily(self) -> None:
         self._s.removeItem(PREFIX + "daily")
 

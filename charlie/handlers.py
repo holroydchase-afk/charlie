@@ -12,7 +12,7 @@ import json
 import math
 from urllib.parse import parse_qsl, unquote, urlsplit
 
-from . import __version__, chat as chat_mod, engine, portfolio
+from . import __version__, chat as chat_mod, engine, portfolio, track_record
 from .profile import RISK_LABELS, Profile, build_profile
 from .strategies import RISK_LEVELS, STRATEGIES
 from .universe import DOMAINS, TICKERS, lookup
@@ -265,6 +265,31 @@ class Api:
         self.store.daily_put(day, level, h, result)
         return result
 
+    def track_record(self, risk: int | None = None) -> dict:
+        """Past ideas graded at today's price next to SPY (M1.13). Local: the days the user saw.
+        Static demo: the sample record, rebuilt on the mock market of a few past weekdays."""
+        p = self.current_profile()
+        level = max(1, min(5, risk or p.risk_level))
+        if self.static:
+            entries = track_record.sample_entries(self.md.today, p, level, profile_hash(p))
+            return track_record.grade(self.md, entries, level, sample=True)
+        # The profile's hash at every risk level, since moving the slider changes the hash.
+        hashes = set()
+        for lvl in range(1, 6):
+            q = Profile.from_dict(p.to_dict())
+            q.risk_level = lvl
+            hashes.add(profile_hash(q))
+        entries = []
+        for row in self.store.daily_before(self.md.today.isoformat()):
+            h, _, count = str(row["profile_hash"]).rpartition("-")
+            if row["level"] != level or h not in hashes or not isinstance(row["payload"], dict):
+                continue
+            # Within a day, the 3-idea snapshot first, so its ranking wins the dedupe.
+            entries.append((-int(count) if count.isdigit() else 0, row["day"], row["payload"].get("ideas") or []))
+        entries.sort(key=lambda e: e[0])
+        pairs = [(day, i) for _, day, ideas in entries for i in ideas if isinstance(i, dict)]
+        return track_record.grade(self.md, pairs, level, sample=False)
+
     def ticker(self, symbol: str, risk: int | None = None) -> dict:
         if not lookup(symbol):
             raise ApiError(404, f"{symbol.upper()} isn't in Charlie's universe yet.")
@@ -364,6 +389,8 @@ class Api:
                 return 200, self.set_risk(_int(b.get("risk_level"), 2))
             if m == "GET" and seg == ["ideas"]:
                 return 200, self.ideas(_int(q.get("risk")), _int(q.get("count"), 3), _bool(q.get("refresh")))
+            if m == "GET" and seg == ["track-record"]:
+                return 200, self.track_record(_int(q.get("risk")))
             if m == "GET" and len(seg) == 2 and seg[0] == "ticker":
                 return 200, self.ticker(seg[1], _int(q.get("risk")))
             if m == "POST" and seg == ["screen"]:

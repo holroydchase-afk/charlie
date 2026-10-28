@@ -216,6 +216,11 @@ def ideas(risk: int | None = None, count: int = 3, refresh: bool = False):
     return api().ideas(risk, count, refresh)
 
 
+@app.get("/api/track-record")
+def track_record(risk: int | None = None):
+    return api().track_record(risk)
+
+
 @app.get("/api/ticker/{symbol}")
 def ticker(symbol: str, risk: int | None = None):
     return api().ticker(symbol, risk)
