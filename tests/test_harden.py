@@ -1,5 +1,6 @@
 """M1.12 hardening: failing-first tests for the privacy-security review (CHL-PS1 to PS8, PS11, PS12),
 the core-flow coverage gaps in charlie/handlers.py, and an end-to-end "no resume in the logs" check.
+The re-check added CHL-PS14 (PDF content-stream bomb) and CHL-PS15 (malformed holdings); their tests are at the end.
 
 Findings and their Given/When/Then are in the M1.12 privacy-security review. Deferred to M1.13 or
 later (no tests here): CHL-PS9 (chat disclosure line and explicit key check), CHL-PS10 (demo keeps
@@ -1006,3 +1007,106 @@ def test_LOGS_live_uvicorn_logs_no_resume_text(tmp_path):
     text = log.read_text("utf-8", "replace")
     assert "/api/profile" in text, "the server log is empty; the test didn't exercise anything"
     _assert_no_resume(text)
+
+
+# ============================================================ CHL-PS14 a PDF content-stream bomb is refused quickly
+
+def _pdf_stream_bomb(decoded: int, npages: int = 1) -> bytes:
+    """A small PDF whose one shared, Flate-compressed content stream decodes to about `decoded` bytes of
+    text operators (fictional filler: the letter a). Every page points at the same stream."""
+    import zlib
+    line = b"BT /F1 12 Tf 72 700 Td (a) Tj ET\n"
+    comp = zlib.compress(line * (decoded // len(line) + 1), 9)
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>",
+            b"<< /Type /Pages /Count %d /Kids [%s] >>" % (npages, b" ".join(b"%d 0 R" % (5 + i) for i in range(npages))),
+            b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            b"<< /Length %d /Filter /FlateDecode >>\nstream\n" % len(comp) + comp + b"\nendstream"]
+    objs += [b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> "
+             b"/Contents 4 0 R >>"] * npages
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for n, body in enumerate(objs, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % n + body + b"\nendobj\n"
+    xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1)
+    out += b"".join(b"%010d 00000 n \n" % o for o in offsets)
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, xref)
+    return bytes(out)
+
+
+_EXTRACT_PROBE = """
+import json, resource, sys, time
+sys.path.insert(0, sys.argv[2])
+from charlie.profile import extract_text
+data = open(sys.argv[1], "rb").read()
+t0 = time.monotonic()
+try:
+    extract_text("resume.pdf", data)
+    result = None
+except Exception as e:
+    result = type(e).__name__
+seconds = time.monotonic() - t0
+try:  # this process's own high-water mark; ru_maxrss can carry over the forking parent's (Linux)
+    peak_kb = int(next(l for l in open("/proc/self/status") if l.startswith("VmHWM:")).split()[1])
+except (OSError, StopIteration):
+    peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(json.dumps({"raised": result, "seconds": seconds, "peak_mb": peak_kb / 1024}))
+"""
+
+
+def _extract_in_child(tmp_path, data: bytes, timeout: float = 20) -> dict:
+    """Run extract_text in a child process, so a slow red run is killed instead of eating the suite."""
+    f = tmp_path / "bomb.pdf"
+    f.write_bytes(data)
+    try:
+        r = subprocess.run([sys.executable, "-c", _EXTRACT_PROBE, str(f), str(ROOT)],
+                           capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        pytest.fail(f"extract_text was still parsing the PDF bomb after {timeout:.0f}s")
+    assert r.returncode == 0, r.stderr[-2000:]
+    return json.loads(r.stdout.strip().splitlines()[-1])
+
+
+def test_CHL_PS14_pdf_bomb_fixture_is_small_on_the_wire():
+    """Guard on the test's own fixture: a 60 MB content stream in well under 1 MB."""
+    assert len(_pdf_stream_bomb(60 * MB)) < MB
+
+
+@pytest.mark.parametrize("decoded,npages", [(60 * MB, 1), (1 * MB, 30)],
+                         ids=["one page 60 MB stream", "30 pages sharing a 1 MB stream"])
+def test_CHL_PS14_extract_text_refuses_a_pdf_content_stream_bomb_quickly(tmp_path, decoded, npages):
+    out = _extract_in_child(tmp_path, _pdf_stream_bomb(decoded, npages))
+    assert out["raised"] == "FileTooComplex", out
+    assert out["seconds"] < 2, out
+    assert out["peak_mb"] < 300, f"memory blew up: {out}"
+
+
+def test_CHL_PS14_api_rejects_a_pdf_content_stream_bomb_with_413_quickly(client):
+    t0 = time.monotonic()
+    r = client.post("/api/profile", files={"resume": ("resume.pdf", _pdf_stream_bomb(3 * MB), "application/pdf")})
+    elapsed = time.monotonic() - t0
+    assert r.status_code == 413, (r.status_code, r.text[:200])
+    assert elapsed < 2, f"took {elapsed:.1f}s"
+    assert client.get("/api/status").status_code == 200
+
+
+def test_CHL_PS14_a_normal_pdf_still_parses():
+    """Guard (passes today, must keep passing): an ordinary few-page PDF isn't refused by the content cap."""
+    from charlie.profile import extract_text
+    text = extract_text("r.pdf", _pdf([f"Fictional Nurse page {n} PAGEMARK{n}" for n in range(1, 4)]))
+    assert "PAGEMARK1" in text and "PAGEMARK3" in text
+
+
+# ============================================================ CHL-PS15 a malformed holding is dropped, never a crash
+
+@pytest.mark.parametrize("via", ["client", "route"])
+@pytest.mark.parametrize("holdings", ["AAPL 1.2.3", "AAPL ²", "AAPL 1..", "AAPL ٣"])
+def test_CHL_PS15_malformed_holding_is_dropped_not_a_crash(via, client, static_api, holdings):
+    status, body = _call(via, client, static_api, "POST", "/api/profile",
+                         form={"resume_text": "fictional nurse", "capital": "30000",
+                               "holdings": holdings + ", MSFT 10"})
+    assert status in (200, 422), (status, body)
+    if status == 200:
+        assert body["profile"]["holdings"].get("MSFT") == 10, body["profile"]["holdings"]
+        assert "AAPL" not in body["profile"]["holdings"], "a malformed share count was kept"
+    assert _call(via, client, static_api, "GET", "/api/profile")[0] == 200

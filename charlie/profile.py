@@ -89,6 +89,10 @@ MAX_ZIP_UNPACKED = 20_000_000
 MAX_ZIP_RATIO = 100
 MAX_PDF_PAGES = 30
 MAX_TEXT_CHARS = 100_000
+# CHL-PS14: pypdf parses every content-stream operator in Python, so a tiny file whose stream inflates to
+# tens of MB burns minutes and GBs. A real resume's pages decode to tens of KB, so 2 MB in all is plenty.
+MAX_PDF_CONTENT = 2_000_000
+_PDF_DECODE_LIMIT = 10_000_000  # pypdf's own per-stream inflate caps, lowered from its 75 MB default
 
 
 class FileTooComplex(ValueError):
@@ -108,6 +112,63 @@ def _check_zip(data: bytes) -> None:
             raise FileTooComplex(f"unpacks to over {MAX_ZIP_RATIO}x its size")
 
 
+def _pdf_stream_size(stream, budget: int) -> int:
+    """Decoded size of one PDF stream, inflating at most budget + 1 bytes for plain Flate streams."""
+    import zlib
+    filters = stream.get("/Filter")
+    filters = [] if filters is None else [str(f) for f in (filters if isinstance(filters, list) else [filters])]
+    raw = getattr(stream, "_data", None)
+    if raw is not None and not filters:
+        return len(raw)
+    if raw is not None and filters in (["/FlateDecode"], ["/Fl"]):
+        try:
+            return len(zlib.decompressobj().decompress(raw, budget + 1))
+        except zlib.error:
+            pass  # damaged stream: let pypdf (and its recovery) measure it below
+    try:  # other filter chains: pypdf decodes under its lowered limits
+        return len(stream.get_data())
+    except Exception as e:
+        raise FileTooComplex(f"a PDF stream couldn't be decoded within limits ({type(e).__name__})")
+
+
+def _check_pdf(pages) -> None:
+    """Refuse a PDF whose page content (and the forms the pages draw) decodes to over MAX_PDF_CONTENT
+    bytes, before any text extraction. A stream shared by many pages counts once per page, since pypdf
+    parses it once per page."""
+    import pypdf.filters as pf
+    for name in ("ZLIB_MAX_OUTPUT_LENGTH", "LZW_MAX_OUTPUT_LENGTH", "RUN_LENGTH_MAX_OUTPUT_LENGTH"):
+        if getattr(pf, name, 0) > _PDF_DECODE_LIMIT:
+            setattr(pf, name, _PDF_DECODE_LIMIT)
+    total = 0
+
+    def add(stream):
+        nonlocal total
+        total += _pdf_stream_size(stream, MAX_PDF_CONTENT - total)
+        if total > MAX_PDF_CONTENT:
+            raise FileTooComplex(f"page content decodes to over {MAX_PDF_CONTENT:,} bytes")
+
+    def forms(resources, seen, depth):
+        xobjects = (resources or {}).get("/XObject") if hasattr(resources, "get") else None
+        if depth > 5 or not xobjects:
+            return
+        for ref in xobjects.get_object().values():
+            obj = ref.get_object()
+            if obj.get("/Subtype") != "/Form" or id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            add(obj)
+            forms(obj.get("/Resources"), seen, depth + 1)
+
+    for page in pages:
+        contents = page.get("/Contents")
+        if contents is not None:
+            contents = contents.get_object()
+            for part in (contents if isinstance(contents, list) else [contents]):
+                add(part.get_object())
+        res = page.get("/Resources")
+        forms(res.get_object() if res is not None else None, set(), 0)
+
+
 def _capped(parts) -> str:
     """Join text parts, stopping once MAX_TEXT_CHARS is reached."""
     out, size = [], 0
@@ -121,13 +182,14 @@ def _capped(parts) -> str:
 
 def extract_text(filename: str, data: bytes) -> str:
     """Pull plain text out of a PDF, DOCX, or text upload: at most 30 PDF pages and 100k characters.
-    Raises FileTooComplex for a .docx that would unpack to far more than a resume."""
+    Raises FileTooComplex for a .docx, or a PDF's page content, that would unpack to far more than a resume."""
     name = (filename or "").lower()
     if name.endswith(".pdf") or data[:4] == b"%PDF":
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(data))
-        pages = reader.pages
-        return _capped((pages[i].extract_text() or "") for i in range(min(len(pages), MAX_PDF_PAGES)))
+        pages = [reader.pages[i] for i in range(min(len(reader.pages), MAX_PDF_PAGES))]
+        _check_pdf(pages)  # before pypdf parses a single operator (CHL-PS14)
+        return _capped((p.extract_text() or "") for p in pages)
     if name.endswith(".docx") or data[:2] == b"PK":
         _check_zip(data)  # before python-docx unpacks anything
         import docx
