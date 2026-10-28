@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from . import __version__, chat as chat_mod, engine, portfolio
@@ -47,7 +48,7 @@ def parse_holdings(holdings: str) -> dict[str, int]:
     hold = {}
     for part in holdings.replace(";", ",").split(","):
         bits = part.replace(":", " ").split()
-        if len(bits) == 2 and bits[1].replace(".", "").isdigit():
+        if len(bits) == 2 and re.fullmatch(r"[0-9]+(?:\.[0-9]*)?", bits[1]):  # ASCII only (CHL-PS15)
             n = float(bits[1])
             if math.isfinite(n) and n <= MAX_SHARES:  # an absurd count is dropped, never a crash (CHL-PS5)
                 hold[bits[0].upper()] = int(n)

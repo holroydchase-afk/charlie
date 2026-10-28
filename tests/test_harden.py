@@ -1045,8 +1045,12 @@ try:
     result = None
 except Exception as e:
     result = type(e).__name__
-print(json.dumps({"raised": result, "seconds": time.monotonic() - t0,
-                  "peak_mb": resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024}))
+seconds = time.monotonic() - t0
+try:  # this process's own high-water mark; ru_maxrss can carry over the forking parent's (Linux)
+    peak_kb = int(next(l for l in open("/proc/self/status") if l.startswith("VmHWM:")).split()[1])
+except (OSError, StopIteration):
+    peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(json.dumps({"raised": result, "seconds": seconds, "peak_mb": peak_kb / 1024}))
 """
 
 
