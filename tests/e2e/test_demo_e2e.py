@@ -1,15 +1,11 @@
-"""M1.4: the built static demo in a real browser (Playwright, Chromium).
+"""M1.4: the built static demo in a real browser (Playwright, Chromium). Fixtures: conftest.py.
 
 Runs only with CHARLIE_E2E=1 (CI's e2e job sets it) because it needs Chromium and Pyodide.
 CHARLIE_CHROMIUM points at a Chromium binary; CHARLIE_PYODIDE_DIR (an unpacked pyodide npm
 package) self-hosts the runtime as the Pages build does. Without it Pyodide loads from the CDN.
 """
-import functools
 import re
 import os
-import sys
-import threading
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -17,55 +13,9 @@ import pytest
 if os.environ.get("CHARLIE_E2E") != "1":
     pytest.skip("browser tests run with CHARLIE_E2E=1", allow_module_level=True)
 
-from playwright.sync_api import expect, sync_playwright  # noqa: E402
+from playwright.sync_api import expect  # noqa: E402
 
-ROOT = Path(__file__).resolve().parents[2]
 NFA = "Not financial advice. Paper trading only."
-
-
-@pytest.fixture(scope="module")
-def site_url(tmp_path_factory):
-    sys.path.insert(0, str(ROOT / "tools"))
-    try:
-        import build_demo
-    finally:
-        sys.path.pop(0)
-    # With CHARLIE_PYODIDE_DIR the runtime is self-hosted, exactly as pages.yml builds it.
-    pyodide = os.environ.get("CHARLIE_PYODIDE_DIR")
-    site = build_demo.build(tmp_path_factory.mktemp("e2e") / "site", day="2026-10-22",
-                            pyodide_dir=Path(pyodide) if pyodide else None)
-    handler = functools.partial(type("Quiet", (SimpleHTTPRequestHandler,), {"log_message": lambda *a: None}),
-                                directory=str(site))
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    server.handle_error = lambda *a: None  # the browser dropping a connection mid-download isn't a failure
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{server.server_port}/index.html"
-    server.shutdown()
-
-
-@pytest.fixture(scope="module")
-def browser():
-    with sync_playwright() as p:
-        b = p.chromium.launch(executable_path=os.environ.get("CHARLIE_CHROMIUM") or None)
-        yield b
-        b.close()
-
-
-@pytest.fixture
-def page(browser, site_url):
-    ctx = browser.new_context(viewport={"width": 390, "height": 844})
-    pg = ctx.new_page()
-    pg.errors, pg.external = [], []
-    pg.on("pageerror", lambda e: pg.errors.append(str(e)))
-    origin = site_url.rsplit("/", 1)[0] + "/"
-    pg.on("request", lambda r: None if r.url.startswith((origin, "data:")) else pg.external.append(r.url))
-    pg.goto(site_url)
-    pg.click("#ack-btn")
-    yield pg
-    assert pg.errors == []
-    if os.environ.get("CHARLIE_PYODIDE_DIR"):  # self-hosted, as on Pages: nothing may leave the site
-        assert pg.external == []
-    ctx.close()
 
 
 def test_every_idea_card_shows_the_disclaimer(page):
