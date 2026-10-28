@@ -23,6 +23,7 @@ Read `HANDOFF.md` first (where things stand), then `PLAN.md` (what's next). Rese
 - Run: `python -m uvicorn charlie.server:app --host 127.0.0.1 --port 8000`
 - Test: `CHARLIE_DATA=mock CHARLIE_LLM=off python -m pytest -q`
 - Cloud sessions can't reach Cboe or SEC hosts: build against fixtures and say live adapters are unverified.
+- **Docs as we go.** A PR that changes how data is stored, moved, encrypted, logged or shared updates the matching `docs/architecture/` section and its "Last checked" footer in the same PR, or adds a `PLAN.md` item naming the stale section. A new vendor also gets a row in `docs/product/ACCOUNTS.md`.
 
 ## When to stop and ask
 - A product decision not covered by `PLAN.md`. Pick the simplest reversible option, build it, and log it under "Decisions to review" in `HANDOFF.md`.
