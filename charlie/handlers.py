@@ -156,7 +156,7 @@ class Api:
 
     def meta(self) -> dict:
         return {
-            "risk_levels": {k: {"label": v["label"], "blurb": v["blurb"], "max_risk_pct": v["max_risk_pct"]}
+            "risk_levels": {k: {"label": v["label"], "blurb": v["blurb"], "plain": v["plain"], "max_risk_pct": v["max_risk_pct"]}
                             for k, v in RISK_LEVELS.items()},
             "strategies": {k: {kk: v[kk] for kk in ("label", "min_level", "outlook", "risk", "learn")}
                            for k, v in STRATEGIES.items()},
@@ -275,8 +275,8 @@ class Api:
         at_risk = sum(float(x["trade"].get("max_loss") or 0) for x in open_) + new_loss
         out = portfolio.mark(self.md, self.store.open_position(t, note))
         if at_risk > p.capital:
-            out["warning"] = (f"Your open paper trades could now lose up to ${at_risk:,.0f}, more than your "
-                              f"${p.capital:,.0f} of capital. Consider closing one first.")
+            out["warning"] = (f"Heads up: your open paper trades could now lose up to ${at_risk:,.0f}, more than your "
+                              f"${p.capital:,.0f} of paper capital. Try closing one first.")
         return out
 
     def paper_close(self, pid: str) -> dict:

@@ -3,9 +3,14 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-28 (release run, phase 2: M1.10 works for real, built and green)
+Updated: 2026-10-28 (release run, phase 3: M1.11 UI polish built and green, pending ux-reviewer after-score)
 
 ## Done
+- M1.11 UI polish to 8/10 (Oct 28, branch `claude/project-thread-hpanpa-ui`, not pushed): CHL-UX1 to UX15 from the ux-reviewer before-score (5/10) built in `web/` (shared by the local app and the demo), with qa-tdd's failing tests in `tests/e2e/test_ui_polish_e2e.py` now green. Copy from positioning's M1.11 spec.
+  - Today: hero strip ("Stock ideas from what you already know", how it works, whose-ideas line, 3 proof chips); idea cards collapsed to under 750px at 390px with 3 hero tiles (Chance of profit, Max profit, Max loss with "only if X fell to $0" / "worst case at expiry"), a "Today $X · Breakeven $Y" legend, the payoff chart, a visible exit-plan line, actions, then one `details.more` with the rest. Plain risk lines come from a new `plain` field in `RISK_LEVELS` (`risk_plain` in ideas, `plain` in meta); `blurb` stays for Learn and chat.
+  - Charts are drawn at their rendered width (ResizeObserver), so SVG labels are real 12px text on phones. Phone chrome is 145px (header 48, one-line-ish banner, tabs); the risk slider moved to a slim bar at the top of Today, Screener and Learn. Footer is one line with "Read more" opening the ack modal with the full disclaimer.
+  - Ack modal: "Practice only, no real money", 3 bullets, full disclaimer in a details, "Got it, show me ideas". Drawer is a modal dialog (focus moves in, is trapped, returns on Escape or close), 44px close, sticky title, "Sample data" wording. Screener auto-runs on open, 4 filters up front, checkbox chips, "More filters (n set)", phone result cards. Paper: visible stat tiles, zero is neutral, empty state with "See today's ideas", phone position cards. Skeleton loaders, friendly errors with Try again (ideas, screener, paper, drawer, chat, app start), chat typing indicator, accent focus ring, hover states, type and spacing tokens, 16px body.
+  - Tests: unit 157 pass, 2 skip; e2e 29 pass (axe light and dark, 390 and 1280). After screenshots: scratchpad `ux-after/` (not in git).
 - M1.10 Works for real (Oct 28, branch `claude/project-thread-hpanpa`, not pushed): CHL-R1 to R8 fixed in `charlie/` (shared by the server and `Api.route`, so the demo gets the same behavior), with qa-tdd's failing tests in `tests/test_works_for_real.py` now green.
   - R1: a list screen with symbols outside the universe returns 200, rows for the known ones and `unknown_symbols` (user order, upper-cased). The screener says "ZZZZ isn't in Charlie's universe yet."
   - R2: `data_source` is "live (delayed)", "mock (…)", "mixed (demo prices for X, Y; …)" or, when nothing was analyzed, the market mode. Every idea and screen row has `price_source`. Screener rows with a demo price in a mixed result say "demo price".
@@ -77,6 +82,7 @@ Updated: 2026-10-28 (release run, phase 2: M1.10 works for real, built and green
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
+Oct 28: M1.11 is built and green on `claude/project-thread-hpanpa-ui` (not pushed). Next: qa-tdd runs all suites 3x, ux-reviewer scores the after state (target 8/10) at 390 and 1280, light and dark, and privacy-security glances at the demo; then the PR (Agents: line). The README phone screenshot predates M1.11 and should be retaken (positioning).
 Oct 28: M1.10 is built and green on `claude/project-thread-hpanpa` (not pushed). Next: qa-tdd runs all suites 3x and adds the e2e badge/tooltip assertion for R4, then ux-reviewer reviews the new copy (badge, toasts, delete confirm), then the PR (Agents: line) and M1.11 UI to 8/10 per `docs/plans/2026-10-28-release.md`.
 Oct 25: Chase approved merging, so PR #2 merged into main with a merge commit, and that landed #1 too. Main has everything through M1.9. UI polish toward 8/10 is now M1.11 in the release plan. Still Chase's: the engine card and the decision to go public (Pages stays off while the repo is private).
 Oct 25 to 26: Chase said "merge dependabot". Merged #3, #4, #6, #7, #9, #10 and #12. The rest (#5, #8 and #13: checkout v7, upload-pages-artifact v5, anthropic>=2.1.0) conflicted or hadn't run CI, so they're applied in one PR instead. The handoff check fails on every Dependabot PR because they don't touch HANDOFF.md, so expect that.
@@ -86,6 +92,11 @@ The Polish Freeze (since Oct 24) was lifted by Chase on Oct 28; the parked items
 - "Chase uses it daily", laptop first (Chase's pick on Oct 24): M2.1 live data verified on his laptop, plus a README "use it yourself" setup; M2.2 an earnings and ex-dividend check before any short-option idea; M2.3 a morning summary of the day's ideas; M2.4 an idea track record. A phone version with hosting and a login would come after that.
 
 ## Decisions to review
+- M1.11 UX14: the ideas error reads "Couldn't load ideas. Check your connection and try again." (the e2e test asserts "Couldn't load ideas"), not positioning's "Couldn't load today's ideas."
+- M1.11 copy: the header badge keeps "Live prices · demo fundamentals" (a M1.10 unit test asserts it); only its tooltip took the new "financials" wording. The 409 server text is unchanged; the toast appends "It's in your Paper portfolio."
+- M1.11 UX4: the full plan, order details and score breakdown sit in a collapsed `details.more`; the first exit-plan line, max loss and breakeven stay visible on every card to keep the hard rule.
+- M1.11 UX6: the risk slider moved from the header into a slim bar at the top of Today, Screener and Learn (hidden on Profile, Chat and Paper, which don't depend on it), on every viewport, so the phone header is one row.
+- M1.11 UX9: changing the risk slider on the Screener reruns the screen. In the demo the screener's first run waits for the engine (no prebuilt screen).
 - M1.10 R3: names with no live price are skipped from ideas only when at least one name got a live price. If every price fell back to mock in auto mode (offline), the ideas still come, labeled "mock (demo data…)", so an offline laptop isn't left empty. To make it strict, drop the `any(_is_live…)` guard in `engine.daily_ideas`.
 - M1.10 R3 universe: FI renamed to FISV (Fiserv's Nasdaq ticker; demo price set to 50, P/E 9) and EA dropped (taken private, no Cboe data). Media & Gaming now has 5 names. The golden sample ideas are unchanged.
 - M1.10 R8: plain `DELETE /api/profile` still deletes only the profile, resume and cached ideas; the button now sends `?all=true`. Removing the plain path would be a one-line change in `handlers.delete_profile`.
@@ -119,6 +130,7 @@ The Polish Freeze (since Oct 24) was lifted by Chase on Oct 28; the parked items
 - Before going public (M1.5): the two existing commits have Chase's personal email as author. Rewriting history needs Chase's go; future commits use a noreply author.
 
 ## Portfolio / public presence
+- 2026-10-28: demo UI polish pass (M1.11, not deployed).
 - Portfolio page: not yet (added after the demo passes the recruiter-ready bar, via an INTAKE to Product Studio).
 - Live demo: not yet. Planned at chaseholroyd.com/charlie/, a static Pyodide build deployed by `pages.yml` from `main` after CI passes (PLAN M1.6, needs the repo public).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.

@@ -16,16 +16,11 @@
         <div class="brand-sub">Invest in what you know. Paper trading only.</div>
       </div>
     </div>
-    <div class="risk-control" title="Risk slider: controls which strategies Charlie will suggest">
-      <label for="risk">Risk</label>
-      <input type="range" id="risk" min="1" max="5" step="1" value="2">
-      <span id="risk-label" class="pill">Conservative</span>
-    </div>
-    <span id="data-badge" class="badge">data…</span>
+    <span id="data-badge" class="badge">Loading…</span>
   </header>
   <div id="demo-banner" class="demo-banner static-only hidden" role="note">
-    <span>Sample demo: the resume and market data are made up, and anything you enter stays in this browser.</span>
-    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <button id="reset-demo" class="link-btn" type="button">Reset demo</button></span>
+    <span><b>Sample data.</b> Anything you enter stays in this browser.</span>
+    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <span aria-hidden="true">·</span> <button id="reset-demo" class="link-btn" type="button">Reset demo</button></span>
   </div>
 
   <nav class="tabs" role="tablist">
@@ -38,11 +33,26 @@
   </nav>
 
   <main>
+    <div id="risk-row" class="risk-control" title="Risk slider: controls which trade types Charlie will suggest">
+      <label for="risk">Risk level</label>
+      <input type="range" id="risk" min="1" max="5" step="1" value="2" aria-valuetext="2, Conservative">
+      <span id="risk-label" class="pill">Conservative</span>
+    </div>
     <!-- TODAY -->
     <section id="tab-today" class="tab active" role="tabpanel" aria-labelledby="tabbtn-today">
+      <div class="hero">
+        <h1>Stock ideas from what you already know</h1>
+        <p class="hero-how">Charlie reads your resume, finds the industries you know, scores companies with a Munger-style checklist, and suggests 1 to 3 paper-trade ideas a day.</p>
+        <p id="profile-nudge" class="hero-whose muted">Showing a starter circle. <a href="#profile" data-goto="profile">Add your resume</a> to make it yours.</p>
+        <ul class="proof" aria-label="What makes Charlie different">
+          <li>Resume to circle of competence</li>
+          <li>Munger checklist score</li>
+          <li>Max loss on every trade</li>
+        </ul>
+      </div>
       <div class="section-head">
         <div>
-          <h1>Today's ideas</h1>
+          <h2 class="h-section">Today's ideas</h2>
           <p id="today-sub" class="muted">Up to three ideas from inside your circle of competence.</p>
         </div>
         <div class="row gap">
@@ -51,10 +61,6 @@
           </select>
           <button id="refresh-ideas" class="ghost">Refresh</button>
         </div>
-      </div>
-      <div id="profile-nudge" class="callout hidden">
-        <span id="nudge-lead">You haven't set up a profile yet, so these come from a generic starter circle.</span>
-        <a href="#profile" data-goto="profile">Add your resume and interests</a> to personalize them.
       </div>
       <div id="ideas" class="cards"></div>
       <div id="ideas-skipped" class="muted small"></div>
@@ -116,35 +122,53 @@
       <div class="section-head">
         <div>
           <h1>Screener</h1>
-          <p class="muted">Set your own criteria. Only strategies your risk level allows are searched.</p>
+          <p class="muted">Set your own criteria and Charlie finds trades that fit.</p>
         </div>
       </div>
       <form id="screen-form" class="panel screen-form">
-        <label>Universe
-          <select name="scope">
-            <option value="circle">My circle</option>
-            <option value="all">All tickers</option>
-            <option value="list">Specific tickers</option>
-          </select>
-        </label>
-        <label>Tickers <input name="symbols" placeholder="AAPL, KO"></label>
-        <label>Sectors <select name="domains" multiple size="4" id="domain-select"></select></label>
-        <label>Strategies <select name="strategies" multiple size="4" id="strategy-select"></select></label>
-        <label>Min Charlie score <input name="min_score" type="number" value="50" min="0" max="100"></label>
-        <label>Max stock price <input name="max_price" type="number" placeholder="any"></label>
-        <label>Min prob. of profit % <input name="min_pop" type="number" placeholder="any"></label>
-        <label>Max capital per trade <input name="max_capital" type="number" placeholder="any"></label>
-        <label>Min annualized return % <input name="min_annualized" type="number" placeholder="any"></label>
-        <label>IV range % <span class="row gap"><input name="min_iv" type="number" placeholder="min"><input name="max_iv" type="number" placeholder="max"></span></label>
-        <label>Days to expiry <span class="row gap"><input name="dte_min" type="number" value="25"><input name="dte_max" type="number" value="55"></span></label>
-        <label>Short-strike delta <input name="delta" type="number" step="0.05" min="0.05" max="0.5" placeholder="auto"></label>
-        <label class="check"><input type="checkbox" name="exclude_red_flags"> Skip anything with red flags</label>
-        <div class="row gap span-all">
-          <button type="submit" class="primary">Run screen</button>
-          <input name="save_name" placeholder="Screen name" aria-label="Name to save this screen">
-          <button type="button" id="save-screen" class="ghost">Save</button>
+        <div class="screen-main">
+          <label>Search in
+            <select name="scope">
+              <option value="circle">My circle</option>
+              <option value="all">All companies Charlie covers</option>
+              <option value="list">Tickers I pick</option>
+            </select>
+          </label>
+          <label id="symbols-field" class="hidden">Tickers <input name="symbols" placeholder="e.g. AAPL, KO"></label>
+          <label>Most money tied up per trade ($) <input name="max_capital" type="number" min="0" placeholder="any"></label>
+          <label>Lowest Charlie score <span class="hint">0 to 100</span><input name="min_score" type="number" value="50" min="0" max="100"></label>
         </div>
-        <div id="saved-screens" class="span-all chips"></div>
+        <fieldset class="chip-field">
+          <legend>Trade types <span class="hint">Only types your risk level allows are searched.</span></legend>
+          <div id="strategy-select" class="chips"></div>
+        </fieldset>
+        <details id="more-filters" class="filters">
+          <summary>More filters</summary>
+          <fieldset class="chip-field">
+            <legend>Industries</legend>
+            <div id="domain-select" class="chips"></div>
+          </fieldset>
+          <div class="screen-grid">
+            <label>Highest share price ($) <input name="max_price" type="number" min="0" placeholder="any"></label>
+            <label>Lowest chance of profit (%) <input name="min_pop" type="number" min="0" max="100" placeholder="any"></label>
+            <label>Lowest return, as a yearly rate (%) <input name="min_annualized" type="number" placeholder="any"></label>
+            <div class="label-like"><span id="iv-label">Expected price swings (IV %)</span> <span class="hint">Higher means bigger swings and pricier options.</span>
+              <span class="row gap"><input name="min_iv" type="number" placeholder="min" aria-label="Lowest IV %"><input name="max_iv" type="number" placeholder="max" aria-label="Highest IV %"></span></div>
+            <div class="label-like"><span>Days until the option expires</span>
+              <span class="row gap"><input name="dte_min" type="number" value="25" aria-label="Fewest days"><input name="dte_max" type="number" value="55" aria-label="Most days"></span></div>
+            <label>Distance from today's price (delta) <span class="hint">Smaller is further away: safer, pays less. Leave blank and Charlie picks.</span>
+              <input name="delta" type="number" step="0.05" min="0.05" max="0.5" placeholder="auto"></label>
+            <label class="check"><input type="checkbox" name="exclude_red_flags"> Skip companies with red flags</label>
+          </div>
+        </details>
+        <div class="screen-actions">
+          <button type="submit" class="primary">Find trades</button>
+          <span class="save-group">
+            <input name="save_name" placeholder="Name this screen" aria-label="Name this screen">
+            <button type="button" id="save-screen" class="ghost">Save screen</button>
+          </span>
+        </div>
+        <div id="saved-screens" class="chips"></div>
       </form>
       <div id="screen-results"></div>
     </section>
@@ -152,7 +176,7 @@
     <!-- CHAT -->
     <section id="tab-chat" class="tab" role="tabpanel" aria-labelledby="tabbtn-chat">
       <div class="chat-wrap panel">
-        <div id="chat-log" class="chat-log">
+        <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Conversation with Charlie">
           <div class="msg bot">Hi, I'm Charlie. Ask me about today's ideas, any company in your circle, or how a strategy works.
             <div class="chips suggestions">
               <button class="chip" data-q="What are today's ideas?">Today's ideas</button>
@@ -163,7 +187,7 @@
           </div>
         </div>
         <form id="chat-form" class="chat-form">
-          <input id="chat-input" autocomplete="off" placeholder="Ask Charlie…">
+          <input id="chat-input" autocomplete="off" placeholder="Ask Charlie…" aria-label="Ask Charlie">
           <button class="primary">Send</button>
         </form>
         <div id="chat-mode" class="muted small"></div>
@@ -176,7 +200,7 @@
       <div class="section-head">
         <div>
           <h1>Paper portfolio</h1>
-          <p class="muted">Practice with fake money first. Positions are marked to the latest (delayed or demo) prices.</p>
+          <p class="muted">Practice with pretend money first. Positions use the latest delayed or sample prices.</p>
         </div>
         <button id="refresh-paper" class="ghost">Refresh</button>
       </div>
@@ -196,23 +220,30 @@
     </section>
   </main>
 
-  <div id="drawer" class="drawer hidden" aria-hidden="true">
+  <div id="drawer" class="drawer hidden" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
     <div class="drawer-inner">
-      <button class="close" id="drawer-close" aria-label="Close">×</button>
+      <div class="drawer-head">
+        <div id="drawer-title" class="drawer-title">Company details</div>
+        <button class="close" id="drawer-close" type="button" aria-label="Close details">×</button>
+      </div>
       <div id="drawer-body"></div>
     </div>
   </div>
 
-  <div id="ack" class="modal hidden">
+  <div id="ack" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ack-title">
     <div class="modal-inner">
-      <h2>Before you start</h2>
-      <p id="ack-text"></p>
-      <p>Charlie never places real orders. Ideas are starting points for your own research.</p>
-      <button id="ack-btn" class="primary">I understand</button>
+      <h2 id="ack-title">Practice only, no real money</h2>
+      <ul class="ack-list">
+        <li>Charlie never places real orders. Every trade here is on paper.</li>
+        <li>Ideas are a starting point for your own research, not advice.</li>
+        <li id="ack-data">Prices may be delayed or simulated.</li>
+      </ul>
+      <details id="ack-details"><summary>Full disclaimer</summary><p id="ack-text" class="small"></p></details>
+      <button id="ack-btn" class="primary" type="button">Got it, show me ideas</button>
     </div>
   </div>
 
-  <footer class="disclaimer" id="footer-disclaimer"></footer>
+  <footer class="disclaimer" id="footer-disclaimer"><span class="wide-only">For learning only. </span>Not financial advice. Paper trading only. <button id="read-more" type="button" class="link-btn" aria-label="Read more: the full disclaimer">Read more</button></footer>
   <div id="toast" class="toast hidden"></div>
   <div id="engine-status" class="engine-status hidden" role="status" aria-live="polite">Starting Charlie's engine. The first visit takes a few seconds…</div>
   <script src="/static/app.js"></script>

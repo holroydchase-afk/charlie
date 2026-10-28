@@ -194,6 +194,7 @@ def daily_ideas(md: MarketData, profile: Profile, level: int | None = None, coun
         "risk_level": level,
         "risk_label": RISK_LEVELS[level]["label"],
         "risk_blurb": RISK_LEVELS[level]["blurb"],
+        "risk_plain": RISK_LEVELS[level]["plain"],
         "data_source": source,
         "ideas": ideas,
         "considered": len(analyses),
