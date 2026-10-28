@@ -577,3 +577,149 @@ def test_UX23_open_position_close_button_says_close_trade(make_page, site_url):
     assert label.startswith(f"Close paper trade {sym}"), f"close button aria-label: {label!r}"
     # With a position open, the stats come back.
     expect(pg.locator("#paper-stats .metric").first).to_be_visible()
+
+
+# ================================================================ round 3: CHL-UX27 to UX34 (AFTER report 2)
+SMALL = (320, 700)
+
+
+def _strategies():
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from charlie.strategies import STRATEGIES
+    return STRATEGIES
+
+
+EXPLAINER_HEADINGS = """(root) => [...root.querySelectorAll('h3, summary')].map((x) => x.textContent.replace(/\\s+/g, ' ').trim())
+    .filter((x) => /^(What is|How )/.test(x))"""
+
+
+def _explainer_problems(headings, titles):
+    problems = [h for h in headings if re.search(r"What is a buy", h, re.I) or "leaps" in h]
+    problems += [f"not a strategy explainer_title: {h!r}" for h in headings if h not in titles]
+    return problems
+
+
+# ---------------------------------------------------------------- CHL-UX27 explainer heading is real English
+@pytest.mark.parametrize("level", [1, 4], ids=["shares-only", "growth-leaps"])
+def test_UX27_explainer_headings_come_from_the_strategy_not_the_label(make_page, site_url, level):
+    titles = {s["explainer_title"] for s in _strategies().values() if "explainer_title" in s}
+    pg = _open(make_page, site_url, PHONE)
+    _set_risk(pg, level)
+    if level == 1:
+        pg.wait_for_function("[...document.querySelectorAll('#ideas .card .strategy-tag')]"
+                             ".every((t) => t.textContent.startsWith('Buy shares'))", timeout=ENGINE)
+    cards = pg.locator("#ideas").evaluate(EXPLAINER_HEADINGS)
+    assert len(cards) >= pg.locator("#ideas .card").count(), f"each idea card needs an explainer heading: {cards}"
+    pg.locator("#ideas .card [data-ticker]").first.click()
+    drawer = pg.locator("#drawer")
+    expect(drawer.locator("svg.payoff").first).to_be_visible()
+    found = cards + drawer.evaluate(EXPLAINER_HEADINGS)
+    assert _explainer_problems(found, titles) == []
+
+
+# ---------------------------------------------------------------- CHL-UX28 an idea number in the phone's first screen
+def test_UX28_phone_first_screen_shows_a_top_idea_number(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    pg.evaluate("scrollTo(0, 0)")
+    foot = pg.locator("#footer-disclaimer").bounding_box()
+    limit = min(844, foot["y"]) if foot else 844
+    m = pg.locator("#ideas .card").first.locator(".hero-m .metric").first.bounding_box()
+    metric_ok = m is not None and m["y"] >= 0 and m["y"] + m["height"] <= limit
+    link = pg.locator(".hero-top-idea")
+    link_ok = False
+    if link.count() and link.first.is_visible():
+        b = link.first.bounding_box()
+        link_ok = b["y"] >= 0 and b["y"] + b["height"] <= limit and bool(re.search(r"\d", link.first.inner_text()))
+    assert metric_ok or link_ok, (
+        f"no idea number above {limit:.0f}px at 390x844: card 1 first metric bottom "
+        f"{(m['y'] + m['height']) if m else None}, .hero-top-idea visible={link_ok}")
+
+
+# ---------------------------------------------------------------- CHL-UX29 reflow at 320px
+@pytest.mark.parametrize("tab", ["today", "profile", "screener", "chat", "paper", "learn"])
+def test_UX29_no_horizontal_scroll_at_320_on_any_tab(make_page, site_url, tab):
+    pg = _open(make_page, site_url, SMALL)
+    if tab != "today":
+        pg.click(f"[data-tab={tab}]")
+        if tab == "screener":
+            expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)
+        pg.wait_for_timeout(300)
+    wide = pg.evaluate("""() => ({sw: document.documentElement.scrollWidth,
+        over: [...document.querySelectorAll('body *')].filter((e) => e.checkVisibility()
+            && e.getBoundingClientRect().right > 320.5 && !e.closest('.table-wrap, .ticket, pre')
+            && ![...Array(20)].reduce((a, _) => [...a, (a.at(-1) || e).parentElement].filter(Boolean), [])
+                .some((p) => p !== document.body && p !== document.documentElement && /auto|scroll|hidden/.test(getComputedStyle(p).overflowX)))
+            .slice(0, 5).map((e) => `${e.tagName.toLowerCase()}${e.id ? '#' + e.id : ''}.${[...e.classList].join('.')} → ${Math.round(e.getBoundingClientRect().right)}`)})""")
+    assert wide["sw"] <= 320, f"{tab}: scrollWidth {wide['sw']} at 320x700; overflowing: {wide['over']}"
+
+
+# ---------------------------------------------------------------- CHL-UX30 paper credit reads as money received
+def _open_one_credit_paper_trade(pg):
+    ids = pg.locator("#ideas .card [data-paper]").evaluate_all(
+        "(bs) => bs.map((b) => b.dataset.paper).filter((id) => (window._trades[id]?.net_premium || 0) > 0)")
+    assert ids, "no credit trade (net_premium > 0) among Today's ideas at the default level"
+    pg.locator(f"#ideas .card [data-paper='{ids[0]}']").click()
+    expect(pg.locator("#toast")).to_contain_text("Paper trade opened", timeout=ENGINE)
+    pg.click("[data-tab=paper]")
+    expect(pg.locator("#paper-list [data-close]").first).to_be_attached(timeout=ENGINE)
+
+
+@pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
+def test_UX30_paper_credit_shows_you_received_not_a_minus(make_page, site_url, size):
+    pg = _open(make_page, site_url, size)
+    _open_one_credit_paper_trade(pg)
+    text = pg.locator("#paper-list").inner_text()
+    assert re.search(r"You received \$\d", text), f"a credit position should say 'You received $X':\n{text}"
+    hyphen = re.findall(r"(?<![\w$])-\$[\d,.]+", text)
+    assert hyphen == [], f"credit amounts shown with a hyphen minus: {hyphen}"
+
+
+def test_UX30_win_rate_tile_hidden_until_a_trade_is_closed(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    _open_one_paper_trade(pg)
+    expect(pg.locator("#paper-stats .metric").first).to_be_visible()
+    keys = pg.locator("#paper-stats .metric .k").all_inner_texts()
+    assert not [k for k in keys if "Win rate" in k], f"win-rate tile shows with no closed trades: {keys}"
+    pg.locator("#paper-list [data-close]").filter(visible=True).first.click()
+    expect(pg.locator("#paper-stats .metric .k", has_text="Win rate")).to_be_visible(timeout=ENGINE)
+
+
+# ---------------------------------------------------------------- CHL-UX31 banner targets at least 24px
+def test_UX31_banner_reset_and_back_link_are_at_least_24px_tall(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    small = []
+    for sel in ("#reset-demo", ".demo-actions a"):
+        b = pg.locator(sel).first.bounding_box()
+        if b["height"] < 24:
+            small.append(f"{sel}: {b['width']:.0f}x{b['height']:.0f}")
+    assert small == [], f"banner targets under 24px tall at 390: {small}"
+
+
+# ---------------------------------------------------------------- CHL-UX33 "Why this one" doesn't repeat the thesis
+def test_UX33_why_this_one_does_not_repeat_the_thesis_line(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    first = pg.locator("#ideas .card").first
+    first.locator("details.more > summary").click()
+    expect(first.locator("details.more h3", has_text="Why this one")).to_be_visible()
+    found = pg.locator("#ideas .card").evaluate_all("""(cs) => cs.map((c) => {
+        const h = [...c.querySelectorAll('details.more h3')].find((x) => x.textContent.trim() === 'Why this one');
+        return {thesis: c.querySelector('.thesis')?.textContent.trim() || '',
+                why: h ? [...h.parentElement.querySelectorAll('li')].map((l) => l.textContent.trim()) : null}; })""")
+    problems = [f"card {i + 1}: '{c['thesis']}'" for i, c in enumerate(found)
+                if c["why"] is not None and c["thesis"] and c["thesis"] in c["why"]]
+    assert problems == [], f"'Why this one' repeats the thesis line: {problems}"
+    assert all(c["why"] for c in found), f"every card keeps a non-empty 'Why this one' list: {found}"
+
+
+# ---------------------------------------------------------------- CHL-UX34 phone score badge has a noun
+def test_UX34_phone_score_badge_starts_with_score(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    badges = pg.locator("#ideas .card .grade").evaluate_all(
+        "(bs) => bs.map((b) => ({text: b.querySelector('.gscore').innerText.replace(/\\s+/g, ' ').trim(),"
+        " label: b.getAttribute('aria-label') || ''}))")
+    assert badges
+    bad = [b["text"] for b in badges if not re.match(r"Score \d+", b["text"])]
+    assert bad == [], f"phone score badges should read 'Score 76 · A': {bad}"
+    assert all(b["label"].startswith("Charlie score ") for b in badges), badges
