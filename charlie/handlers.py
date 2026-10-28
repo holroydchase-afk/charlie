@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from . import __version__, chat as chat_mod, engine, portfolio
@@ -48,6 +49,85 @@ def _int(v, default=None):
         return int(float(v))
     except (TypeError, ValueError):
         raise ApiError(422, f"expected a number, got {v!r}")
+
+
+# Screener criteria that must be numbers when given (CHL-R5: a bad value is a 422 naming the field).
+NUMERIC_CRITERIA = ("min_score", "max_price", "min_iv", "max_iv", "min_pop", "max_capital", "min_annualized",
+                    "dte_min", "dte_max", "delta")
+
+
+def _number(v, field: str) -> float:
+    if isinstance(v, bool):
+        raise ApiError(422, f"{field} must be a number, not {v!r}.")
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        raise ApiError(422, f"{field} must be a number, not {v!r}.")
+    if not math.isfinite(x):
+        raise ApiError(422, f"{field} must be a finite number.")
+    return x
+
+
+def clean_criteria(criteria) -> dict:
+    """Check the screener's criteria before the engine sees them, so bad input is a 422, never a 500."""
+    if not isinstance(criteria, dict):
+        raise ApiError(422, "criteria must be an object.")
+    c = dict(criteria)
+    for k in NUMERIC_CRITERIA:
+        if c.get(k) not in (None, ""):
+            c[k] = _number(c[k], k)
+    for k in ("dte_min", "dte_max"):
+        if c.get(k) not in (None, ""):
+            c[k] = int(c[k])
+    if c.get("scope") not in (None, "", "circle", "all", "list"):
+        raise ApiError(422, "scope must be circle, all or list.")
+    for k in ("symbols", "domains", "strategies"):
+        v = c.get(k)
+        if isinstance(v, str):
+            v = [x for x in v.replace(",", " ").split() if x]
+        if v not in (None, "") and (not isinstance(v, list) or not all(isinstance(x, str) for x in v)):
+            raise ApiError(422, f"{k} must be a list of names.")
+        if v is not None:
+            c[k] = v
+    return c
+
+
+LEG_ACTIONS, LEG_INSTRUMENTS = ("buy", "sell"), ("stock", "call", "put")
+
+
+def check_legs(legs) -> list[dict]:
+    """A paper trade's legs must be complete before the store prices them (CHL-R5)."""
+    if not isinstance(legs, list) or not legs:
+        raise ApiError(422, "A paper trade needs at least one leg.")
+    from .options_math import parse_occ
+    for i, leg in enumerate(legs, 1):
+        if not isinstance(leg, dict):
+            raise ApiError(422, f"Leg {i} is not a leg object.")
+        missing = [k for k in ("action", "instrument", "symbol", "qty", "price") if leg.get(k) in (None, "")]
+        if missing:
+            raise ApiError(422, f"Leg {i} is missing {', '.join(missing)}.")
+        if leg["action"] not in LEG_ACTIONS:
+            raise ApiError(422, f"Leg {i} action must be buy or sell.")
+        if leg["instrument"] not in LEG_INSTRUMENTS:
+            raise ApiError(422, f"Leg {i} instrument must be stock, call or put.")
+        if not isinstance(leg["symbol"], str):
+            raise ApiError(422, f"Leg {i} symbol must be text.")
+        qty, price = _number(leg["qty"], f"Leg {i} qty"), _number(leg["price"], f"Leg {i} price")
+        if qty <= 0 or qty != int(qty) or price < 0:
+            raise ApiError(422, f"Leg {i} needs a whole positive qty and a price of 0 or more.")
+        if leg["instrument"] != "stock":
+            try:
+                parse_occ(leg["symbol"])
+            except Exception:
+                raise ApiError(422, f"Leg {i} symbol isn't an option symbol.")
+    return legs
+
+
+def _leg_signature(trade: dict) -> tuple:
+    """What makes two paper trades the same: symbol, strategy and legs (prices aside, since a
+    re-click after the quote moved is still the same trade)."""
+    legs = tuple(sorted((str(l["symbol"]), l["action"], l["instrument"], float(l["qty"])) for l in trade["legs"]))
+    return str(trade["symbol"]).upper(), trade["strategy"], legs
 
 
 def _bool(v) -> bool:
@@ -94,7 +174,12 @@ class Api:
         return {"profile": self.current_profile().to_dict(), "saved": self.store.get("profile") is not None,
                 "intake": intake}
 
-    def delete_profile(self) -> dict:
+    def delete_profile(self, everything: bool = False) -> dict:
+        """Delete the profile and resume. With everything=True also wipe saved screens, paper
+        trades and cached ideas (the "Delete my data" button's default)."""
+        if everything:
+            self.store.wipe()
+            return {"ok": True, "deleted": ["profile", "resume", "saved screens", "paper trades", "cached ideas"]}
         self.store.delete("profile")
         self.store.delete("intake")
         self.store.delete("sample_risk")
@@ -147,7 +232,7 @@ class Api:
 
     def screen(self, criteria: dict | None = None, risk: int | None = None, name: str | None = None,
                save: bool = False) -> dict:
-        criteria = criteria or {}
+        criteria = clean_criteria(criteria or {})
         result = engine.screen(self.md, self.current_profile(), criteria, risk)
         if save and name:
             result["saved"] = self.store.save_screen(name, criteria)
@@ -176,10 +261,23 @@ class Api:
         t = trade if isinstance(trade, dict) else {}
         if not t.get("legs") or not t.get("symbol") or t.get("strategy") not in STRATEGIES:
             raise ApiError(400, "not a valid trade")
+        check_legs(t["legs"])
+        if not isinstance(t["symbol"], str):
+            raise ApiError(422, "symbol must be text.")
+        new_loss = _number(t["max_loss"], "max_loss") if t.get("max_loss") is not None else 0.0
         p = self.current_profile()
         if STRATEGIES[t["strategy"]]["min_level"] > p.risk_level:
             raise ApiError(403, f"{STRATEGIES[t['strategy']]['label']} is above your risk level ({p.risk_level}).")
-        return portfolio.mark(self.md, self.store.open_position(t, note))
+        open_ = [x for x in self.store.positions() if x.get("status") == "open"]
+        sig = _leg_signature(t)
+        if any(_leg_signature(x["trade"]) == sig for x in open_):
+            raise ApiError(409, "You already have this paper trade open.")
+        at_risk = sum(float(x["trade"].get("max_loss") or 0) for x in open_) + new_loss
+        out = portfolio.mark(self.md, self.store.open_position(t, note))
+        if at_risk > p.capital:
+            out["warning"] = (f"Your open paper trades could now lose up to ${at_risk:,.0f}, more than your "
+                              f"${p.capital:,.0f} of capital. Consider closing one first.")
+        return out
 
     def paper_close(self, pid: str) -> dict:
         pos = portfolio.close(self.md, self.store, pid)
@@ -206,7 +304,7 @@ class Api:
                 if m == "GET":
                     return 200, self.get_profile()
                 if m == "DELETE":
-                    return 200, self.delete_profile()
+                    return 200, self.delete_profile(_bool(q.get("all")))
                 if m == "POST":  # the form's fields; there are no file uploads or Claude reading in the demo
                     return 200, self.save_profile(
                         str(b.get("resume_text", "")), str(b.get("interests", "")), str(b.get("brands", "")),

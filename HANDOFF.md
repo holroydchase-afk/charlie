@@ -3,9 +3,19 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-28 (release run, phase 2: works for real)
+Updated: 2026-10-28 (release run, phase 2: M1.10 works for real, built and green)
 
 ## Done
+- M1.10 Works for real (Oct 28, branch `claude/project-thread-hpanpa`, not pushed): CHL-R1 to R8 fixed in `charlie/` (shared by the server and `Api.route`, so the demo gets the same behavior), with qa-tdd's failing tests in `tests/test_works_for_real.py` now green.
+  - R1: a list screen with symbols outside the universe returns 200, rows for the known ones and `unknown_symbols` (user order, upper-cased). The screener says "ZZZZ isn't in Charlie's universe yet."
+  - R2: `data_source` is "live (delayed)", "mock (…)", "mixed (demo prices for X, Y; …)" or, when nothing was analyzed, the market mode. Every idea and screen row has `price_source`. Screener rows with a demo price in a mixed result say "demo price".
+  - R3: in auto or live mode, when some names got live prices, names that fell back to mock are left out of daily ideas and listed first in `skipped` as "no live price today". Their drawer still works and now says "demo price, not real market data". FI is now FISV (Fiserv moved to Nasdaq as FISV; Cboe serves FISV and 403s FI), and EA is dropped (taken private; Cboe 403s it).
+  - R4: `/api/status` `data.fundamentals` is "demo" unless live SEC is on. With live prices and demo fundamentals the badge reads "Live prices · demo fundamentals", and its tooltip says the scores use illustrative fundamentals. Mixed results show "Mixed data".
+  - R5: non-numeric screener criteria and malformed paper legs return 422 naming the field or the leg, with no traceback.
+  - R6: the same open trade (symbol, strategy and legs) returns 409 "You already have this paper trade open."; the button reads "Opened ✓" after success. When open max loss plus the new one exceeds capital, the response carries `warning` and the toast shows it.
+  - R7: `GET /api/paper` adds `scratch` ($0 closes); `win_rate` is wins / (wins + losses), or None. Closing shows "Closed ABT Covered call: P&L $X".
+  - R8: `DELETE /api/profile?all=true` wipes every table (`Store.wipe`, `BrowserStore.wipe`). "Delete my data" uses it by default, after a confirm that lists profile, resume, saved screens, paper trades and cached ideas.
+  - Tests: 157 unit pass (1 skip), 10 browser e2e pass. A Playwright walkthrough of the local app (mock) checked the unknown-symbol message, "Opened ✓", the 409 toast, the close toast and the delete confirm; in `CHARLIE_DATA=auto` the badge read "Live prices · demo fundamentals". Live sanity run (auto, sample resume): all ideas `cboe (delayed)`, `data_source` "live (delayed)", fundamentals "demo".
 - Oct 28, live Cboe prices (branch `claude/project-thread-tsqs93`, PR open, not merged). Chase allowed cdn.cboe.com and cdn-api.cboe.com in the cloud environment, so the Cboe adapter was run live for the first time: AAPL, MSFT, BRK.B, SPY and ABT returned real delayed quotes, chains and history, and a full daily-ideas run and the local server's `/api/ticker/MSFT` came back `live (delayed)`. Fixed: (1) live chains picked thin weeklies, so cash-secured puts and put spreads were never offered (now skips expirations with under 6 liquid contracts in live mode); (2) one unknown symbol's 403 put all live data offline for 5 minutes (now only network errors, 5xx and 429 back off); (3) prices were cached forever in a running server (memo now expires after 15 minutes outside mock mode); (4) a live price could get its 52-week range from demo history; (5) prices with 4 decimals are rounded. Tests: `tests/test_cboe_live.py` on a trimmed real ABT response in `tests/fixtures/cboe/`. 123 tests pass 3x. Fallback to labeled demo data was already in place and still is.
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
 - M0.1 studio setup (PR "M0.1: studio setup", branch `claude/project-thread-dlm2ig`): CLAUDE.md with hard rules and Studio agents, PLAN.md (M0 to M1, Pyodide static demo), `.claude/agents/` (staff-pm, qa-tdd, engineer, ux-reviewer, privacy-security, positioning), `.claude/settings.json`, `handoff-check.yml`, `ci.yml` (pytest + privacy check), dependabot (pip + Actions), MIT LICENSE, README CI badge. privacy-security review findings became PLAN M0.3.
@@ -67,16 +77,22 @@ Updated: 2026-10-28 (release run, phase 2: works for real)
 - Engine call still open (below). M1.3's prebuilt first screen covers the phone load time PLAN worried about (Today in under 2 s on throttled phones), which supports staying on Pyodide. M1.2 is built on the recommended Pyodide path; if Chase picks the JS port instead, `handlers.py` and `BrowserStore` still serve the local app and only `static.js` changes.
 
 ## Exact next step
-Oct 25: Chase approved merging, so PR #2 merged into main with a merge commit, and that landed #1 too. Main has everything through M1.9. Next, under the Polish Freeze: UI polish toward 8/10 (baseline 2/10), scored by ux-reviewer at 390 and 1280 px, after the day's job-hunt gate is met. Still Chase's: the engine card and the decision to go public (Pages stays off while the repo is private).
+Oct 28: M1.10 is built and green on `claude/project-thread-hpanpa` (not pushed). Next: qa-tdd runs all suites 3x and adds the e2e badge/tooltip assertion for R4, then ux-reviewer reviews the new copy (badge, toasts, delete confirm), then the PR (Agents: line) and M1.11 UI to 8/10 per `docs/plans/2026-10-28-release.md`.
+Oct 25: Chase approved merging, so PR #2 merged into main with a merge commit, and that landed #1 too. Main has everything through M1.9. UI polish toward 8/10 is now M1.11 in the release plan. Still Chase's: the engine card and the decision to go public (Pages stays off while the repo is private).
 Oct 25 to 26: Chase said "merge dependabot". Merged #3, #4, #6, #7, #9, #10 and #12. The rest (#5, #8 and #13: checkout v7, upload-pages-artifact v5, anthropic>=2.1.0) conflicted or hadn't run CI, so they're applied in one PR instead. The handoff check fails on every Dependabot PR because they don't touch HANDOFF.md, so expect that.
 
-## Parked (Polish Freeze)
-Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI toward 8/10 (baseline 2/10); never merge, deploy or publish.
+## Later
+The Polish Freeze (since Oct 24) was lifted by Chase on Oct 28; the parked items are now planned in `docs/plans/2026-10-28-release.md` (M1.10 to M1.15) or listed there as not doing in this release. Never merge, deploy or publish without Chase's go still holds.
 - "Chase uses it daily", laptop first (Chase's pick on Oct 24): M2.1 live data verified on his laptop, plus a README "use it yourself" setup; M2.2 an earnings and ex-dividend check before any short-option idea; M2.3 a morning summary of the day's ideas; M2.4 an idea track record. A phone version with hosting and a login would come after that.
 
 ## Decisions to review
+- M1.10 R3: names with no live price are skipped from ideas only when at least one name got a live price. If every price fell back to mock in auto mode (offline), the ideas still come, labeled "mock (demo data…)", so an offline laptop isn't left empty. To make it strict, drop the `any(_is_live…)` guard in `engine.daily_ideas`.
+- M1.10 R3 universe: FI renamed to FISV (Fiserv's Nasdaq ticker; demo price set to 50, P/E 9) and EA dropped (taken private, no Cboe data). Media & Gaming now has 5 names. The golden sample ideas are unchanged.
+- M1.10 R8: plain `DELETE /api/profile` still deletes only the profile, resume and cached ideas; the button now sends `?all=true`. Removing the plain path would be a one-line change in `handlers.delete_profile`.
+- M1.10 R6: a duplicate is the same symbol, strategy and legs (symbol, side, instrument, qty) among open positions, ignoring leg prices, so a re-click after the quote moves is still blocked. The over-capital `warning` doesn't block the trade.
+- M1.10 R2: when nothing was analyzed outside mock mode, `data_source` is "<mode> (no names analyzed)" and the badge keeps its last state.
 - Oct 28 studio refresh: kept the repo's `.claude/settings.json` (same as the template) and `handoff-check.yml` (newer checkout@v7); `agents-check.yml` also uses v7. `studio-checks.json` scans `web/` and `spike/` and bans the extra word `resume` in log calls.
-- Oct 24, decided by Chase: Charlie is also a real product he'll use, laptop first. Parked minutes later by the Polish Freeze (see below).
+- Oct 24, decided by Chase: Charlie is also a real product he'll use, laptop first. Parked minutes later by the Polish Freeze, which Chase lifted on Oct 28 (see Later).
 - M1.6 prep: the public demo self-hosts Pyodide instead of loading it from jsDelivr. That's more privacy (no third party sees visitors) for about 12 MB of hosting on Pages. To undo, drop `--pyodide-dir` in `pages.yml` and use `check_site.py` without `--no-cdn`.
 - M1.5: the history review recommends leaving the two original commits as they are (a rewrite would change every SHA). Chase decides whether the author email on them matters to him.
 - M1.8: the README's "Why I built it" paragraph is written in Chase's voice from the project's stated goals (Munger's circle of competence, research first, safe by default). Chase should edit it before the repo goes public.
@@ -93,7 +109,7 @@ Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI towar
 - Next feature after M1: earnings-date warnings, or Alpaca paper orders? (Recommended: earnings first.)
 
 ## Known limits
-- About 95 curated large-cap tickers. Banks and insurers score low on ROIC-style metrics.
+- About 94 curated large-cap tickers. Banks and insurers score low on ROIC-style metrics.
 - No earnings calendar. Single user, local SQLite, no auth (bind 127.0.0.1).
 - Cboe delayed options: verified live from the cloud on Oct 28 (unofficial endpoint, may change; ~2 s and ~1.5 MB per symbol). SEC EDGAR is still unverified live: it needs CHARLIE_SEC_UA plus www.sec.gov and data.sec.gov allowed, so fundamentals stay demo numbers next to live prices (valuation uses demo earnings until then).
 - Screening all ~95 tickers in mock mode took about 6 s before M1.1 sped up chain generation by about 2x. Still the slowest path in the browser; the screener needs a loading state there.

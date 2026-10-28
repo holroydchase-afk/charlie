@@ -186,6 +186,8 @@ class MarketData:
                 "today": self.today.isoformat(),
                 "live_ok": self.mode != "mock" and not self._errors and self._live_hits > 0,
                 "sec_user_agent_set": _sec_ready(),
+                # Prices can be live while scores still use illustrative fundamentals; say which.
+                "fundamentals": "live (SEC)" if self.mode != "mock" and _sec_ready() else "demo",
                 "errors": list(self._errors),
                 "notes": notes,
             }

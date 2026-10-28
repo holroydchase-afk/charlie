@@ -72,8 +72,8 @@ def get_profile():
 
 
 @app.delete("/api/profile")
-def delete_profile():
-    return api().delete_profile()
+def delete_profile(all: bool = False):  # noqa: A002 (the query parameter is ?all=true)
+    return api().delete_profile(all)
 
 
 @app.post("/api/profile")

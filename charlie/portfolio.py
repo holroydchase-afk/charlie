@@ -42,13 +42,18 @@ def summary(md: MarketData, store: Store) -> dict:
     marked = [mark(md, p) for p in store.positions()]
     open_ = [p for p in marked if p["status"] == "open"]
     closed = [p for p in marked if p["status"] == "closed"]
+    wins = sum(1 for p in closed if p["pnl"] > 0)
+    losses = sum(1 for p in closed if p["pnl"] < 0)
+    scratch = len(closed) - wins - losses
     return {
         "positions": marked,
         "open_count": len(open_),
         "open_pnl": round(sum(p["pnl"] for p in open_), 2),
         "realized_pnl": round(sum(p["pnl"] for p in closed), 2),
         "capital_at_risk": round(sum(p["trade"].get("max_loss") or 0 for p in open_), 2),
-        "win_rate": round(sum(1 for p in closed if p["pnl"] > 0) / len(closed), 3) if closed else None,
+        # A $0 close is a scratch, neither a win nor a loss.
+        "scratch": scratch,
+        "win_rate": round(wins / (wins + losses), 3) if wins + losses else None,
     }
 
 

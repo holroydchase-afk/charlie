@@ -13,12 +13,12 @@ async function api(path, opts = {}) {
     if (opts.body instanceof FormData) data = Object.fromEntries([...opts.body].filter(([, v]) => typeof v === "string"));
     else if (typeof opts.body === "string") data = JSON.parse(opts.body);
     const r = await window.charlieStatic.request(opts.method || "GET", path, data);
-    if (r.status >= 400) throw new Error(r.body.detail || `Request failed (${r.status})`);
+    if (r.status >= 400) throw Object.assign(new Error(r.body.detail || `Request failed (${r.status})`), { status: r.status });
     return r.body;
   }
   const res = await fetch(path, opts);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
+  if (!res.ok) throw Object.assign(new Error(body.detail || `Request failed (${res.status})`), { status: res.status });
   return body;
 }
 const postJSON = (path, data) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
@@ -28,9 +28,9 @@ const money = (x, d = 0) => (x === null || x === undefined) ? "—" : (x < 0 ? "
 const NFA = "Not financial advice. Paper trading only.";
 const nfa = () => `<p class="nfa">${NFA}</p>`;
 const pct = (x, d = 0) => (x === null || x === undefined) ? "—" : `${(x * 100).toFixed(d)}%`;
-function toast(msg) {
+function toast(msg, ms = 2600) {
   const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add("hidden"), 2600);
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add("hidden"), ms);
 }
 function md(text) {
   const lines = esc(text).split("\n");
@@ -177,10 +177,24 @@ async function loadIdeas(refresh = false) {
       ? `<details><summary>Considered ${r.considered} names. Why some didn't make it</summary><ul class="tight">${r.skipped.map((s) => `<li><b>${esc(s.symbol)}</b>: ${esc(s.reason)}</li>`).join("")}</ul></details>` : "";
   } catch (e) { box.innerHTML = `<div class="panel">Couldn't load ideas: ${esc(e.message)}</div>`; }
 }
+// Where the numbers came from, in the header badge. Prices and fundamentals are labeled separately,
+// so live prices next to demo earnings never read as fully live (CHL-R2, CHL-R4).
+function dataBadge(src, fundamentals) {
+  src = src || "";
+  if (/^mock/i.test(src)) return { text: "Demo data", mock: true,
+    title: "Simulated prices, not real market data. Do not use these numbers to trade." };
+  if (/^mixed/i.test(src)) return { text: "Mixed data", mock: true,
+    title: `Live prices (delayed) except demo prices for ${(src.match(/demo prices for ([^;)]+)/) || [, "some names"])[1]}. Today's ideas leave those names out.` };
+  if (/^live/i.test(src)) return fundamentals === "demo"
+    ? { text: "Live prices · demo fundamentals", mock: false,
+        title: "Prices are live, delayed about 15 minutes. The Charlie scores use illustrative demo fundamentals, not real filings." }
+    : { text: "Delayed data", mock: false, title: "Live prices, delayed about 15 minutes." };
+  return null;  // nothing analyzed: keep whatever the badge says
+}
 function setDataBadge(src) {
-  const b = $("#data-badge"); const mock = /mock/i.test(src || "");
-  b.textContent = mock ? "Demo data" : "Delayed data"; b.classList.toggle("mock", mock);
-  b.title = mock ? "Live data sources unreachable, showing simulated prices. Do not use these numbers to trade." : src;
+  const d = dataBadge(src, state.status?.data?.fundamentals); if (!d) return;
+  const b = $("#data-badge");
+  b.textContent = d.text; b.title = d.title; b.classList.toggle("mock", d.mock);
 }
 
 // ---------------------------------------------------------------- profile
@@ -283,10 +297,12 @@ async function runScreen(e, save = false) {
     setDataBadge(r.data_source);
     if (r.saved) { toast(`Saved "${r.saved.name}"`); loadSavedScreens(); }
     window._screen = r.results;
-    box.innerHTML = r.results.length ? `<p class="muted small">${r.total} matching trades (${r.filtered_out} stocks filtered out) · strategies searched: ${r.strategies.map((s) => state.meta.strategies[s].label).join(", ")}</p>
+    const unknown = (r.unknown_symbols || []).length
+      ? `<p class="callout small">${esc(r.unknown_symbols.join(", "))} ${r.unknown_symbols.length > 1 ? "aren't" : "isn't"} in Charlie's universe yet.</p>` : "";
+    box.innerHTML = unknown + (r.results.length ? `<p class="muted small">${r.total} matching trades (${r.filtered_out} stocks filtered out) · strategies searched: ${r.strategies.map((s) => state.meta.strategies[s].label).join(", ")}</p>
       <div class="table-wrap"><table><thead><tr><th>Stock</th><th>Strategy</th><th class="num">Score</th><th class="num">Price</th><th class="num">IV</th><th class="num">Max loss</th><th class="num">Max profit</th><th class="num">Prob. profit</th><th class="num">Annualized</th><th>Expiry</th></tr></thead><tbody>
-      ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b><div class="muted small">${esc(x.domain_label || "")}</div></td><td>${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${money(x.price, 2)}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${x.trade.max_profit === null ? "∞" : money(x.trade.max_profit)}</td><td class="num">${x.trade.pop ? pct(x.trade.pop) : "—"}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td>${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="panel">No trades match. Loosen a filter or raise the risk slider to search more strategies.</div>`;
+      ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b><div class="muted small">${esc(x.domain_label || "")}${x.price_source === "mock" && /^mixed/.test(r.data_source) ? " · demo price" : ""}</div></td><td>${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${money(x.price, 2)}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${x.trade.max_profit === null ? "∞" : money(x.trade.max_profit)}</td><td class="num">${x.trade.pop ? pct(x.trade.pop) : "—"}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td>${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="panel">No trades match. Loosen a filter or raise the risk slider to search more strategies.</div>`);
   } catch (err) { box.innerHTML = `<div class="panel">${esc(err.message)}</div>`; }
 }
 async function loadSavedScreens() {
@@ -323,15 +339,31 @@ async function sendChat(text) {
 }
 
 // ---------------------------------------------------------------- paper
-async function paperTrade(t) {
-  try { await postJSON("/api/paper", { trade: t }); toast(`Paper trade opened: ${t.symbol} ${t.label}`); }
-  catch (e) { toast(e.message); }
+async function paperTrade(t, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const r = await postJSON("/api/paper", { trade: t });
+    if (btn) btn.textContent = "Opened ✓";
+    if (r.warning) toast(`Paper trade opened: ${t.symbol} ${t.label}. ${r.warning}`, 7000);
+    else toast(`Paper trade opened: ${t.symbol} ${t.label}`);
+  } catch (e) {
+    if (e.status === 409) { if (btn) btn.textContent = "Opened ✓"; toast(`${e.message} See the Paper tab.`, 4000); }
+    else { if (btn) btn.disabled = false; toast(e.message); }
+  }
+}
+async function closePaper(pid) {
+  try {
+    const p = await api(`/api/paper/${pid}/close`, { method: "POST" });
+    toast(`Closed ${p.symbol} ${p.trade.label}: P&L ${money(p.pnl, 2)}`, 4000);
+  } catch (err) { toast(err.message); }
+  loadPaper();
 }
 async function loadPaper() {
   const r = await api("/api/paper");
   const stat = (k, v, cls = "") => `<div class="metric ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   $("#paper-stats").innerHTML = stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), r.open_pnl >= 0 ? "gain" : "loss") +
-    stat("Realized P&L", money(r.realized_pnl), r.realized_pnl >= 0 ? "gain" : "loss") + stat("Max capital at risk", money(r.capital_at_risk)) + stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate));
+    stat("Realized P&L", money(r.realized_pnl), r.realized_pnl >= 0 ? "gain" : "loss") + stat("Max capital at risk", money(r.capital_at_risk)) + stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) +
+    (r.scratch ? stat("Scratch ($0) closes", r.scratch) : "");
   $("#paper-list").innerHTML = r.positions.length ? `<div class="table-wrap"><table><thead><tr><th>Opened</th><th>Stock</th><th>Strategy</th><th class="num">Entry</th><th class="num">Now</th><th class="num">P&L</th><th class="num">% of max profit</th><th>Status</th><th></th></tr></thead><tbody>
     ${r.positions.map((p) => `<tr><td>${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small">exp ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${money(p.entry_value)}</td><td class="num">${money(p.current_value)}</td>
       <td class="num pos-pnl ${p.pnl >= 0 ? "up" : "down"}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}</td>
@@ -394,7 +426,7 @@ async function openTicker(sym) {
     const ch = d.charlie, f = d.fundamentals;
     body.innerHTML = `
       <div class="card-head"><div><div class="card-title">${esc(d.name)}<span class="sym">${esc(d.symbol)} · ${money(d.quote.price, 2)} (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span></div>
-      <div class="muted small">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · data: ${esc(d.quote.source)}</div></div>
+      <div class="muted small">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · data: ${d.quote.source === "mock" ? "demo price, not real market data" : esc(d.quote.source)}</div></div>
       <span class="grade ${ch.grade}">Charlie ${ch.score} · ${ch.grade}</span></div>
       ${nfa()}
       ${sparkline(d.history)}
@@ -418,9 +450,9 @@ document.addEventListener("click", (e) => {
   if (el.dataset.tab) return showTab(el.dataset.tab);
   if (el.dataset.goto) { e.preventDefault(); return showTab(el.dataset.goto); }
   if (el.dataset.ticker) return openTicker(el.dataset.ticker);
-  if (el.dataset.paper) return paperTrade(window._trades[el.dataset.paper]);
+  if (el.dataset.paper) return paperTrade(window._trades[el.dataset.paper], el);
   if (el.dataset.copy) { navigator.clipboard?.writeText(window._trades[el.dataset.copy].ticket.join("\n")); return toast("Ticket copied"); }
-  if (el.dataset.close) return api(`/api/paper/${el.dataset.close}/close`, { method: "POST" }).then(loadPaper).catch((err) => toast(err.message));
+  if (el.dataset.close) return closePaper(el.dataset.close);
   if (el.dataset.q) return sendChat(el.dataset.q);
   if (el.dataset.row) {
     const x = window._screen[Number(el.dataset.row)];
@@ -443,11 +475,13 @@ $("#save-screen").onclick = () => { if (!$("#screen-form").save_name.value.trim(
 $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#chat-input").value; $("#chat-input").value = ""; sendChat(v); });
 $("#refresh-paper").onclick = loadPaper;
 $("#delete-profile").onclick = async () => {
-  if (!confirm("Delete your saved profile and resume text from this computer? Paper trades are kept.")) return;
+  const where = window.charlieStatic ? "this browser" : "this computer";
+  if (!confirm(`Delete all your Charlie data from ${where}? This deletes your profile, resume, saved screens, paper trades and cached ideas. It can't be undone.`)) return;
   try {
-    await api("/api/profile", { method: "DELETE" });
+    await api("/api/profile?all=true", { method: "DELETE" });
     $("#profile-form").reset(); await loadProfile(); renderProfile();
-    toast("Profile and resume deleted");
+    state.loaded.screener && loadSavedScreens();
+    toast("All your data is deleted: profile, resume, saved screens, paper trades and cached ideas.", 4000);
   } catch (err) { toast(err.message); }
 };
 // Static demo: say so while a control waits for the engine, so nothing looks dead.
@@ -478,7 +512,7 @@ $("#ack-btn").onclick = () => { try { localStorage.setItem("charlie-ack", "1"); 
 (async function boot() {
   try {
     const [meta, status] = await Promise.all([api("/api/meta"), api("/api/status")]);
-    state.meta = meta;
+    state.meta = meta; state.status = status;
     $("#footer-disclaimer").textContent = meta.disclaimer;
     $("#ack-text").textContent = meta.disclaimer;
     let acked = false; try { acked = localStorage.getItem("charlie-ack") === "1"; } catch (_) {}
