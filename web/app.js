@@ -23,7 +23,12 @@ async function api(path, opts = {}) {
 }
 const postJSON = (path, data) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const money = (x, d = 0) => (x === null || x === undefined) ? "—" : (x < 0 ? "-$" : "$") + Math.abs(x).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+// A real minus sign (UX30), and no sign at all on an amount that rounds to $0.
+const money = (x, d = 0) => {
+  if (x === null || x === undefined) return "—";
+  const s = Math.abs(x).toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+  return (x < 0 && /[1-9]/.test(s) ? "−$" : "$") + s;
+};
 // Rendered by code on every trade surface (CLAUDE.md hard rule).
 const NFA = "Not financial advice. Paper trading only.";
 const nfa = () => `<p class="nfa">${NFA}</p>`;
@@ -150,7 +155,7 @@ function moreMetrics(t) {
   if (t.annualized) m.push(["Yearly rate (if max profit)", pct(t.annualized)]);
   else if (t.return_on_risk) m.push(["Reward : risk", `${t.return_on_risk.toFixed(2)} : 1`]);
   if (t.dte) m.push(["Days until expiry", t.dte]);
-  if (t.expected_move) m.push(["Expected move (±1σ)", money(t.expected_move, 2)]);
+  if (t.expected_move) m.push(["Typical move by expiry", money(t.expected_move, 2)]);
   return `<div class="metrics">${m.map(([k, v]) => metric(k, v)).join("")}</div>`;
 }
 function chartBlock(t) {  // the legend keeps "today" and breakeven readable above the chart
@@ -163,7 +168,7 @@ function planTicket(t, { nested = false } = {}) {  // nested: already inside a <
       <div><h3>Plan</h3><ul class="tight">${t.management.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
       <div><h3>Order details (for paper practice)</h3><div class="ticket">${esc(t.ticket.join("\n"))}</div></div>
     </div>
-    ${nested ? `<h3>What is a ${esc(t.label.toLowerCase())}?</h3>` : `<details><summary>What is a ${esc(t.label.toLowerCase())}?</summary>`}<div class="edu">${esc(t.learn)}<br><br><b>Risk:</b> ${esc(t.risk)}</div>${nested ? "" : "</details>"}`;
+    ${nested ? `<h3>${esc(t.explainer_title || t.label)}</h3>` : `<details><summary>${esc(t.explainer_title || t.label)}</summary>`}<div class="edu">${esc(t.learn)}<br><br><b>Risk:</b> ${esc(t.risk)}</div>${nested ? "" : "</details>"}`;
 }
 function tradeTag(t) {
   return `<span class="strategy-tag">${esc(t.label)}${t.contracts ? ` · ${t.contracts} contract${t.contracts > 1 ? "s" : ""}` : ""}${t.shares ? ` · ${t.shares} shares` : ""}${t.expiry ? ` · expires ${t.expiry}` : ""}</span>`;
@@ -191,7 +196,8 @@ function tradeBlock(t, { withActions = true } = {}) {
     ${withActions ? tradeActions(id) : ""}
     ${nfa()}`;
 }
-function gradeLabel(ch) { return `<span class="gword">Charlie score </span>${ch.score}/100 · ${ch.grade}`; }
+// Phone (UX34): "Score 76 · A"; wider screens: "Charlie score 76/100 · A". The aria-label carries the full words.
+function gradeLabel(ch) { return `<span class="gword">Charlie score </span><span class="gcap">Score </span>${ch.score}<span class="gout">/100</span> · ${ch.grade}`; }
 // Idea card (UX4): collapsed by default; plan, risks and order details are one tap away.
 function ideaCard(idea) {
   const a = idea.analysis, t = idea.trade, th = idea.thesis, ch = a.charlie, id = keepTrade(t);
@@ -215,7 +221,7 @@ function ideaCard(idea) {
       ${moreMetrics(t)}
       ${planTicket(t, { nested: true })}
       <div class="two-col">
-        <div><h3>Why this one</h3><ul class="tight">${th.summary.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+        <div><h3>Why this one</h3><ul class="tight">${(th.summary.length > 1 ? th.summary.slice(1) : th.summary).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
         <div><h3>Invert: what could go wrong</h3><ul class="tight flags">${th.inversion.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
       </div>
       <h3>Charlie score breakdown</h3>${factorBars(ch)}<p class="muted small">Financials: ${esc(ch.data_source === "mock" ? "sample numbers, not real filings" : ch.data_source)}</p>
@@ -262,6 +268,15 @@ function showTab(name) {
 }
 
 // ---------------------------------------------------------------- today
+// UX28: one line in the hero (phones) so the first screen carries a real number; it scrolls to card 1.
+function topIdea(idea) {
+  const el = $("#hero-top-idea");
+  if (!el) return;
+  el.classList.toggle("hidden", !idea);
+  if (!idea) return;
+  const t = idea.trade;
+  el.innerHTML = `Top idea today: <b>${esc(idea.analysis.symbol)}</b> · ${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)} <span aria-hidden="true">›</span>`;
+}
 async function loadIdeas(refresh = false) {
   const box = $("#ideas");
   box.innerHTML = skeletonCards(Number($("#idea-count").value) || 3);
@@ -270,6 +285,7 @@ async function loadIdeas(refresh = false) {
     $("#today-sub").innerHTML = `${esc(r.date)} · <b>${esc(r.risk_label)}</b>: ${esc(r.risk_plain || r.risk_blurb)}`;
     setDataBadge(r.data_source);
     box.innerHTML = r.ideas.length ? r.ideas.map(ideaCard).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
+    topIdea(r.ideas[0]);
     drawCharts(box);
     $("#ideas-skipped").innerHTML = r.skipped.length
       ? `<details><summary>Considered ${r.considered} companies. Why some didn't make it</summary><ul class="tight">${r.skipped.map((s) => `<li><b>${esc(s.symbol)}</b>: ${esc(s.reason)}</li>`).join("")}</ul></details>` : "";
@@ -391,6 +407,10 @@ function syncStrategyChips(first = false) {
     o.closest("label").classList.toggle("disabled", blocked);
     o.closest("label").querySelector(".need").classList.toggle("hidden", !blocked);
   });
+  // UX35: phones show only the allowed chips, plus one line on the rest (CSS shows it under 600px).
+  const locked = $$("#strategy-select input[name=strategies]:disabled").length;
+  $("#strategy-locked").textContent = `${locked} more trade type${locked === 1 ? " unlocks" : "s unlock"} at higher risk levels. Move the risk slider to see ${locked === 1 ? "it" : "them"}.`;
+  $("#strategy-locked").classList.toggle("hidden", !locked);
 }
 // UX19: on a phone the form folds into one summary row after a run, so results come first.
 function screenSummary() {
@@ -541,20 +561,27 @@ async function loadPaper() {
   }
   const stat = (k, v, cls = "") => `<div class="metric ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   // UX23: no stats while there's nothing to measure; the empty state's button sits high instead.
+  // UX30: win rate only once a trade has closed (a $0 scratch close counts, and shows "—").
+  const closedCount = r.positions.filter((p) => p.status === "closed").length;
   $("#paper-stats").innerHTML = !r.positions.length ? "" : stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), signCls(r.open_pnl)) +
-    stat("Realized P&L", money(r.realized_pnl), signCls(r.realized_pnl)) + stat("Most you could lose (open trades)", money(r.capital_at_risk)) + stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) +
+    stat("Realized P&L", money(r.realized_pnl), signCls(r.realized_pnl)) + stat("Most you could lose (open trades)", money(r.capital_at_risk)) + (closedCount ? stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) : "") +
     (r.scratch ? stat("Scratch ($0) closes", r.scratch) : "");
+  // UX30: a credit reads as money received, never as a negative entry.
+  const entryText = (p) => (p.entry_value < 0 ? `You received ${money(-p.entry_value)}` : `You paid ${money(p.entry_value)}`);
+  const nowText = (p) => (p.current_value < 0 ? `${p.status === "open" ? "Cost to close" : "Closed for"} ${money(-p.current_value)}`
+    : `${p.status === "open" ? "Worth" : "Closed at"} ${money(p.current_value)}`);
   const closeBtn = (p) => (p.status === "open" ? `<button class="ghost" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
   $("#paper-list").innerHTML = r.positions.length ? `
     <div class="pos-cards">${r.positions.map((p) => `<div class="pos-card">
       <div class="rc-top"><span><b>${esc(p.symbol)}</b> <span class="muted small">${esc(p.trade.label)}</span></span><span class="muted small">${esc(p.status)}</span></div>
+      <div class="small muted rc-money">${entryText(p)} · ${nowText(p)}</div>
       <div class="rc-grid"><span><span>P&L</span><b class="pos-pnl ${signCls(p.pnl)} num">${money(p.pnl)}</b></span><span><span>% of max profit</span><b class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</b></span><span><span>${p.trade.expiry ? "Expires" : "Opened"}</span><b class="num">${esc(p.trade.expiry || p.opened.slice(0, 10))}</b></span></div>
       ${closeBtn(p) ? `<div class="actions">${closeBtn(p)}</div>` : ""}</div>`).join("")}</div>
     <div class="table-wrap has-cards"><table><thead><tr><th>Opened</th><th>Stock</th><th>Trade type</th><th class="num">Entry</th><th class="num">Now</th><th class="num">P&L</th><th class="num">% of max profit</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-    ${r.positions.map((p) => `<tr><td class="num">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${money(p.entry_value)}</td><td class="num">${money(p.current_value)}</td>
+    ${r.positions.map((p) => `<tr><td class="num">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
       <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}</td>
       <td>${closeBtn(p)}</td></tr>`).join("")}
-    </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>Entry and Now are the signed value of the position (credits received show as negative). P&L = Now − Entry. Covered calls track only the option leg.</details>`
+    </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>`
     : `<div class="panel state"><div class="icon" aria-hidden="true">$</div><h2>No paper trades yet</h2>
        <p>Pick an idea on Today and tap Paper trade this to practice with pretend money.</p>
        <button type="button" class="primary" data-goto="today">See today's ideas</button></div>`;
@@ -662,6 +689,11 @@ document.addEventListener("click", (e) => {
   if (el.dataset.q) return sendChat(el.dataset.q);
   if (el.dataset.row) return openScreenRow(window._screen[Number(el.dataset.row)]);
   if (el.dataset.saved) { writeCriteria(window._saved[Number(el.dataset.saved)].criteria); return runScreen(); }
+});
+$("#hero-top-idea").addEventListener("click", (e) => {
+  e.preventDefault();
+  const card = $("#ideas .card");
+  if (card) { card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.querySelector("[data-ticker]")?.focus({ preventScroll: true }); }
 });
 $("#drawer-close").onclick = closeDrawer;
 $("#drawer").addEventListener("click", (e) => { if (e.target.id === "drawer") closeDrawer(); });
