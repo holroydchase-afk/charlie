@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MODULES = [
     "charlie/__init__.py", "charlie/browser.py", "charlie/browser_store.py", "charlie/handlers.py",
     "charlie/store.py", "charlie/chat.py", "charlie/portfolio.py", "charlie/demo.py", "charlie/engine.py",
-    "charlie/profile.py", "charlie/scoring.py", "charlie/strategies.py", "charlie/options_math.py",
+    "charlie/profile.py", "charlie/scoring.py", "charlie/strategies.py", "charlie/options_math.py", "charlie/track_record.py",
     "charlie/universe.py", "charlie/data/__init__.py", "charlie/data/market.py", "charlie/data/mock.py",
 ]
 WEB_FILES = ["app.js", "styles.css", "static.js"]

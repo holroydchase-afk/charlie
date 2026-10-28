@@ -59,6 +59,8 @@ The first screen comes from `prebuilt.json`, so it appears right away while Pyod
 - **Screener:** your own criteria (sectors, tickers, min score, max price, IV range, chance of profit, capital, annualized return, days to expiry, delta, skip red flags). Save screens and rerun them.
 - **Chat:** ask about ideas, a company, a strategy, or your portfolio. Trades in answers come with **Paper trade** buttons.
 - **Paper portfolio:** one click opens a paper position; it's marked to current prices with P&L and % of max profit.
+- **Track record:** Today shows how past ideas are doing at today's price: the stock's move since the idea next to SPY's over the same days, and whether it's above breakeven.
+- **Exit-plan alerts:** a paper position is flagged when its exit plan says to act: 50% of max profit reached, 21 days or fewer to expiry, or the stock below breakeven.
 - **Learn:** how the scoring works, the slider levels, each strategy, and a glossary.
 
 ## How ideas are picked
