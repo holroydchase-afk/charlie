@@ -520,7 +520,7 @@ async function runScreen(e, save = false) {
       </button>`).join("")}</div>
       <div class="table-wrap has-cards"><table><thead><tr><th>Stock</th><th>Trade type</th><th class="num">Score</th><th class="num">Price swings (IV)</th><th class="num">Max loss</th><th class="num">Max profit</th><th class="num">Chance of profit</th><th class="num">Yearly rate</th><th>Expires</th></tr></thead><tbody>
       ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b> <span class="muted small num">${money(x.price, 2)}</span><div class="muted small sector" title="${esc(x.domain_label || "")}">${esc(x.domain_label || "")}${demoPrice(x)}</div></td><td class="nowrap">${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${maxp(x)}</td><td class="num">${pop(x)}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td class="nowrap">${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
-      </tbody></table></div>` : `<div class="panel state"><p>No trades match these filters. Try loosening one, or move the risk slider up to search more trade types.</p></div>`);
+      </tbody></table></div>${nfa()}` : `<div class="panel state"><p>No trades match these filters. Try loosening one, or move the risk slider up to search more trade types.</p></div>`);
     foldScreenForm(true);
   } catch (err) { box.innerHTML = errorState("Couldn't run this screen. Check your connection and try again.", err, retryButton(() => runScreen())); }
 }
@@ -623,10 +623,10 @@ async function loadPaper() {
       <div class="rc-grid"><span><span>P&L</span><b class="pos-pnl ${signCls(p.pnl)} num">${money(p.pnl)}</b></span><span><span>% of max profit</span><b class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</b></span><span><span>${p.trade.expiry ? "Expires" : "Opened"}</span><b class="num">${esc(p.trade.expiry || p.opened.slice(0, 10))}</b></span></div>
       ${closeBtn(p) ? `<div class="actions">${closeBtn(p)}</div>` : ""}</div>`).join("")}</div>
     <div class="table-wrap has-cards"><table><thead><tr><th>Opened</th><th>Stock</th><th>Trade type</th><th class="num">Entry</th><th class="num">Now</th><th class="num">P&L</th><th class="num">% of max profit</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-    ${r.positions.map((p) => `<tr><td class="num">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
+    ${r.positions.map((p) => `<tr><td class="num nowrap">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small nowrap">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
       <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}${p.alerts?.length ? `<div class="alert-row">${chips(p)}</div>` : ""}</td>
       <td>${closeBtn(p)}</td></tr>`).join("")}
-    </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>`
+    </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>${nfa()}`
     : `<div class="panel state"><div class="icon" aria-hidden="true">$</div><h2>No paper trades yet</h2>
        <p>Pick an idea on Today and tap Paper trade this to practice with pretend money.</p>
        <button type="button" class="primary" data-goto="today">See today's ideas</button></div>`;

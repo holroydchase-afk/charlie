@@ -387,7 +387,7 @@ button.row-card:hover { border-color: var(--accent); }
 .label-row label { margin-bottom: 0; }
 #resume-text { margin: var(--s1) 0 var(--s3); }
 /* UX26: screener table rows stay one line */
-td.nowrap, th.nowrap { white-space: nowrap; }
+td.nowrap, th.nowrap, div.nowrap { white-space: nowrap; }
 td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 600px) {
   #tab-screener.screen-folded #screen-summary { display: flex; }
@@ -433,7 +433,7 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 .track-panel { padding: var(--s4) var(--s5); }
 .track-sum { font-size: var(--fs-sm); margin-bottom: var(--s3); }
 .track-list { list-style: none; margin: 0; padding: 0; }
-.track-item { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) auto; gap: var(--s2) var(--s4); align-items: center; padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.track-item { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) 12rem; gap: var(--s2) var(--s4); align-items: center; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .track-item .ti-head { min-width: 0; }
 .track-item .ti-date { display: block; white-space: nowrap; }
 .ti-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s2); font-size: var(--fs-sm); }

@@ -209,6 +209,16 @@ def _money(x) -> str:
     return "n/a" if x is None else f"${x:,.0f}"
 
 
+def _plain_source(src: str) -> str:
+    """The data label in words a newcomer knows: no "mock" and no brackets inside brackets."""
+    src = str(src or "")
+    if src.startswith("mock"):
+        return "sample data, not real prices"
+    if src.startswith("live"):
+        return "delayed real prices"
+    return src.replace("(", "- ").replace(")", "")
+
+
 def _trade_line(t: dict) -> str:
     pop = f", ~{t['pop'] * 100:.0f}% chance of profit" if t.get("pop") else ""
     return (f"**{t['label']}** on {t['symbol']}: max loss {_money(t['max_loss'])}, "
@@ -273,7 +283,7 @@ def chat_rules(text: str, ctx: ToolContext) -> str:
         r = ctx.run("get_daily_ideas", {})
         if not r["ideas"]:
             return r["note"] or "Nothing cleared the bar today."
-        lines = [f"Today's ideas at **{r['risk_label']}** ({r['data_source']}):"]
+        lines = [f"Today's ideas at **{r['risk_label']}** ({_plain_source(r['data_source'])}):"]
         for i in r["ideas"]:
             lines.append(f"- {i['name']} (score {i['charlie_score']}): {_trade_line(i['trade'])}")
         return "\n".join(lines)
