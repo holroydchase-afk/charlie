@@ -201,8 +201,8 @@ class Api:
         if everything:
             self.store.wipe()
             self._clear_market_cache()
-            return {"ok": True, "deleted": ["profile", "resume", "saved screens", "paper trades", "cached ideas",
-                                            "cached market data"]}
+            return {"ok": True, "deleted": ["profile", "resume", "saved screens", "paper trades", "saved ideas",
+                                            "saved market data"]}
         self.store.delete("profile")
         self.store.delete("intake")
         self.store.delete("sample_risk")
