@@ -34,7 +34,7 @@ def client(tmp_path_factory):
 
     from charlie import server
     server.store = Store(str(db))
-    return TestClient(server.app)
+    return TestClient(server.app, base_url="http://127.0.0.1:8000")
 
 
 def test_disclaimer_text():

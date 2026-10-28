@@ -5,6 +5,7 @@ Usage: python tools/build_demo.py [out_dir] [--date YYYY-MM-DD] [--pyodide-dir D
 The demo's data is pinned to the build date. With --pyodide-dir (an unpacked pyodide npm package), the
 runtime is copied into site/pyodide/ and static.js loads it from there, so visitors' browsers never call
 a third-party CDN; that's how pages.yml builds the public demo. Without it, Pyodide loads from jsDelivr.
+index.html gets a strict meta Content-Security-Policy (see csp()); only the CDN build allows jsDelivr in it.
 """
 
 from __future__ import annotations
@@ -23,13 +24,24 @@ ROOT = Path(__file__).resolve().parent.parent
 MODULES = [
     "charlie/__init__.py", "charlie/browser.py", "charlie/browser_store.py", "charlie/handlers.py",
     "charlie/store.py", "charlie/chat.py", "charlie/portfolio.py", "charlie/demo.py", "charlie/engine.py",
-    "charlie/profile.py", "charlie/scoring.py", "charlie/strategies.py", "charlie/options_math.py",
+    "charlie/profile.py", "charlie/scoring.py", "charlie/strategies.py", "charlie/options_math.py", "charlie/track_record.py",
     "charlie/universe.py", "charlie/data/__init__.py", "charlie/data/market.py", "charlie/data/mock.py",
 ]
 WEB_FILES = ["app.js", "styles.css", "static.js"]
 # The Pyodide runtime files the demo actually fetches (checked in Chromium); nothing else is shipped.
 PYODIDE_FILES = ["pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json"]
 CDN_BASE = re.compile(r'"https://cdn\.jsdelivr\.net/pyodide/v[0-9.]+/full/"')
+CDN_ORIGIN = "https://cdn.jsdelivr.net"
+
+
+def csp(cdn: bool) -> str:
+    """The demo's Content-Security-Policy (CHL-PS1): its own files only, plus WebAssembly for Pyodide.
+    The CDN build also allows the Pyodide CDN; a self-hosted build allows no other host at all."""
+    extra = f" {CDN_ORIGIN}" if cdn else ""
+    return ("default-src 'self'; "
+            f"script-src 'self' 'wasm-unsafe-eval'{extra}; "
+            f"connect-src 'self'{extra}; "
+            "img-src 'self' data:; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'")
 
 
 def build(out: Path, day: str | None = None, pyodide_dir: Path | None = None) -> Path:
@@ -50,6 +62,9 @@ def build(out: Path, day: str | None = None, pyodide_dir: Path | None = None) ->
     html = html.replace('href="/static/', 'href="').replace('src="/static/', 'src="')  # relative, for a subpath
     html = html.replace('<script src="app.js"></script>', '<script src="static.js"></script>\n  <script src="app.js"></script>')
     assert 'src="static.js"' in html, "index.html no longer loads app.js the way build_demo expects"
+    meta = f'<meta http-equiv="Content-Security-Policy" content="{csp(cdn=not pyodide_dir)}">'
+    assert '<meta charset="utf-8">' in html, "index.html no longer has the charset meta build_demo puts the CSP after"
+    html = html.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n  ' + meta, 1)
     (out / "index.html").write_text(html)
     with zipfile.ZipFile(out / "charlie.zip", "w", zipfile.ZIP_DEFLATED) as z:
         for m in MODULES:

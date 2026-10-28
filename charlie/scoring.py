@@ -83,26 +83,26 @@ def score(symbol: str, fundamentals: dict, quote: dict, familiarity: int, famili
     q = 0.60 * _lerp(roic, 0.0, 0.25) + 0.25 * _lerp(conv, 0.4, 1.0) + 0.15 * _lerp(gm, 0.15, 0.70)
     conv_txt = f", turns {conv * 100:.0f}% of profit into free cash" if conv is not None else ""
     factors.append(Factor("quality", round(q),
-                          f"return on invested capital {_pct(roic)}{conv_txt}, gross margin {_pct(gm)}"))
+                          f"earns {_pct(roic)} on the money it invests{conv_txt}, keeps {_pct(gm)} of sales after direct costs"))
 
     # Moat: returns well above cost of capital, sustained with steady margins
     om, sd = f.get("op_margin"), f.get("op_margin_stdev")
     stability = 100 - _lerp(sd, 0.01, 0.10) if sd is not None else 50
     m = 0.25 * _lerp(om, 0.0, 0.35) + 0.40 * stability + 0.35 * _lerp(roic, 0.08, 0.30)
     stab_txt = "very steady" if (sd or 1) < 0.025 else "fairly steady" if (sd or 1) < 0.05 else "volatile"
-    factors.append(Factor("moat", round(m), f"operating margin {_pct(om)} and {stab_txt} year to year"))
+    factors.append(Factor("moat", round(m), f"keeps {_pct(om)} of sales as operating profit, {stab_txt} year to year"))
 
     # Balance sheet: leverage and dilution
     de = f.get("debt_to_equity")
     if de is None:
-        b, de_txt = 50, "debt/equity unknown"
+        b, de_txt = 50, "debt level unknown"
     elif de < 0:
         # Negative equity is usually buybacks (MCD, HD) rather than distress; judge by cash flow.
         b = 55 if (fcfm or 0) > 0.1 else 20
         de_txt = "negative book equity (often from buybacks)"
     else:
         b = 100 - _lerp(de, 0.3, 3.0)
-        de_txt = f"debt/equity {de:.1f}"
+        de_txt = f"debt is {de:.1f}× what owners put in"
     dil = f.get("share_change") or 0
     b = b - max(0, dil) * 600 + max(0, -dil) * 300
     dil_txt = f"share count {'shrinking' if dil < -0.005 else 'growing' if dil > 0.005 else 'flat'} ({dil * 100:+.1f}%/yr)"
@@ -116,7 +116,7 @@ def score(symbol: str, fundamentals: dict, quote: dict, familiarity: int, famili
     off_high = (1 - px / hi) if hi and px else 0
     v += 0.15 * _lerp(off_high, 0.0, 0.30)
     factors.append(Factor("value", round(min(100, v)),
-                          f"free-cash-flow yield {_pct(fy)} vs ~{TREASURY_PROXY * 100:.1f}% Treasuries; "
+                          f"free cash is {_pct(fy)} of the price a year (Treasuries pay ~{TREASURY_PROXY * 100:.1f}%); "
                           f"{off_high * 100:.0f}% below its 52-week high"))
 
     composite = sum(WEIGHTS[x.key] * x.score for x in factors)
@@ -128,7 +128,7 @@ def score(symbol: str, fundamentals: dict, quote: dict, familiarity: int, famili
     if (om or 0) < 0:
         flags.append(("Not yet profitable at the operating level", 10))
     if de is not None and de > 3:
-        flags.append((f"Heavy debt load (debt/equity {de:.1f})", 8))
+        flags.append((f"Heavy debt load (debt is {de:.1f}× what owners put in)", 8))
     if dil > 0.03:
         flags.append((f"Shareholder dilution of {dil * 100:.0f}%/yr", 8))
     if (f.get("rev_growth") or 0) < -0.03:

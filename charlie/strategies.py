@@ -22,13 +22,15 @@ NFA = "Not financial advice. Paper trading only."
 
 STRATEGIES = {
     "shares": {
-        "label": "Buy shares", "min_level": 1, "outlook": "bullish, long-term",
+        "label": "Buy shares", "explainer_title": "How buying shares works",
+        "min_level": 1, "outlook": "bullish, long-term",
         "risk": "You can lose what you put in, but there's no expiration clock.",
         "learn": ("Owning the business outright. Munger's default: buy a wonderful company at a fair price "
                   "and sit on your hands. No leverage, no expiry, no options math."),
     },
     "cash_secured_put": {
-        "label": "Cash-secured put", "min_level": 2, "outlook": "neutral to bullish; happy to own lower",
+        "label": "Cash-secured put", "explainer_title": "What is a cash-secured put?",
+        "min_level": 2, "outlook": "neutral to bullish; happy to own lower",
         "risk": "If the stock falls below the strike you buy 100 shares at the strike (minus the premium).",
         "learn": ("You sell someone the right to sell you 100 shares at a lower price, and set the cash aside to "
                   "cover it. You get paid now. If the stock stays above the strike, you keep the premium; if it "
@@ -36,40 +38,46 @@ STRATEGIES = {
                   "limit order that pays you while you wait. Same downside as owning the stock, minus the premium."),
     },
     "covered_call": {
-        "label": "Covered call", "min_level": 2, "outlook": "neutral to mildly bullish on shares you own",
+        "label": "Covered call", "explainer_title": "What is a covered call?",
+        "min_level": 2, "outlook": "neutral to mildly bullish on shares you own",
         "risk": "Caps your upside at the strike; shares can still fall.",
         "learn": ("You own 100 shares and sell someone the right to buy them from you at a higher price. You earn "
                   "the premium as extra income. If the stock rises past the strike, your shares get sold at that "
                   "price (still a profit). The trade-off: you give up gains above the strike."),
     },
     "collar": {
-        "label": "Collar", "min_level": 3, "outlook": "protect shares you own",
+        "label": "Collar", "explainer_title": "What is a collar?",
+        "min_level": 3, "outlook": "protect shares you own",
         "risk": "Limits both downside and upside on shares you already hold.",
         "learn": ("On shares you own, buy a put (insurance) and pay for it by selling a call. Your losses are "
                   "floored at the put strike and your gains capped at the call strike. Good for protecting a big "
                   "winner without selling it."),
     },
     "bull_put_spread": {
-        "label": "Bull put credit spread", "min_level": 3, "outlook": "neutral to bullish",
+        "label": "Bull put credit spread", "explainer_title": "What is a bull put credit spread?",
+        "min_level": 3, "outlook": "neutral to bullish",
         "risk": "Max loss is fixed: the width between strikes minus the credit.",
         "learn": ("A cash-secured put with a safety net: you sell one put and buy a cheaper, lower-strike put. "
                   "You collect less premium, but your worst case is known and small, and it ties up far less "
                   "cash than buying 100 shares."),
     },
     "bull_call_spread": {
-        "label": "Bull call debit spread", "min_level": 4, "outlook": "bullish over the next 1-3 months",
+        "label": "Bull call debit spread", "explainer_title": "What is a bull call debit spread?",
+        "min_level": 4, "outlook": "bullish over the next 1-3 months",
         "risk": "You can lose the whole debit if the stock doesn't rise.",
         "learn": ("Buy a call and sell a higher-strike call against it. Cheaper than a call alone, with a defined "
                   "maximum gain and a defined maximum loss (what you paid)."),
     },
     "leaps_call": {
-        "label": "LEAPS call (stock replacement)", "min_level": 4, "outlook": "bullish over 9-18 months",
+        "label": "LEAPS call (stock replacement)", "explainer_title": "What is a LEAPS call?",
+        "min_level": 4, "outlook": "bullish over 9-18 months",
         "risk": "Can lose the full premium; time decay is slow but real.",
         "learn": ("A long-dated, in-the-money call that moves almost like the stock for a fraction of the cost. "
                   "Leverage, so size it small. Munger would remind you leverage is how smart people go broke."),
     },
     "long_call": {
-        "label": "Long call", "min_level": 5, "outlook": "bullish, near-term move expected",
+        "label": "Long call", "explainer_title": "What is a long call?",
+        "min_level": 5, "outlook": "bullish, near-term move expected",
         "risk": "Most short-dated calls expire worthless; you can lose 100% quickly.",
         "learn": ("The lottery-ticket trade most beginners start with. Time decay works against you every day, "
                   "and you need the move to happen fast. Kept at the top of the slider for a reason."),
@@ -79,19 +87,24 @@ STRATEGIES = {
 RISK_LEVELS = {
     1: {"label": "Learn (shares only)", "max_risk_pct": 0.05, "max_collateral_pct": 0.0,
         "prefs": ["shares"],
-        "blurb": "Ideas are plain stock purchases sized at 5% of your capital. Read the option explainers risk-free."},
+        "blurb": "Ideas are plain stock purchases sized at 5% of your capital. Read the option explainers risk-free.",
+        "plain": "Plain share purchases, each about 5% of your paper capital. Options wait in Learn until you're ready."},
     2: {"label": "Conservative", "max_risk_pct": 0.05, "max_collateral_pct": 0.5,
         "prefs": ["covered_call", "cash_secured_put", "shares"],
-        "blurb": "Income strategies on companies you'd be glad to own: covered calls and cash-secured puts at ~0.20 delta, 30-50 days out."},
+        "blurb": "Income strategies on companies you'd be glad to own: covered calls and cash-secured puts about 20% likely to be assigned, 30-50 days out.",
+        "plain": "Steady-income trades on companies you'd be happy to own."},
     3: {"label": "Moderate", "max_risk_pct": 0.05, "max_collateral_pct": 0.5,
         "prefs": ["cash_secured_put", "bull_put_spread", "covered_call", "collar", "shares"],
-        "blurb": "Adds defined-risk credit spreads and collars. Every trade has a known worst case."},
+        "blurb": "Adds defined-risk credit spreads and collars. Every trade has a known worst case.",
+        "plain": "Adds spreads and collars. You know the worst case before you start."},
     4: {"label": "Growth", "max_risk_pct": 0.04, "max_collateral_pct": 0.5,
         "prefs": ["bull_call_spread", "leaps_call", "bull_put_spread", "cash_secured_put", "shares"],
-        "blurb": "Adds debit spreads and LEAPS for more upside per dollar, with smaller position sizes."},
+        "blurb": "Adds debit spreads and LEAPS for more upside per dollar, with smaller position sizes.",
+        "plain": "Adds trades that aim for more upside per dollar, with smaller position sizes."},
     5: {"label": "Speculative", "max_risk_pct": 0.02, "max_collateral_pct": 0.5,
         "prefs": ["long_call", "bull_call_spread", "leaps_call", "bull_put_spread", "shares"],
-        "blurb": "Adds short-dated long calls, capped at 2% of capital per trade. Most of these lose; size accordingly."},
+        "blurb": "Adds short-dated long calls, capped at 2% of capital per trade. Most of these lose; size accordingly.",
+        "plain": "Adds short-term bets that a stock will rise. Most of these lose, so each is capped at 2% of your capital."},
 }
 
 DEFAULT_RISK_LEVEL = 2
@@ -112,8 +125,20 @@ def _liquid(c: dict, live: bool) -> bool:
     return c["open_interest"] >= (50 if live else 0)
 
 
-def pick_expiry(chain: list[dict], dte_min: int, dte_max: int, target: int) -> str | None:
-    exps = sorted({(c["expiry"], c["dte"]) for c in chain if dte_min <= c["dte"] <= dte_max},
+MIN_LIQUID_PER_EXPIRY = 6
+
+
+def pick_expiry(chain: list[dict], dte_min: int, dte_max: int, target: int, live: bool = False) -> str | None:
+    """The expiration closest to `target` days. With live quotes, skip thin weeklies that have
+    too few tradable contracts (real chains list many expirations nobody trades)."""
+    pool = chain
+    if live:
+        counts: dict[str, int] = {}
+        for c in chain:
+            if _liquid(c, True):
+                counts[c["expiry"]] = counts.get(c["expiry"], 0) + 1
+        pool = [c for c in chain if counts.get(c["expiry"], 0) >= MIN_LIQUID_PER_EXPIRY]
+    exps = sorted({(c["expiry"], c["dte"]) for c in pool if dte_min <= c["dte"] <= dte_max},
                   key=lambda e: abs(e[1] - target))
     return exps[0][0] if exps else None
 
@@ -168,6 +193,7 @@ def _finish(strategy: str, symbol: str, spot: float, legs: list[dict], contracts
     out = {
         "strategy": strategy,
         "label": STRATEGIES[strategy]["label"],
+        "explainer_title": STRATEGIES[strategy]["explainer_title"],
         "symbol": symbol,
         "spot": round(spot, 2),
         "legs": legs,
@@ -232,7 +258,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
     dte_min, dte_max, target_dte = p.get("dte_min", 25), p.get("dte_max", 55), p.get("dte_target", 40)
 
     if strategy == "cash_secured_put":
-        exp = pick_expiry(chain, dte_min, dte_max, target_dte) or pick_expiry(chain, 20, 70, target_dte)
+        exp = pick_expiry(chain, dte_min, dte_max, target_dte, live) or pick_expiry(chain, 20, 70, target_dte, live)
         if not exp:
             raise Infeasible("no expiration 3-8 weeks out")
         target = p.get("delta", 0.20 if level <= 2 else 0.25)
@@ -259,7 +285,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
         if held < 100:
             raise Infeasible("covered calls need 100 shares you already own (add holdings in your profile)")
         n = held // 100
-        exp = pick_expiry(chain, dte_min, dte_max, target_dte)
+        exp = pick_expiry(chain, dte_min, dte_max, target_dte, live)
         if not exp:
             raise Infeasible("no expiration 3-8 weeks out")
         c = pick_by_delta(chain, exp, "call", p.get("delta", 0.25), live, above=spot)
@@ -280,7 +306,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
         if held < 100:
             raise Infeasible("collars protect 100 shares you already own")
         n = held // 100
-        exp = pick_expiry(chain, 45, 100, 75)
+        exp = pick_expiry(chain, 45, 100, 75, live)
         if not exp:
             raise Infeasible("no expiration 6-14 weeks out")
         put = pick_by_delta(chain, exp, "put", 0.25, live, below=spot)
@@ -296,7 +322,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
                         f"Your shares are protected below ${floor:g} until {exp}."])
 
     if strategy == "bull_put_spread":
-        exp = pick_expiry(chain, dte_min, dte_max, target_dte)
+        exp = pick_expiry(chain, dte_min, dte_max, target_dte, live)
         if not exp:
             raise Infeasible("no expiration 3-8 weeks out")
         short = pick_by_delta(chain, exp, "put", p.get("delta", 0.30), live, below=spot)
@@ -327,7 +353,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
                        {"width": width})
 
     if strategy == "bull_call_spread":
-        exp = pick_expiry(chain, 40, 90, 60)
+        exp = pick_expiry(chain, 40, 90, 60, live)
         if not exp:
             raise Infeasible("no expiration 6-13 weeks out")
         long_ = pick_by_delta(chain, exp, "call", 0.55, live)
@@ -351,12 +377,12 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
 
     if strategy in ("leaps_call", "long_call"):
         if strategy == "leaps_call":
-            exp = pick_expiry(chain, 240, 800, 420)
+            exp = pick_expiry(chain, 240, 800, 420, live)
             target = 0.75
             if not exp:
                 raise Infeasible("no LEAPS expiration listed")
         else:
-            exp = pick_expiry(chain, 30, 75, 50)
+            exp = pick_expiry(chain, 30, 75, 50, live)
             target = 0.45
             if not exp:
                 raise Infeasible("no expiration 4-10 weeks out")

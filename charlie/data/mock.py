@@ -12,6 +12,7 @@ import hashlib
 import math
 from datetime import date, timedelta
 from functools import lru_cache
+from types import SimpleNamespace
 
 from ..options_math import RISK_FREE, norm_cdf, norm_pdf
 from ..universe import lookup
@@ -32,8 +33,13 @@ def _normal(*parts) -> float:
     return math.sqrt(-2 * math.log(u1)) * math.cos(2 * math.pi * u2)
 
 
-def _info(symbol: str):
-    info = lookup(symbol)
+# Benchmarks get a price path (quote and history) but are never in the universe, so they're
+# never scored or offered as an idea. SPY is the track record's yardstick.
+BENCHMARKS = {"SPY": SimpleNamespace(symbol="SPY", price=580.0, vol=0.16)}
+
+
+def _info(symbol: str, benchmark_ok: bool = False):
+    info = lookup(symbol) or (BENCHMARKS.get(symbol) if benchmark_ok else None)
     if not info:
         raise KeyError(f"{symbol} isn't in Charlie's universe")
     return info
@@ -42,7 +48,7 @@ def _info(symbol: str):
 @lru_cache(maxsize=256)
 def _path(symbol: str, today: date) -> tuple[tuple[str, float], ...]:
     """(date, close) for every weekday from EPOCH through today."""
-    info = _info(symbol)
+    info = _info(symbol, benchmark_ok=True)
     daily_vol = info.vol / math.sqrt(252)
     phi = 0.985  # pull back toward the reference price; keeps the demo near universe.py levels
     x = 0.0

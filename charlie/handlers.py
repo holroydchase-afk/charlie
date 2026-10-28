@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
 from urllib.parse import parse_qsl, unquote, urlsplit
 
-from . import __version__, chat as chat_mod, engine, portfolio
+from . import __version__, chat as chat_mod, engine, portfolio, track_record
 from .profile import RISK_LABELS, Profile, build_profile
 from .strategies import RISK_LEVELS, STRATEGIES
 from .universe import DOMAINS, TICKERS, lookup
@@ -20,6 +22,16 @@ DISCLAIMER = ("Charlie is an educational tool for paper trading. It is not a bro
               "adviser, and nothing here is personalized financial advice. Options involve significant risk and "
               "are not suitable for all investors; read the OCC's 'Characteristics and Risks of Standardized "
               "Options' before trading real money. Data may be delayed, incomplete, or simulated.")
+
+
+# Input limits (CHL-PS5, PS12): both the server and the demo's router go through these.
+MAX_CAPITAL = 1e9
+MAX_SHARES = 1e9
+MAX_RESUME_CHARS = 50_000  # the profile is built from at most this much resume text (CHL-PS3)
+MAX_SCREEN_NAME = 100
+MAX_NOTE = 500
+MAX_CHAT_CONTENT = 4000
+MAX_CHAT_MESSAGES = 40
 
 
 class ApiError(Exception):
@@ -36,8 +48,10 @@ def parse_holdings(holdings: str) -> dict[str, int]:
     hold = {}
     for part in holdings.replace(";", ",").split(","):
         bits = part.replace(":", " ").split()
-        if len(bits) == 2 and bits[1].replace(".", "").isdigit():
-            hold[bits[0].upper()] = int(float(bits[1]))
+        if len(bits) == 2 and re.fullmatch(r"[0-9]+(?:\.[0-9]*)?", bits[1]):  # ASCII only (CHL-PS15)
+            n = float(bits[1])
+            if math.isfinite(n) and n <= MAX_SHARES:  # an absurd count is dropped, never a crash (CHL-PS5)
+                hold[bits[0].upper()] = int(n)
     return hold
 
 
@@ -48,6 +62,93 @@ def _int(v, default=None):
         return int(float(v))
     except (TypeError, ValueError):
         raise ApiError(422, f"expected a number, got {v!r}")
+
+
+# Screener criteria that must be numbers when given (CHL-R5: a bad value is a 422 naming the field).
+NUMERIC_CRITERIA = ("min_score", "max_price", "min_iv", "max_iv", "min_pop", "max_capital", "min_annualized",
+                    "dte_min", "dte_max", "delta")
+
+
+def _number(v, field: str) -> float:
+    if isinstance(v, bool):
+        raise ApiError(422, f"{field} must be a number, not {v!r}.")
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        raise ApiError(422, f"{field} must be a number, not {v!r}.")
+    if not math.isfinite(x):
+        raise ApiError(422, f"{field} must be a finite number.")
+    return x
+
+
+def check_capital(v) -> float:
+    """Paper capital must be a finite number above 0 and at most $1 billion (CHL-PS5)."""
+    x = _number(25000 if v is None or v == "" else v, "capital")
+    if not 0 < x <= MAX_CAPITAL:
+        raise ApiError(422, "capital must be more than $0 and at most $1,000,000,000.")
+    return x
+
+
+def clean_criteria(criteria) -> dict:
+    """Check the screener's criteria before the engine sees them, so bad input is a 422, never a 500."""
+    if not isinstance(criteria, dict):
+        raise ApiError(422, "criteria must be an object.")
+    c = dict(criteria)
+    for k in NUMERIC_CRITERIA:
+        if c.get(k) not in (None, ""):
+            c[k] = _number(c[k], k)
+    for k in ("dte_min", "dte_max"):
+        if c.get(k) not in (None, ""):
+            c[k] = int(c[k])
+    if c.get("scope") not in (None, "", "circle", "all", "list"):
+        raise ApiError(422, "scope must be circle, all or list.")
+    for k in ("symbols", "domains", "strategies"):
+        v = c.get(k)
+        if isinstance(v, str):
+            v = [x for x in v.replace(",", " ").split() if x]
+        if v not in (None, "") and (not isinstance(v, list) or not all(isinstance(x, str) for x in v)):
+            raise ApiError(422, f"{k} must be a list of names.")
+        if v is not None:
+            c[k] = v
+    return c
+
+
+LEG_ACTIONS, LEG_INSTRUMENTS = ("buy", "sell"), ("stock", "call", "put")
+
+
+def check_legs(legs) -> list[dict]:
+    """A paper trade's legs must be complete before the store prices them (CHL-R5)."""
+    if not isinstance(legs, list) or not legs:
+        raise ApiError(422, "A paper trade needs at least one leg.")
+    from .options_math import parse_occ
+    for i, leg in enumerate(legs, 1):
+        if not isinstance(leg, dict):
+            raise ApiError(422, f"Leg {i} is not a leg object.")
+        missing = [k for k in ("action", "instrument", "symbol", "qty", "price") if leg.get(k) in (None, "")]
+        if missing:
+            raise ApiError(422, f"Leg {i} is missing {', '.join(missing)}.")
+        if leg["action"] not in LEG_ACTIONS:
+            raise ApiError(422, f"Leg {i} action must be buy or sell.")
+        if leg["instrument"] not in LEG_INSTRUMENTS:
+            raise ApiError(422, f"Leg {i} instrument must be stock, call or put.")
+        if not isinstance(leg["symbol"], str):
+            raise ApiError(422, f"Leg {i} symbol must be text.")
+        qty, price = _number(leg["qty"], f"Leg {i} qty"), _number(leg["price"], f"Leg {i} price")
+        if qty <= 0 or qty != int(qty) or price < 0:
+            raise ApiError(422, f"Leg {i} needs a whole positive qty and a price of 0 or more.")
+        if leg["instrument"] != "stock":
+            try:
+                parse_occ(leg["symbol"])
+            except Exception:
+                raise ApiError(422, f"Leg {i} symbol isn't an option symbol.")
+    return legs
+
+
+def _leg_signature(trade: dict) -> tuple:
+    """What makes two paper trades the same: symbol, strategy and legs (prices aside, since a
+    re-click after the quote moved is still the same trade)."""
+    legs = tuple(sorted((str(l["symbol"]), l["action"], l["instrument"], float(l["qty"])) for l in trade["legs"]))
+    return str(trade["symbol"]).upper(), trade["strategy"], legs
 
 
 def _bool(v) -> bool:
@@ -76,9 +177,9 @@ class Api:
 
     def meta(self) -> dict:
         return {
-            "risk_levels": {k: {"label": v["label"], "blurb": v["blurb"], "max_risk_pct": v["max_risk_pct"]}
+            "risk_levels": {k: {"label": v["label"], "blurb": v["blurb"], "plain": v["plain"], "max_risk_pct": v["max_risk_pct"]}
                             for k, v in RISK_LEVELS.items()},
-            "strategies": {k: {kk: v[kk] for kk in ("label", "min_level", "outlook", "risk", "learn")}
+            "strategies": {k: {kk: v[kk] for kk in ("label", "explainer_title", "min_level", "outlook", "risk", "learn")}
                            for k, v in STRATEGIES.items()},
             "domains": [{"key": d.key, "label": d.label} for d in DOMAINS],
             "tickers": [{"symbol": t.symbol, "name": t.name, "domain": t.domain} for t in TICKERS],
@@ -94,17 +195,41 @@ class Api:
         return {"profile": self.current_profile().to_dict(), "saved": self.store.get("profile") is not None,
                 "intake": intake}
 
-    def delete_profile(self) -> dict:
+    def delete_profile(self, everything: bool = False) -> dict:
+        """Delete the profile and resume. With everything=True also wipe saved screens, paper
+        trades, cached ideas and the live-data cache (the "Delete my data" button's default)."""
+        if everything:
+            self.store.wipe()
+            self._clear_market_cache()
+            return {"ok": True, "deleted": ["profile", "resume", "saved screens", "paper trades", "saved ideas",
+                                            "saved market data"]}
         self.store.delete("profile")
         self.store.delete("intake")
         self.store.delete("sample_risk")
         self.store.clear_daily()
         return {"ok": True}
 
+    def _clear_market_cache(self) -> None:
+        """Remove the cached quotes, chains, history and filings (CHL-PS8): their file names are the
+        tickers the profile pointed to. Only the cache's own kind folders are touched."""
+        import shutil
+        from pathlib import Path
+
+        from .data.market import TTL
+        cache = getattr(self.md, "cache_dir", None)
+        if not cache:
+            return
+        for kind in TTL:
+            d = Path(cache) / kind
+            if d.is_dir() and not d.is_symlink():
+                shutil.rmtree(d, ignore_errors=True)
+
     def save_profile(self, text: str = "", interests: str = "", brands: str = "", holdings: str = "",
                      capital: float = 25000, risk_level: int = 2, name: str = "", boosts=None) -> dict:
+        capital = check_capital(capital)
         if not text:
             text = self.store.get("intake", {}).get("resume_text", "")
+        text = text[:MAX_RESUME_CHARS]
         p = build_profile(text, interests, brands, parse_holdings(holdings), capital, risk_level, name,
                           this_year=self.md.today.year,
                           domain_boosts=boosts[0] if boosts else None,
@@ -112,7 +237,7 @@ class Api:
         if boosts:
             p.source = "rules + claude"
         self.store.put("profile", p.to_dict())
-        self.store.put("intake", {"resume_text": text[:50000], "interests": interests, "brands": brands,
+        self.store.put("intake", {"resume_text": text, "interests": interests, "brands": brands,
                                   "holdings": holdings, "capital": capital, "risk_level": risk_level, "name": name})
         return {"profile": p.to_dict(), "resume_chars": len(text)}
 
@@ -131,6 +256,7 @@ class Api:
         p = self.current_profile()
         level = max(1, min(5, risk or p.risk_level))
         day = self.md.today.isoformat()
+        count = max(1, min(3, count))  # the engine clamps too; clamp first so the cache key can't grow (CHL-PS12)
         h = profile_hash(p) + f"-{count}"
         if not refresh:
             cached = self.store.daily_get(day, level, h)
@@ -140,6 +266,31 @@ class Api:
         self.store.daily_put(day, level, h, result)
         return result
 
+    def track_record(self, risk: int | None = None) -> dict:
+        """Past ideas graded at today's price next to SPY (M1.13). Local: the days the user saw.
+        Static demo: the sample record, rebuilt on the mock market of a few past weekdays."""
+        p = self.current_profile()
+        level = max(1, min(5, risk or p.risk_level))
+        if self.static:
+            entries = track_record.sample_entries(self.md.today, p, level, profile_hash(p))
+            return track_record.grade(self.md, entries, level, sample=True)
+        # The profile's hash at every risk level, since moving the slider changes the hash.
+        hashes = set()
+        for lvl in range(1, 6):
+            q = Profile.from_dict(p.to_dict())
+            q.risk_level = lvl
+            hashes.add(profile_hash(q))
+        entries = []
+        for row in self.store.daily_before(self.md.today.isoformat()):
+            h, _, count = str(row["profile_hash"]).rpartition("-")
+            if row["level"] != level or h not in hashes or not isinstance(row["payload"], dict):
+                continue
+            # Within a day, the 3-idea snapshot first, so its ranking wins the dedupe.
+            entries.append((-int(count) if count.isdigit() else 0, row["day"], row["payload"].get("ideas") or []))
+        entries.sort(key=lambda e: e[0])
+        pairs = [(day, i) for _, day, ideas in entries for i in ideas if isinstance(i, dict)]
+        return track_record.grade(self.md, pairs, level, sample=False)
+
     def ticker(self, symbol: str, risk: int | None = None) -> dict:
         if not lookup(symbol):
             raise ApiError(404, f"{symbol.upper()} isn't in Charlie's universe yet.")
@@ -147,7 +298,9 @@ class Api:
 
     def screen(self, criteria: dict | None = None, risk: int | None = None, name: str | None = None,
                save: bool = False) -> dict:
-        criteria = criteria or {}
+        if name is not None and len(str(name)) > MAX_SCREEN_NAME:
+            raise ApiError(422, f"name must be at most {MAX_SCREEN_NAME} characters.")
+        criteria = clean_criteria(criteria or {})
         result = engine.screen(self.md, self.current_profile(), criteria, risk)
         if save and name:
             result["saved"] = self.store.save_screen(name, criteria)
@@ -162,6 +315,11 @@ class Api:
 
     # chat
     def chat(self, messages) -> dict:
+        if isinstance(messages, list) and len(messages) > MAX_CHAT_MESSAGES:
+            raise ApiError(422, f"messages: at most {MAX_CHAT_MESSAGES} per request.")
+        if any(isinstance(m, dict) and isinstance(m.get("content"), str) and len(m["content"]) > MAX_CHAT_CONTENT
+               for m in messages or []):
+            raise ApiError(422, f"content: each message must be at most {MAX_CHAT_CONTENT} characters.")
         msgs = [m for m in messages or [] if isinstance(m, dict) and m.get("role") in ("user", "assistant")
                 and isinstance(m.get("content"), str)]
         if not msgs or msgs[-1]["role"] != "user":
@@ -173,13 +331,28 @@ class Api:
         return portfolio.summary(self.md, self.store)
 
     def paper_open(self, trade: dict, note: str = "") -> dict:
+        if len(note or "") > MAX_NOTE:
+            raise ApiError(422, f"note must be at most {MAX_NOTE} characters.")
         t = trade if isinstance(trade, dict) else {}
         if not t.get("legs") or not t.get("symbol") or t.get("strategy") not in STRATEGIES:
             raise ApiError(400, "not a valid trade")
+        check_legs(t["legs"])
+        if not isinstance(t["symbol"], str):
+            raise ApiError(422, "symbol must be text.")
+        new_loss = _number(t["max_loss"], "max_loss") if t.get("max_loss") is not None else 0.0
         p = self.current_profile()
         if STRATEGIES[t["strategy"]]["min_level"] > p.risk_level:
             raise ApiError(403, f"{STRATEGIES[t['strategy']]['label']} is above your risk level ({p.risk_level}).")
-        return portfolio.mark(self.md, self.store.open_position(t, note))
+        open_ = [x for x in self.store.positions() if x.get("status") == "open"]
+        sig = _leg_signature(t)
+        if any(_leg_signature(x["trade"]) == sig for x in open_):
+            raise ApiError(409, "You already have this paper trade open.")
+        at_risk = sum(float(x["trade"].get("max_loss") or 0) for x in open_) + new_loss
+        out = portfolio.mark(self.md, self.store.open_position(t, note))
+        if at_risk > p.capital:
+            out["warning"] = (f"Heads up: your open paper trades could now lose up to ${at_risk:,.0f}, more than your "
+                              f"${p.capital:,.0f} of paper capital. Try closing one first.")
+        return out
 
     def paper_close(self, pid: str) -> dict:
         pos = portfolio.close(self.md, self.store, pid)
@@ -206,17 +379,19 @@ class Api:
                 if m == "GET":
                     return 200, self.get_profile()
                 if m == "DELETE":
-                    return 200, self.delete_profile()
+                    return 200, self.delete_profile(_bool(q.get("all")))
                 if m == "POST":  # the form's fields; there are no file uploads or Claude reading in the demo
                     return 200, self.save_profile(
                         str(b.get("resume_text", "")), str(b.get("interests", "")), str(b.get("brands", "")),
-                        str(b.get("holdings", "")), float(b.get("capital") or 25000), _int(b.get("risk_level"), 2),
+                        str(b.get("holdings", "")), check_capital(b.get("capital")), _int(b.get("risk_level"), 2),
                         str(b.get("name", "")),
                         boosts=None if self.static or not _bool(b.get("use_ai")) else self._enrich(b))
             if m == "POST" and seg == ["profile", "risk"]:
                 return 200, self.set_risk(_int(b.get("risk_level"), 2))
             if m == "GET" and seg == ["ideas"]:
                 return 200, self.ideas(_int(q.get("risk")), _int(q.get("count"), 3), _bool(q.get("refresh")))
+            if m == "GET" and seg == ["track-record"]:
+                return 200, self.track_record(_int(q.get("risk")))
             if m == "GET" and len(seg) == 2 and seg[0] == "ticker":
                 return 200, self.ticker(seg[1], _int(q.get("risk")))
             if m == "POST" and seg == ["screen"]:
@@ -240,4 +415,4 @@ class Api:
 
     def _enrich(self, b: dict):
         from .llm_profile import enrich
-        return enrich(str(b.get("resume_text", "")), f"{b.get('interests', '')}\n{b.get('brands', '')}")
+        return enrich(str(b.get("resume_text", ""))[:MAX_RESUME_CHARS], f"{b.get('interests', '')}\n{b.get('brands', '')}")

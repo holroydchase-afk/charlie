@@ -11,6 +11,7 @@ Selection follows Munger's process more than a quant model:
 from __future__ import annotations
 
 import hashlib
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -63,8 +64,81 @@ def _analyze_all(md: MarketData, profile: Profile, symbols: list[str]) -> list[d
         return list(ex.map(lambda s: analyze(md, profile, s), symbols))
 
 
+MOCK_LABEL = "mock (demo data, not real prices)"
+
+
+def _is_live(a: dict) -> bool:
+    return a["quote"]["source"] != "mock"
+
+
+def data_source(md: MarketData, analyses: list[dict]) -> str:
+    """One honest label for a set of analyses: all live, all mock, mixed (naming the demo-priced
+    symbols), or, when nothing was analyzed, the market's mode."""
+    if not analyses:
+        return MOCK_LABEL if md.mode == "mock" else f"{md.mode} (no names analyzed)"
+    mock_syms = [a["symbol"] for a in analyses if not _is_live(a)]
+    if not mock_syms:
+        return "live (delayed)"
+    if len(mock_syms) == len(analyses):
+        return MOCK_LABEL
+    return f"mixed (demo prices for {', '.join(mock_syms)}; the rest are live, delayed)"
+
+
 def _public(a: dict) -> dict:
     return {k: v for k, v in a.items() if not k.startswith("_")}
+
+
+_PCT = re.compile(r"\d+(?:\.\d+)?%")
+
+
+def _strength_phrase(f: dict) -> str | None:
+    """One plain clause from a business factor's reason, keeping its own % number."""
+    reason = f["reason"]
+    m = _PCT.search(reason)
+    if not m:
+        return None
+    n = m.group(0)
+    if f["key"] == "quality":
+        return f"earns {n} on the capital it invests"
+    if f["key"] == "moat":
+        steady = reason.split(" and ", 1)[1].replace(" year to year", "") if " and " in reason else ""
+        return f"keeps {n} of sales as operating profit" + (f", {steady} year to year" if steady else "")
+    if f["key"] == "value":
+        return f"yields {n} in free cash a year at today's price"
+    if f["key"] == "balance":
+        if "shrinking" in reason:
+            return f"buys back its own shares (count down {n} a year)"
+        if "growing" in reason:
+            return f"has a share count growing {n} a year"
+        return f"keeps a steady share count (within {n} a year)"
+    return reason.split(",")[0]
+
+
+def _headline(a: dict, trade: dict) -> str:
+    """CHL-UX16: the card's one line. The strongest business reason (a real number from a checklist
+    strength, never the score badge) plus the price where the trade starts losing money."""
+    s = a["charlie"]
+    business = sorted((f for f in s["factors"] if f["key"] != "competence"), key=lambda f: -f["score"])
+    strong = [f for f in business if f["score"] >= 60] or business[:1]
+    # A business reason reads better than a balance-sheet one, so balance goes last among strengths.
+    strong.sort(key=lambda f: f["key"] == "balance")
+    reason = next((p for p in map(_strength_phrase, strong) if p), None)
+    name = a["name"]
+    first = f"{name} {reason}." if reason else f"{name} is a {s['lynch_category'].lower()}."
+    be, spot = trade.get("breakeven"), trade.get("spot")
+    if not be or not spot:
+        return first
+    pct = abs(1 - be / spot) * 100
+    if trade["strategy"] == "shares":
+        risk = f"You lose money if it falls below ${be:,.2f}, today's price."
+    elif be <= spot:
+        risk = f"You'd only lose money below ${be:,.2f}, about {pct:.0f}% down."
+    else:
+        risk = f"You lose money unless it's above ${be:,.2f} at expiry, about {pct:.0f}% up."
+    line = f"{first} {risk}"
+    if len(line) > 180:  # long company names: drop the name, keep the reason and the risk
+        line = f"{(reason or s['lynch_category'].lower()).capitalize()}. {risk}"
+    return line
 
 
 def _thesis(a: dict, trade: dict) -> dict:
@@ -73,7 +147,7 @@ def _thesis(a: dict, trade: dict) -> dict:
     strengths = [f for f in sorted(s["factors"], key=lambda f: -f["score"]) if f["score"] >= 60][:3]
     weak = [f for f in s["factors"] if f["score"] < 45]
     why_you = a["familiarity_why"] or ["broad, durable franchise outside your stated circle"]
-    lines = [f"{a['name']} is a {s['lynch_category'].lower()} with a Charlie score of {s['score']} ({s['grade']})."]
+    lines = [_headline(a, trade)]
     for f in strengths:
         lines.append(f"{f['key'].capitalize()}: {f['reason']}.")
     inversion = list(s["red_flags"])
@@ -117,15 +191,23 @@ def daily_ideas(md: MarketData, profile: Profile, level: int | None = None, coun
             symbols.append(s)
 
     analyses = _analyze_all(md, profile, symbols)
+    source = data_source(md, analyses)
 
-    live = all(a["quote"]["source"] != "mock" for a in analyses)
+    # Never build a live idea on a demo price: when some names got live prices and others fell
+    # back to mock (Cboe refused them), leave the mock ones out. They're listed first in skipped.
+    no_live = []
+    if md.mode != "mock" and any(_is_live(a) for a in analyses):
+        no_live = [{"symbol": a["symbol"], "reason": "no live price today"} for a in analyses if not _is_live(a)]
+        analyses_for_ideas = [a for a in analyses if _is_live(a)]
+    else:
+        analyses_for_ideas = analyses
     # Rank by Charlie score; a small date-seeded tiebreak rotates near-equal names day to day.
     day = md.today.isoformat()
 
     def jitter(sym):
         return int(hashlib.md5(f"{sym}{day}".encode()).hexdigest()[:4], 16) / 65535 * 4
 
-    ranked = sorted(analyses, key=lambda a: -(a["charlie"]["score"] + jitter(a["symbol"])))
+    ranked = sorted(analyses_for_ideas, key=lambda a: -(a["charlie"]["score"] + jitter(a["symbol"])))
     threshold = MIN_SCORE_BY_LEVEL[level]
     prefs = RISK_LEVELS[level]["prefs"]
 
@@ -151,24 +233,26 @@ def daily_ideas(md: MarketData, profile: Profile, level: int | None = None, coun
             # Covered calls on holdings come first: the lowest-risk use of what you own.
             if "covered_call" in order and profile.holdings.get(a["symbol"], 0) >= 100:
                 order = ["covered_call"] + [o for o in order if o != "covered_call"]
-            trade, why_not = _trade_for(a, profile, level, order, live)
+            trade, why_not = _trade_for(a, profile, level, order, _is_live(a))
             if not trade:
                 if pass_prefs is option_prefs:
                     skipped.append({"symbol": a["symbol"], "reason": "; ".join(why_not)})
                 continue
             trade["scenarios"] = scenario(trade)
             used_domains.add(a["domain"])
-            ideas.append({"rank": len(ideas) + 1, "analysis": _public(a), "trade": trade, "thesis": _thesis(a, trade)})
+            ideas.append({"rank": len(ideas) + 1, "analysis": _public(a), "trade": trade, "thesis": _thesis(a, trade),
+                          "price_source": a["quote"]["source"]})
 
     return {
         "date": day,
         "risk_level": level,
         "risk_label": RISK_LEVELS[level]["label"],
         "risk_blurb": RISK_LEVELS[level]["blurb"],
-        "data_source": "live (delayed)" if live else "mock (demo data, not real prices)",
+        "risk_plain": RISK_LEVELS[level]["plain"],
+        "data_source": source,
         "ideas": ideas,
         "considered": len(analyses),
-        "skipped": skipped[:8],
+        "skipped": (no_live + skipped)[:max(8, len(no_live))],
         "note": None if ideas else "Nothing cleared the bar today. Munger: 'The big money is not in the buying or the selling, but in the waiting.'",
     }
 
@@ -195,8 +279,13 @@ DEFAULT_CRITERIA = {
 def screen(md: MarketData, profile: Profile, criteria: dict, level: int | None = None, limit: int = 25) -> dict:
     c = {**DEFAULT_CRITERIA, **{k: v for k, v in (criteria or {}).items() if v not in (None, "", [])}}
     level = max(1, min(5, int(level or profile.risk_level or 2)))
+    unknown = []
     if c["scope"] == "list" and c["symbols"]:
-        symbols = [s.upper() for s in c["symbols"]]
+        symbols = []
+        for s in (str(x).strip().upper() for x in c["symbols"]):
+            if not s or s in symbols or s in unknown:
+                continue
+            (symbols if lookup(s) else unknown).append(s)
     elif c["scope"] == "all":
         symbols = [t.symbol for t in TICKERS]
     else:
@@ -211,7 +300,6 @@ def screen(md: MarketData, profile: Profile, criteria: dict, level: int | None =
         params["delta"] = float(c["delta"])
 
     analyses = _analyze_all(md, profile, symbols)
-    live = all(a["quote"]["source"] != "mock" for a in analyses)
 
     rows, filtered = [], 0
     for a in analyses:
@@ -235,7 +323,7 @@ def screen(md: MarketData, profile: Profile, criteria: dict, level: int | None =
             continue
         for strat in strategies:
             try:
-                t = build(strat, a["symbol"], px, a["_chain"], profile.capital, level, profile.holdings, live, params)
+                t = build(strat, a["symbol"], px, a["_chain"], profile.capital, level, profile.holdings, _is_live(a), params)
             except Infeasible:
                 continue
             if c["min_pop"] and (t["pop"] is None or t["pop"] * 100 < float(c["min_pop"])):
@@ -248,12 +336,13 @@ def screen(md: MarketData, profile: Profile, criteria: dict, level: int | None =
                 "symbol": a["symbol"], "name": a["name"], "domain_label": a["domain_label"],
                 "price": px, "iv": a["atm_iv"], "score": sc["score"], "grade": sc["grade"],
                 "familiarity": a["familiarity"], "red_flags": sc["red_flags"], "trade": t,
+                "price_source": a["quote"]["source"],
             })
     # Sort: quality first, then probability of profit, then annualized return
     rows.sort(key=lambda r: (-r["score"], -(r["trade"]["pop"] or 0), -(r["trade"]["annualized"] or 0)))
     return {"criteria": c, "risk_level": level, "strategies": strategies, "results": rows[:limit],
-            "total": len(rows), "filtered_out": filtered,
-            "data_source": "live (delayed)" if live else "mock (demo data, not real prices)"}
+            "total": len(rows), "filtered_out": filtered, "unknown_symbols": unknown,
+            "data_source": data_source(md, analyses)}
 
 
 def ticker_detail(md: MarketData, profile: Profile, symbol: str, level: int | None = None) -> dict:

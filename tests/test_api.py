@@ -18,7 +18,7 @@ def client(tmp_path_factory):
     from charlie import server
     from charlie.store import Store
     server.store = Store(os.environ["CHARLIE_DB"])
-    return TestClient(server.app)
+    return TestClient(server.app, base_url="http://127.0.0.1:8000")
 
 
 def test_status_and_meta(client):

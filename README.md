@@ -22,9 +22,9 @@ python -m uvicorn charlie.server:app --host 127.0.0.1 --port 8000
 # open http://localhost:8000
 ```
 
-Keep it on `127.0.0.1`. The local app is single-user with no login, so don't expose it on your network.
+Keep it on `127.0.0.1`. The local app is single-user with no login, so don't expose it on your network. It answers only to `127.0.0.1`, `localhost` or `[::1]` in the Host header, and refuses writes from pages on other sites or other local ports.
 
-Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas. Your resume stays in the local `data/` folder. The app never sends it back out, and **Delete my data** on Profile removes it.
+Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas. Your resume stays in the `data/` folder at the repo root, whatever folder you start the server from. The app never sends it back out, and **Delete my data** on Profile removes it, overwrites the freed space in the database and clears the cached market data.
 
 Optional settings (environment variables):
 
@@ -34,7 +34,8 @@ Optional settings (environment variables):
 | `CHARLIE_DATA` | `auto` | `auto` tries free live data and falls back to demo data; `mock` is offline only; `live` errors instead of falling back. |
 | `CHARLIE_SEC_UA` | placeholder | SEC asks for `"AppName you@example.com"` (use your own contact; never commit it) as the User-Agent. Set this before using live fundamentals. |
 | `CHARLIE_MODEL` | `claude-opus-5-5` | Claude model for chat. |
-| `CHARLIE_DB` | `data/charlie.db` | SQLite file for profile, saved screens, and paper trades. |
+| `CHARLIE_DB` | `<repo>/data/charlie.db` | SQLite file for profile, saved screens, and paper trades. |
+| `CHARLIE_CACHE` | `<repo>/data/cache` | Cache for live quotes, chains, history and filings. |
 
 The header badge shows **Demo data** whenever numbers are simulated.
 
@@ -44,7 +45,7 @@ The same app also runs fully in the browser on sample data, with the Python engi
 
 ```bash
 python tools/build_demo.py site          # web app + charlie.zip + prebuilt first screen
-python tools/check_site.py site          # no keys, no hosts beyond the Pyodide CDN
+python tools/check_site.py site          # no keys, no hosts beyond the Pyodide CDN, a strict CSP
 python -m http.server 8001 --bind 127.0.0.1 --directory site   # open http://127.0.0.1:8001/
 ```
 
@@ -58,6 +59,8 @@ The first screen comes from `prebuilt.json`, so it appears right away while Pyod
 - **Screener:** your own criteria (sectors, tickers, min score, max price, IV range, chance of profit, capital, annualized return, days to expiry, delta, skip red flags). Save screens and rerun them.
 - **Chat:** ask about ideas, a company, a strategy, or your portfolio. Trades in answers come with **Paper trade** buttons.
 - **Paper portfolio:** one click opens a paper position; it's marked to current prices with P&L and % of max profit.
+- **Track record:** Today shows how past ideas are doing at today's price: the stock's move since the idea next to SPY's over the same days, and whether it's above breakeven.
+- **Exit-plan alerts:** a paper position is flagged when its exit plan says to act: 50% of max profit reached, 21 days or fewer to expiry, or the stock below breakeven.
 - **Learn:** how the scoring works, the slider levels, each strategy, and a glossary.
 
 ## How ideas are picked
