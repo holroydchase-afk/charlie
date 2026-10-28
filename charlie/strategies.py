@@ -112,8 +112,20 @@ def _liquid(c: dict, live: bool) -> bool:
     return c["open_interest"] >= (50 if live else 0)
 
 
-def pick_expiry(chain: list[dict], dte_min: int, dte_max: int, target: int) -> str | None:
-    exps = sorted({(c["expiry"], c["dte"]) for c in chain if dte_min <= c["dte"] <= dte_max},
+MIN_LIQUID_PER_EXPIRY = 6
+
+
+def pick_expiry(chain: list[dict], dte_min: int, dte_max: int, target: int, live: bool = False) -> str | None:
+    """The expiration closest to `target` days. With live quotes, skip thin weeklies that have
+    too few tradable contracts (real chains list many expirations nobody trades)."""
+    pool = chain
+    if live:
+        counts: dict[str, int] = {}
+        for c in chain:
+            if _liquid(c, True):
+                counts[c["expiry"]] = counts.get(c["expiry"], 0) + 1
+        pool = [c for c in chain if counts.get(c["expiry"], 0) >= MIN_LIQUID_PER_EXPIRY]
+    exps = sorted({(c["expiry"], c["dte"]) for c in pool if dte_min <= c["dte"] <= dte_max},
                   key=lambda e: abs(e[1] - target))
     return exps[0][0] if exps else None
 
@@ -232,7 +244,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
     dte_min, dte_max, target_dte = p.get("dte_min", 25), p.get("dte_max", 55), p.get("dte_target", 40)
 
     if strategy == "cash_secured_put":
-        exp = pick_expiry(chain, dte_min, dte_max, target_dte) or pick_expiry(chain, 20, 70, target_dte)
+        exp = pick_expiry(chain, dte_min, dte_max, target_dte, live) or pick_expiry(chain, 20, 70, target_dte, live)
         if not exp:
             raise Infeasible("no expiration 3-8 weeks out")
         target = p.get("delta", 0.20 if level <= 2 else 0.25)
@@ -259,7 +271,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
         if held < 100:
             raise Infeasible("covered calls need 100 shares you already own (add holdings in your profile)")
         n = held // 100
-        exp = pick_expiry(chain, dte_min, dte_max, target_dte)
+        exp = pick_expiry(chain, dte_min, dte_max, target_dte, live)
         if not exp:
             raise Infeasible("no expiration 3-8 weeks out")
         c = pick_by_delta(chain, exp, "call", p.get("delta", 0.25), live, above=spot)
@@ -280,7 +292,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
         if held < 100:
             raise Infeasible("collars protect 100 shares you already own")
         n = held // 100
-        exp = pick_expiry(chain, 45, 100, 75)
+        exp = pick_expiry(chain, 45, 100, 75, live)
         if not exp:
             raise Infeasible("no expiration 6-14 weeks out")
         put = pick_by_delta(chain, exp, "put", 0.25, live, below=spot)
@@ -296,7 +308,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
                         f"Your shares are protected below ${floor:g} until {exp}."])
 
     if strategy == "bull_put_spread":
-        exp = pick_expiry(chain, dte_min, dte_max, target_dte)
+        exp = pick_expiry(chain, dte_min, dte_max, target_dte, live)
         if not exp:
             raise Infeasible("no expiration 3-8 weeks out")
         short = pick_by_delta(chain, exp, "put", p.get("delta", 0.30), live, below=spot)
@@ -327,7 +339,7 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
                        {"width": width})
 
     if strategy == "bull_call_spread":
-        exp = pick_expiry(chain, 40, 90, 60)
+        exp = pick_expiry(chain, 40, 90, 60, live)
         if not exp:
             raise Infeasible("no expiration 6-13 weeks out")
         long_ = pick_by_delta(chain, exp, "call", 0.55, live)
@@ -351,12 +363,12 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
 
     if strategy in ("leaps_call", "long_call"):
         if strategy == "leaps_call":
-            exp = pick_expiry(chain, 240, 800, 420)
+            exp = pick_expiry(chain, 240, 800, 420, live)
             target = 0.75
             if not exp:
                 raise Infeasible("no LEAPS expiration listed")
         else:
-            exp = pick_expiry(chain, 30, 75, 50)
+            exp = pick_expiry(chain, 30, 75, 50, live)
             target = 0.45
             if not exp:
                 raise Infeasible("no expiration 4-10 weeks out")

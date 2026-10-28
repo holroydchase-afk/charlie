@@ -1,6 +1,7 @@
 """Cboe delayed quotes: free, keyless, about 15 minutes delayed, and unofficial.
 
-Endpoints (researched Oct 2026; not verified from the cloud build machine, which blocks them):
+Endpoints (verified live 2026-10-28 for AAPL, MSFT, BRK.B, SPY, ABT; cdn.cboe.com 307-redirects to
+cdn-api.cboe.com, and an unknown symbol answers 403):
   options + quote  https://cdn.cboe.com/api/global/delayed_quotes/options/{SYM}.json
   daily history    https://cdn.cboe.com/api/global/delayed_quotes/charts/historical/{SYM}.json
 `data.options[]` rows carry an OCC symbol plus bid, ask, iv, open_interest, volume and greeks.
@@ -20,11 +21,17 @@ def cboe_symbol(symbol: str) -> str:
     return symbol.upper()
 
 
+class CboeUnavailable(OSError):
+    """Cboe itself is down or throttling (5xx or 429), so every symbol will fail for a while."""
+
+
 def _get_json(url: str) -> dict:
     import requests  # imported lazily so mock mode (and the browser build) never needs it
 
     r = requests.get(url, timeout=TIMEOUT, headers={"Accept": "application/json"})
-    r.raise_for_status()
+    if r.status_code == 429 or r.status_code >= 500:
+        raise CboeUnavailable(f"Cboe answered {r.status_code} for {url}")
+    r.raise_for_status()  # a 4xx means this one symbol is unknown, not that Cboe is down
     return r.json()
 
 
@@ -79,7 +86,7 @@ def parse_chain(payload: dict, symbol: str, today: date) -> list[dict]:
 
 def parse_quote(payload: dict, symbol: str, closes: list[float]) -> dict:
     d = payload.get("data") or {}
-    price = _num(d.get("current_price"))
+    price = round(_num(d.get("current_price")), 2)  # Cboe sometimes sends 4 decimals (532.6461)
     prev = _num(d.get("prev_day_close")) or (closes[-1] if closes else price)
     window = [c for c in closes[-252:] if c] + [price]
     return {

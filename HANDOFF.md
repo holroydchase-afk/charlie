@@ -3,9 +3,10 @@
 _Read this before starting work on this repo. Update it in the same commit whenever you make progress. It is the single source of truth for where things stand._
 _Studio-wide status (what's done, what's waiting on Chase): [`STUDIO-STATUS.md`](https://github.com/holroydchase-afk/pm-tools/blob/main/STUDIO-STATUS.md) in holroydchase-afk/pm-tools._
 
-Updated: 2026-10-28 (studio refresh: agents by default)
+Updated: 2026-10-28 (release run, phase 2: works for real)
 
 ## Done
+- Oct 28, live Cboe prices (branch `claude/project-thread-tsqs93`, PR open, not merged). Chase allowed cdn.cboe.com and cdn-api.cboe.com in the cloud environment, so the Cboe adapter was run live for the first time: AAPL, MSFT, BRK.B, SPY and ABT returned real delayed quotes, chains and history, and a full daily-ideas run and the local server's `/api/ticker/MSFT` came back `live (delayed)`. Fixed: (1) live chains picked thin weeklies, so cash-secured puts and put spreads were never offered (now skips expirations with under 6 liquid contracts in live mode); (2) one unknown symbol's 403 put all live data offline for 5 minutes (now only network errors, 5xx and 429 back off); (3) prices were cached forever in a running server (memo now expires after 15 minutes outside mock mode); (4) a live price could get its 52-week range from demo history; (5) prices with 4 decimals are rounded. Tests: `tests/test_cboe_live.py` on a trimmed real ABT response in `tests/fixtures/cboe/`. 123 tests pass 3x. Fallback to labeled demo data was already in place and still is.
 - MVP (Oct 22): resume + interests → circle-of-competence profile → Munger-style score → 1-3 daily stock/options ideas, risk slider (1-5, default Conservative), screener with saved screens, chat (Claude with tools if `ANTHROPIC_API_KEY` is set, rule-based otherwise), paper portfolio, Learn page. Python FastAPI + vanilla JS, no build step. Paper trading and education only.
 - M0.1 studio setup (PR "M0.1: studio setup", branch `claude/project-thread-dlm2ig`): CLAUDE.md with hard rules and Studio agents, PLAN.md (M0 to M1, Pyodide static demo), `.claude/agents/` (staff-pm, qa-tdd, engineer, ux-reviewer, privacy-security, positioning), `.claude/settings.json`, `handoff-check.yml`, `ci.yml` (pytest + privacy check), dependabot (pip + Actions), MIT LICENSE, README CI badge. privacy-security review findings became PLAN M0.3.
 
@@ -94,11 +95,11 @@ Polish Freeze since Oct 24 (Chase): no new scope; harden and polish the UI towar
 ## Known limits
 - About 95 curated large-cap tickers. Banks and insurers score low on ROIC-style metrics.
 - No earnings calendar. Single user, local SQLite, no auth (bind 127.0.0.1).
-- Live data adapters (Cboe delayed options, SEC EDGAR) only tested against fixtures; the cloud blocks market-data hosts. The M0.2 rewrite of both adapters is unverified against the real endpoints.
+- Cboe delayed options: verified live from the cloud on Oct 28 (unofficial endpoint, may change; ~2 s and ~1.5 MB per symbol). SEC EDGAR is still unverified live: it needs CHARLIE_SEC_UA plus www.sec.gov and data.sec.gov allowed, so fundamentals stay demo numbers next to live prices (valuation uses demo earnings until then).
 - Screening all ~95 tickers in mock mode took about 6 s before M1.1 sped up chain generation by about 2x. Still the slowest path in the browser; the screener needs a loading state there.
 
 ## Blockers
-- None for Chase tonight. Live-data check needs Chase's laptop (later, PLAN M2+).
+- None for Chase tonight. Cboe live data now works in the cloud; SEC live fundamentals still need the hosts and CHARLIE_SEC_UA.
 - Before going public (M1.5): the two existing commits have Chase's personal email as author. Rewriting history needs Chase's go; future commits use a noreply author.
 
 ## Portfolio / public presence
