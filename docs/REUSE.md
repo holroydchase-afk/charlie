@@ -1,0 +1,14 @@
+# Reuse map
+
+_What Charlie built that another studio product could reuse, and where each piece stands. Per pm-tools `STACK.md` ("Reusable building blocks"): a block is extracted only when a second product needs it; until then it stays here, listed as "not extracted yet", and the studio hears about it through an INTAKE to Product Studio._
+
+INTAKE blocks: [`docs/intakes/2026-10-28-product-studio.md`](intakes/2026-10-28-product-studio.md) (Chase pastes them into Product Studio).
+
+| Piece | Where it lives | What it is | Status |
+|---|---|---|---|
+| Static demo of a server app | `tools/build_demo.py`, `web/static.js`, `charlie/browser.py`, `charlie/browser_store.py`, the banner and Reset demo in `web/app.js` and `web/index.html` | The real Python engine runs in the browser through self-hosted Pyodide; the first screen comes from a prebuilt JSON so it shows before the runtime loads; data is pinned to the build date; a browser-only store keeps visitor data in `localStorage`; a sample-data banner, back link and Reset demo. One UI file serves both the local server and the demo. | Not extracted yet (a pattern, no second user). Offered as a STACK.md stack-doc row via INTAKE 3. |
+| Built-output scan and demo CSP | `tools/check_site.py` (in `main`); `build_demo.csp()` and the CSP checks in `check_site.py` (release branches, not yet merged) | Before a public demo: scan the built site and its packaged code for API-key patterns and off-allowlist URL hosts, require a strict meta CSP with no third-party host, self-host runtimes. | Not extracted yet (stdlib Python, one user; a JS repo would need a port). Offered as a privacy-security checklist line via INTAKE 2, and for STACK.md's "Not extracting yet" via INTAKE 3. |
+| `LocalOnly` middleware | `charlie/server.py` (release branches, not yet merged) | Pure ASGI guard for a single-user local server: loopback-only Host (stops DNS rebinding), Origin plus port check on writes, a body cap before parsing (including chunked bodies), nosniff, frame and cache headers, a page CSP. | Not extracted yet (Charlie is the studio's only Python server). Listed for STACK.md's "Not extracting yet" via INTAKE 3. |
+| Python CI and Pages workflows | `.github/workflows/ci.yml`, `.github/workflows/pages.yml` | `ci.yml`: Python 3.12 pytest, `check-agents.sh`, `check-logs.mjs`, a privacy grep, demo build and scan, a Playwright e2e job. `pages.yml`: runs on `workflow_run` of CI on `main`, deploys only when CI succeeded and the repo is public, self-hosts Pyodide via integrity-checked `npm pack`, scans with `check_site.py --no-cdn`. | Not extracted yet. Offered as the seed for the Python variant of pm-tools `templates/repo/` via INTAKE 3. |
+
+Coming the other way: Charlie's CI privacy grep is replaced by the studio's shared `check-private.mjs` once studio-agents ships it with key patterns (INTAKE 1); until then the grep stays.
