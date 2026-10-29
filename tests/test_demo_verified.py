@@ -32,3 +32,17 @@ def test_CHL_UX41_chat_ideas_reply_names_the_data_in_plain_words():
     first = out["reply"].splitlines()[0]
     assert "mock" not in first.lower() and "((" not in first and "))" not in first, first
     assert "sample data, not real prices" in first, first
+
+
+def test_CHL_UX42_portfolio_explains_alert_chips_before_any_fire():
+    """A demo visitor's trades are opened on the pinned day, so no exit-plan rule fires and they never see
+    an alert chip. The Portfolio intro names the chips so the feature isn't invisible."""
+    html = (ROOT / "web" / "index.html").read_text()
+    section = html[html.index('id="tab-paper"'):html.index("<!-- LEARN -->")]
+    intro = section[:section.index('id="paper-stats"')]
+    assert "id=\"alert-explainer\" hidden" in intro
+    for label in ("Take profit?", "Near expiry", "Below breakeven"):
+        assert label in intro, label
+    app = (ROOT / "web" / "app.js").read_text()
+    assert 'take_profit: "Take profit?", time: "Near expiry", breakeven: "Below breakeven"' in app
+    assert '$("#alert-explainer").hidden = !r.positions.length' in app  # hidden while empty (keeps UX23's button high)

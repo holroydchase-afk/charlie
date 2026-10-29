@@ -723,3 +723,14 @@ def test_UX34_phone_score_badge_starts_with_score(make_page, site_url):
     bad = [b["text"] for b in badges if not re.match(r"Score \d+", b["text"])]
     assert bad == [], f"phone score badges should read 'Score 76 · A': {bad}"
     assert all(b["label"].startswith("Charlie score ") for b in badges), badges
+
+
+def test_UX42_alert_explainer_shows_only_once_there_is_a_trade(make_page, site_url):
+    pg = _open(make_page, site_url, PHONE)
+    pg.click("[data-tab=paper]")
+    expect(pg.locator("#paper-list").get_by_role("button", name=re.compile("today's ideas", re.I))).to_be_visible()
+    expect(pg.locator("#alert-explainer")).to_be_hidden()
+    pg.click("[data-tab=today]")
+    _open_one_paper_trade(pg)
+    expect(pg.locator("#alert-explainer")).to_be_visible()
+    expect(pg.locator("#alert-explainer")).to_contain_text("Near expiry")
