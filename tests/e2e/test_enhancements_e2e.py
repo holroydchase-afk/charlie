@@ -8,6 +8,7 @@ demo's store) with made-up trades, so the alert is forced by the date, not by lu
 """
 import json
 import os
+import re
 from datetime import date
 
 import pytest
@@ -60,7 +61,7 @@ def test_TR_UI_track_record_shows_below_the_ideas_with_labels(make_page, site_ur
     assert [w for w in FORBIDDEN if w in low] == []
     # Each item names its stock and the day of the idea.
     first = box.locator(".track-item").first.inner_text()
-    assert any(c.isupper() for c in first) and "2026-" in first, first
+    assert any(c.isupper() for c in first) and re.search(r"[A-Z][a-z]{2} \d{1,2}, 2026", first), first  # CHL-UX48 human dates
     # No sideways scroll at phone width.
     assert pg.evaluate("document.scrollingElement.scrollWidth <= innerWidth + 1")
 

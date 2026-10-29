@@ -26,7 +26,7 @@ Charlie turns a resume and interests into a "circle of competence" profile, rank
 | Demo build | `tools/build_demo.py` writes `site/`: the web files, a zip of only the modules the browser needs, `prebuilt.json` (the sample person's answers for every risk level, so the first screen needs no engine), and optionally a self-hosted Pyodide copy. | CI | **Built** |
 | Demo meta CSP | `build_demo.csp()` writes a strict Content-Security-Policy into the built `index.html`. | Visitor's browser | **Built (release branches, not yet merged)** |
 | Demo checker | `tools/check_site.py` scans the built `site/` and `charlie.zip` for API-key patterns and off-allowlist URL hosts. The CSP and `?pyodide=` checks in it are on the release branches. | CI | **Built** (scan); **Built (release branches, not yet merged)** (CSP checks) |
-| Publishing | `.github/workflows/pages.yml` builds the self-hosted demo and runs `check_site.py --no-cdn` after CI passes on `main`, only when the repo is public. The repo is private, so it has never deployed. | GitHub Actions | **Built** (inactive); deploy **Planned** (PLAN M1.5, M1.6) |
+| Publishing | `.github/workflows/pages.yml` builds the self-hosted demo and runs `check_site.py --no-cdn` after CI passes on a push to `main` in this repo (never a fork PR, CHL-PS17), and every Monday so the demo's pinned day stays fresh, only when the repo is public. Live at chaseholroyd.com/charlie/. | GitHub Actions | **Built** (deployed) |
 
 ## Where data lives
 
@@ -53,4 +53,4 @@ One row per outside service, matching [`docs/product/ACCOUNTS.md`](../product/AC
 | npm registry / Pyodide | Build time only: `pages.yml` runs `npm pack pyodide@0.28.3` (integrity-checked) and self-hosts it in `site/pyodide/`. The CDN build used in CI and local testing loads Pyodide from `cdn.jsdelivr.net`. | Nothing about users. A visitor to the self-hosted build calls no third party. | **Built** |
 | GitHub (Actions, Pages) | CI on every push; Pages only once public | Code. The demo would be served by GitHub Pages, which sees visitors' requests like any web host. | CI **Built**; Pages **Planned** (PLAN M1.6) |
 
-Last checked against code: 2026-10-28, branch `claude/project-thread-hpanpa-blocks` (6c91015)
+Last checked against code: 2026-10-29, branch `claude/project-thread-xs5yep` (ba54a45)

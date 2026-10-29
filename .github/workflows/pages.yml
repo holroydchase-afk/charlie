@@ -7,6 +7,9 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # Mondays: refresh the demo's pinned sample market day (CHL-UX43).
+    - cron: "30 13 * * 1"
 permissions:
   contents: read
   pages: write
@@ -16,9 +19,16 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
+    # CHL-PS17: a CI run only deploys if it was a push to this repo. A fork's pull request from a
+    # branch named main also passes the branches filter above, so check the run's event and repo.
+    # The weekly schedule deploys only on Chase's repo, never on a fork.
     if: >-
-      github.event.repository.private == false &&
-      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+      (github.event.repository.private == false &&
+        (github.event_name == 'workflow_dispatch' ||
+          (github.event.workflow_run.conclusion == 'success' &&
+           github.event.workflow_run.event == 'push' &&
+           github.event.workflow_run.head_repository.full_name == github.repository))) ||
+      (github.event_name == 'schedule' && github.repository == 'holroydchase-afk/charlie')
     runs-on: ubuntu-latest
     environment:
       name: github-pages

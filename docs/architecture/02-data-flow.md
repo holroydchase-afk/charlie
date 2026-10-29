@@ -43,8 +43,8 @@ Charlie has no servers of its own. "The local app" is a FastAPI process the user
 
 ## Demo visit (static site)
 
-1. The visitor loads `index.html`, the web files and `prebuilt.json` from the site's own origin. The page carries a meta Content-Security-Policy allowing only its own origin plus WebAssembly (`'wasm-unsafe-eval'`) for scripts and fetches (`build_demo.csp()` in `tools/build_demo.py`). Sees: the static host (GitHub Pages once deployed) sees the request, like any web host. **Built** (static files); **Built (release branches, not yet merged)** (CSP)
-2. The first screen is the fictional sample person's prebuilt ideas, pinned to the build date, so nothing runs before Today appears (`web/static.js`, `prebuild` in `charlie/browser.py`). A banner says it's sample data and links back to chaseholroyd.com. **Built**
+1. The visitor loads `index.html`, the web files and `prebuilt.json` from the site's own origin. The page carries a meta Content-Security-Policy allowing only its own origin plus WebAssembly (`'wasm-unsafe-eval'`) for scripts and fetches (`build_demo.csp()` in `tools/build_demo.py`). Sees: the static host (GitHub Pages) sees the request, like any web host. **Built** (static files); **Built (release branches, not yet merged)** (CSP)
+2. The first screen is the fictional sample person's prebuilt ideas, pinned to the build date (rebuilt every Monday, labeled "Sample market day"), so nothing runs before Today appears (`web/static.js`, `prebuild` in `charlie/browser.py`). A banner says it's sample data and links back to chaseholroyd.com. **Built**
 3. After the first render, `web/static.js` loads Pyodide and `charlie.zip`. In the public build both come from the same origin (`site/pyodide/`, self-hosted by `pages.yml`); only the CDN build used in CI and local testing loads Pyodide from `cdn.jsdelivr.net`. There is no URL parameter that changes where Pyodide loads from. **Built** (self-hosting); **Built (release branches, not yet merged)** (the `?pyodide=` override removed)
 4. Everything runs in the browser: mock data, rule-based chat, no Claude, no upload, no network imports (`charlie/browser.py`). Anything the visitor saves goes to `localStorage` under `charlie:` keys (`charlie/browser_store.py`), or memory only if storage is blocked. **Built**
 
@@ -66,4 +66,4 @@ How long copies last:
 - **Gap: vendor copies.** Anything sent to Anthropic (opt-in resume read, Claude chat) is retained under Anthropic's API terms, not deletable from Charlie. Cboe and the SEC may log requested tickers and IP addresses.
 - **Gap: demo visitors who never delete.** Demo data stays in the visitor's `localStorage` until they reset, delete or clear site data. That includes resume text a visitor pastes (CHL-PS10, deferred: staff-pm to choose session-only storage or not storing it).
 
-Last checked against code: 2026-10-28, branch `claude/project-thread-hpanpa-blocks` (6c91015)
+Last checked against code: 2026-10-29, branch `claude/project-thread-xs5yep` (ba54a45)
