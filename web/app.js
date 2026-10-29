@@ -603,6 +603,7 @@ async function loadPaper() {
   // UX23: no stats while there's nothing to measure; the empty state's button sits high instead.
   // UX30: win rate only once a trade has closed (a $0 scratch close counts, and shows "—").
   const closedCount = r.positions.filter((p) => p.status === "closed").length;
+  $("#alert-explainer").hidden = !r.positions.length; // UX42: name the alert chips once there is a trade to flag
   $("#paper-stats").innerHTML = !r.positions.length ? "" : stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), signCls(r.open_pnl)) +
     stat("Realized P&L", money(r.realized_pnl), signCls(r.realized_pnl)) + stat("Most you could lose (open trades)", money(r.capital_at_risk)) + (closedCount ? stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) : "") +
     (r.scratch ? stat("Scratch ($0) closes", r.scratch) : "");
