@@ -117,7 +117,9 @@ def allowed(level: int) -> list[str]:
 # ------------------------------------------------------------------ contract picking
 
 def _liquid(c: dict, live: bool) -> bool:
-    if c["bid"] <= 0 or c["ask"] <= 0:
+    bid, ask = c.get("bid"), c.get("ask")
+    if bid is None or ask is None or not (math.isfinite(bid) and math.isfinite(ask)) \
+            or bid <= 0 or ask <= 0 or bid > ask:  # missing, NaN, zero or crossed quote
         return False
     mid = (c["bid"] + c["ask"]) / 2
     if (c["ask"] - c["bid"]) / mid > 0.35:
@@ -245,6 +247,10 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
 
     if strategy == "shares":
         budget = capital * (0.05 if level == 1 else 0.10)
+        if spot <= 0:
+            raise Infeasible("no valid share price for this stock")
+        if budget <= 0:
+            raise Infeasible("no capital set; add your capital to size a share purchase")
         qty = int(budget // spot)
         if qty < 1:
             raise Infeasible(f"one share (${spot:,.0f}) is more than {budget / capital:.0%} of your capital; consider fractional shares or the sector ETF")
