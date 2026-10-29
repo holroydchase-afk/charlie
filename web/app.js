@@ -32,6 +32,12 @@ const money = (x, d = 0) => {
 // Rendered by code on every trade surface (CLAUDE.md hard rule).
 const NFA = "Not financial advice. Paper trading only.";
 const nfa = () => `<p class="nfa">${NFA}</p>`;
+// UX48: "Dec 11, 2026". The date part is read as local parts, so a US time zone never slips it a day.
+function fmtDate(d) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d ?? ""));
+  if (!m) return String(d ?? "");
+  return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
 const pct = (x, d = 0) => (x === null || x === undefined) ? "—" : `${(x * 100).toFixed(d)}%`;
 function toast(msg, ms = 2600) {
   const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
@@ -171,7 +177,7 @@ function planTicket(t, { nested = false } = {}) {  // nested: already inside a <
     ${nested ? `<h3>${esc(t.explainer_title || t.label)}</h3>` : `<details><summary>${esc(t.explainer_title || t.label)}</summary>`}<div class="edu">${esc(t.learn)}<br><br><b>Risk:</b> ${esc(t.risk)}</div>${nested ? "" : "</details>"}`;
 }
 function tradeTag(t) {
-  return `<span class="strategy-tag">${esc(t.label)}${t.contracts ? ` · ${t.contracts} contract${t.contracts > 1 ? "s" : ""}` : ""}${t.shares ? ` · ${t.shares} shares` : ""}${t.expiry ? ` · expires ${t.expiry}` : ""}</span>`;
+  return `<span class="strategy-tag">${esc(t.label)}${t.contracts ? ` · ${t.contracts} contract${t.contracts > 1 ? "s" : ""}` : ""}${t.shares ? ` · ${t.shares} shares` : ""}${t.expiry ? ` · expires ${esc(fmtDate(t.expiry))}` : ""}</span>`;
 }
 function keepTrade(t) {
   const id = `t${Math.random().toString(36).slice(2, 8)}`;
@@ -181,7 +187,7 @@ function keepTrade(t) {
 function tradeActions(id) {
   return `<div class="actions">
       <button class="primary" data-paper="${id}">Paper trade this</button>
-      <button class="ghost" data-copy="${id}">Copy order details</button>
+      <button class="ghost" data-copy="${id}">Copy trade details</button>
     </div>`;
 }
 // The full trade (drawer, screener rows): headline numbers, chart, then every detail.
@@ -282,7 +288,7 @@ async function loadIdeas(refresh = false) {
   box.innerHTML = skeletonCards(Number($("#idea-count").value) || 3);
   try {
     const r = await api(`/api/ideas?risk=${state.risk}&count=${$("#idea-count").value}${refresh ? "&refresh=true" : ""}`);
-    $("#today-sub").innerHTML = `${esc(r.date)} · <b>${esc(r.risk_label)}</b>: ${esc(r.risk_plain || r.risk_blurb)}`;
+    $("#today-sub").innerHTML = `${state.status?.static ? "Sample market day: " : ""}${esc(fmtDate(r.date))} · <b>${esc(r.risk_label)}</b>: ${esc(r.risk_plain || r.risk_blurb)}`;
     setDataBadge(r.data_source);
     box.innerHTML = r.ideas.length ? r.ideas.map(ideaCard).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
     topIdea(r.ideas[0]);
@@ -300,7 +306,7 @@ const TRACK_SHOWN = 6;  // newer ideas show; older ones fold behind "Show older 
 function trackItem(it) {
   const be = it.above_breakeven === null ? "" : `<span class="be-chip ${it.above_breakeven ? "above" : "below"}">${it.above_breakeven ? "Above" : "Below"} breakeven <span class="num">${money(it.breakeven, 2)}</span></span>`;
   return `<li class="track-item" title="${esc(it.outcome)}">
-    <div class="ti-head"><b>${esc(it.symbol)}</b> <span class="muted small">${esc(it.label)}</span><span class="ti-date muted small num">Idea on ${esc(it.date)}</span></div>
+    <div class="ti-head"><b>${esc(it.symbol)}</b> <span class="muted small">${esc(it.label)}</span><span class="ti-date muted small num">Idea on ${esc(fmtDate(it.date))}</span></div>
     <div class="ti-grid">
       <span><span>Then → now</span><b class="num">${money(it.entry_price, 2)} → ${money(it.price_today, 2)}</b></span>
       <span><span>Stock</span><b class="num ${signCls(it.underlying_move_pct)}">${signedPct(it.underlying_move_pct)}</b></span>
@@ -397,14 +403,19 @@ async function submitProfile(e) {
   const f = e.target, fd = new FormData(f);
   fd.set("use_ai", f.use_ai.checked ? "true" : "false");
   if (!f.resume.files.length || window.charlieStatic) fd.delete("resume");
+  const btn = f.querySelector('button[type="submit"]');
+  btn.disabled = true; btn.textContent = "Building…";  // R11: no double submits while it runs
   $("#profile-status").textContent = "Reading your resume and building your circle…";
+  if (window.charlieStatic && !engineReady)
+    toast("Loading Charlie's engine (about 6 MB). On a phone this can take up to a minute. It's faster next time.", 6000);
   try {
     const r = await api("/api/profile", { method: "POST", body: fd });
     state.profile = r.profile; state.risk = r.profile.risk_level; syncRisk();
-    $("#profile-status").textContent = `Done. Read ${r.resume_chars.toLocaleString()} characters.`;
+    $("#profile-status").innerHTML = `Done. Your circle is below, and Today now shows ideas for it. <button type="button" class="link-btn" data-goto="today">See today's ideas</button>`;
     setWhose(true);
     renderProfile(); toast("Profile saved. Today's ideas are updated.");
   } catch (err) { $("#profile-status").textContent = err.message; }
+  finally { btn.disabled = false; btn.textContent = "Build my profile"; }
 }
 
 // ---------------------------------------------------------------- risk slider
@@ -621,10 +632,10 @@ async function loadPaper() {
       <div class="rc-top"><span><b>${esc(p.symbol)}</b> <span class="muted small">${esc(p.trade.label)}</span></span><span class="muted small">${esc(p.status)}</span></div>
       ${alertBlock(p)}
       <div class="small muted rc-money">${entryText(p)} · ${nowText(p)}</div>
-      <div class="rc-grid"><span><span>P&L</span><b class="pos-pnl ${signCls(p.pnl)} num">${money(p.pnl)}</b></span><span><span>% of max profit</span><b class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</b></span><span><span>${p.trade.expiry ? "Expires" : "Opened"}</span><b class="num">${esc(p.trade.expiry || p.opened.slice(0, 10))}</b></span></div>
+      <div class="rc-grid"><span><span>P&L</span><b class="pos-pnl ${signCls(p.pnl)} num">${money(p.pnl)}</b></span><span><span>% of max profit</span><b class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</b></span><span><span>${p.trade.expiry ? "Expires" : "Opened"}</span><b class="num">${esc(fmtDate(p.trade.expiry || p.opened))}</b></span></div>
       ${closeBtn(p) ? `<div class="actions">${closeBtn(p)}</div>` : ""}</div>`).join("")}</div>
     <div class="table-wrap has-cards"><table><thead><tr><th>Opened</th><th>Stock</th><th>Trade type</th><th class="num">Entry</th><th class="num">Now</th><th class="num">P&L</th><th class="num">% of max profit</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
-    ${r.positions.map((p) => `<tr><td class="num nowrap">${esc(p.opened.slice(0, 10))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small nowrap">expires ${esc(p.trade.expiry)}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
+    ${r.positions.map((p) => `<tr><td class="num nowrap">${esc(fmtDate(p.opened))}</td><td><b>${esc(p.symbol)}</b></td><td>${esc(p.trade.label)}${p.trade.expiry ? `<div class="muted small nowrap">expires ${esc(fmtDate(p.trade.expiry))}</div>` : ""}</td><td class="num">${entryText(p)}</td><td class="num">${nowText(p)}</td>
       <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}${p.alerts?.length ? `<div class="alert-row">${chips(p)}</div>` : ""}</td>
       <td>${closeBtn(p)}</td></tr>`).join("")}
     </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>${nfa()}`
@@ -700,7 +711,7 @@ async function openTicker(sym) {
     body.innerHTML = `
       <p class="src-line">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · ${src}</p>
       ${chartSlot("spark", d.history)}
-      ${d.history.length ? `<div class="muted small">${esc(d.history[0].date)} to ${esc(d.history[d.history.length - 1].date)}</div>` : ""}
+      ${d.history.length ? `<div class="muted small">${esc(fmtDate(d.history[0].date))} to ${esc(fmtDate(d.history[d.history.length - 1].date))}</div>` : ""}
       <div class="chips">${(d.familiarity_why.length ? d.familiarity_why : ["Outside your stated circle"]).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>
       <h3>Munger checklist</h3>${factorBars(ch)}
       ${ch.red_flags.length ? `<h3>Red flags (inversion)</h3><ul class="tight flags">${ch.red_flags.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
@@ -730,7 +741,7 @@ document.addEventListener("click", (e) => {
   if (el.dataset.retry) return retries[el.dataset.retry]?.();
   if (el.dataset.ticker) return openTicker(el.dataset.ticker);
   if (el.dataset.paper) return paperTrade(window._trades[el.dataset.paper], el);
-  if (el.dataset.copy) { navigator.clipboard?.writeText(window._trades[el.dataset.copy].ticket.join("\n")); return toast("Order details copied."); }
+  if (el.dataset.copy) { navigator.clipboard?.writeText(window._trades[el.dataset.copy].ticket.join("\n")); return toast("Trade details copied."); }
   if (el.dataset.close) return closePaper(el.dataset.close);
   if (el.dataset.q) return sendChat(el.dataset.q);
   if (el.dataset.row) return openScreenRow(window._screen[Number(el.dataset.row)]);
@@ -785,8 +796,10 @@ $("#delete-profile").onclick = async () => {
     toast(`Done. Your ${what} are deleted.`, 4000);
   } catch (err) { toast(err.message); }
 };
+let engineReady = false;
 // Static demo: say so while a control waits for the engine, so nothing looks dead.
 window.addEventListener("charlie:engine", (e) => {
+  engineReady = e.detail.ready && !e.detail.error;
   $("#engine-status").classList.toggle("hidden", e.detail.ready);
   if (e.detail.error) toast("Charlie's engine couldn't load. Check your connection and reload the page.", 5000);
 });
@@ -838,6 +851,7 @@ async function boot() {
     if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
       $$(".server-only").forEach((el) => el.classList.add("hidden"));
       $$(".static-only").forEach((el) => el.classList.remove("hidden"));
+      document.body.classList.add("is-static");
     }
     await loadProfile();
     renderProfile();

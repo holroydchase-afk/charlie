@@ -248,9 +248,9 @@ def build(strategy: str, symbol: str, spot: float, chain: list[dict], capital: f
     if strategy == "shares":
         budget = capital * (0.05 if level == 1 else 0.10)
         if spot <= 0:
-            raise Infeasible("no valid share price for this stock")
+            raise Infeasible("no current share price for this stock; try again later")
         if budget <= 0:
-            raise Infeasible("no capital set; add your capital to size a share purchase")
+            raise Infeasible("no paper capital set (add it in your profile)")
         qty = int(budget // spot)
         if qty < 1:
             raise Infeasible(f"one share (${spot:,.0f}) is more than {budget / capital:.0%} of your capital; consider fractional shares or the sector ETF")
