@@ -24,8 +24,12 @@ def _d1_d2(s: float, k: float, t: float, sigma: float, r: float) -> tuple[float,
 
 
 def bs_price(kind: str, s: float, k: float, t: float, sigma: float, r: float = RISK_FREE) -> float:
+    s = max(s, 0.0)  # a stock can't trade below zero; treat bad negative spots as zero
     if t <= 0:
         return max(0.0, s - k) if kind == "call" else max(0.0, k - s)
+    if s <= 0 or k <= 0:  # degenerate: no log(S/K); the option is its discounted forward intrinsic
+        fwd = s - k * math.exp(-r * t)
+        return max(0.0, fwd) if kind == "call" else max(0.0, -fwd)
     d1, d2 = _d1_d2(s, k, t, sigma, r)
     if kind == "call":
         return s * norm_cdf(d1) - k * math.exp(-r * t) * norm_cdf(d2)
@@ -33,8 +37,15 @@ def bs_price(kind: str, s: float, k: float, t: float, sigma: float, r: float = R
 
 
 def greeks(kind: str, s: float, k: float, t: float, sigma: float, r: float = RISK_FREE) -> dict:
-    d1, d2 = _d1_d2(s, k, t, sigma, r)
     t = max(t, 1e-6)
+    sigma = max(sigma, 1e-4)  # same clamp as _d1_d2, so zero/negative IV can't divide by zero
+    if s <= 0 or k <= 0:  # degenerate: option is certain to finish worthless (S<=0 call) or in the money
+        itm = (k <= 0) if kind == "call" else (s <= 0)
+        disc_k = k * math.exp(-r * t)
+        delta = (1.0 if kind == "call" else -1.0) if itm else 0.0
+        theta = (-r * disc_k if kind == "call" else r * disc_k) / 365 if itm else 0.0
+        return {"delta": delta, "gamma": 0.0, "theta": theta, "vega": 0.0}
+    d1, d2 = _d1_d2(s, k, t, sigma, r)
     pdf = norm_pdf(d1)
     if kind == "call":
         delta = norm_cdf(d1)
@@ -52,7 +63,7 @@ def greeks(kind: str, s: float, k: float, t: float, sigma: float, r: float = RIS
 
 def prob_above(s: float, level: float, t: float, sigma: float, r: float = RISK_FREE) -> float:
     """Risk-neutral probability the stock finishes above `level` at expiry."""
-    if t <= 0:
+    if t <= 0 or s <= 0 or level <= 0:
         return 1.0 if s > level else 0.0
     _, d2 = _d1_d2(s, level, t, sigma, r)
     return norm_cdf(d2)
