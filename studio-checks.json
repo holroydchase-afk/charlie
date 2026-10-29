@@ -1,6 +1,15 @@
 {
   "logs": {
-    "roots": ["web", "spike"],
-    "banned": ["resume"]
+    "roots": [
+      "web",
+      "spike"
+    ],
+    "banned": [
+      "resume"
+    ]
+  },
+  "agents": {
+    "verify": "pip install -q -r requirements.txt && CHARLIE_DATA=mock CHARLIE_LLM=off python -m pytest -q",
+    "runs": 3
   }
 }
