@@ -188,6 +188,29 @@ def test_CHL_UX48_cards_drawer_track_record_and_portfolio_use_fmtDate():
     assert problems == []
 
 
+def test_CHL_UX48b_chat_trade_cards_and_screener_expiry_column_use_fmtDate():
+    js = _app_js()
+    chat = _fn(js, "renderChatMsg")
+    screen = _fn(js, "runScreen")
+    problems = []
+    if "esc(t.expiry)" in chat:
+        problems.append("renderChatMsg (chat trade cards): renders a raw ISO expiry via esc(t.expiry)")
+    if "expires ${esc(fmtDate(t.expiry))}" not in chat:
+        problems.append("renderChatMsg (chat trade cards): should read '· expires <fmtDate(expiry)>'")
+    if "esc(x.trade.expiry" in screen:
+        problems.append("runScreen (screener Expires column): renders a raw ISO expiry via esc(x.trade.expiry")
+    if "fmtDate(x.trade.expiry)" not in screen:
+        problems.append("runScreen (screener Expires column): doesn't use fmtDate")
+    assert problems == []
+
+
+def test_CHL_UX51_engine_status_pill_says_loading_charlies_engine():
+    html = (_WEB / "index.html").read_text()
+    pill = _text(_html_block(html, r'<div[^>]*id="engine-status"[^>]*>'))
+    assert pill == "Loading Charlie's engine…", pill
+    assert "The first visit takes a few seconds" not in html
+
+
 def test_CHL_UX49_profile_done_message_points_to_todays_ideas():
     body = _fn(_app_js(), "submitProfile")
     assert "Done. Your circle is below, and Today now shows ideas for it." in body

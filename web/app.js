@@ -530,7 +530,7 @@ async function runScreen(e, save = false) {
         <span class="rc-grid"><span><span>${firstCell(x)[0]}</span><b>${firstCell(x)[1]}</b></span><span><span>Max profit</span><b>${maxp(x)}</b></span><span><span>Max loss</span><b>${money(x.trade.max_loss)}</b></span></span>
       </button>`).join("")}</div>
       <div class="table-wrap has-cards"><table><thead><tr><th>Stock</th><th>Trade type</th><th class="num">Score</th><th class="num">Price swings (IV)</th><th class="num">Max loss</th><th class="num">Max profit</th><th class="num">Chance of profit</th><th class="num">Yearly rate</th><th>Expires</th></tr></thead><tbody>
-      ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b> <span class="muted small num">${money(x.price, 2)}</span><div class="muted small sector" title="${esc(x.domain_label || "")}">${esc(x.domain_label || "")}${demoPrice(x)}</div></td><td class="nowrap">${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${maxp(x)}</td><td class="num">${pop(x)}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td class="nowrap">${esc(x.trade.expiry || "—")}</td></tr>`).join("")}
+      ${r.results.map((x, i) => `<tr class="clickable" data-row="${i}"><td><b>${esc(x.symbol)}</b> <span class="muted small num">${money(x.price, 2)}</span><div class="muted small sector" title="${esc(x.domain_label || "")}">${esc(x.domain_label || "")}${demoPrice(x)}</div></td><td class="nowrap">${esc(x.trade.label)}</td><td class="num">${x.score}</td><td class="num">${x.iv ? pct(x.iv) : "—"}</td><td class="num">${money(x.trade.max_loss)}</td><td class="num">${maxp(x)}</td><td class="num">${pop(x)}</td><td class="num">${x.trade.annualized ? pct(x.trade.annualized) : "—"}</td><td class="nowrap">${x.trade.expiry ? esc(fmtDate(x.trade.expiry)) : "—"}</td></tr>`).join("")}
       </tbody></table></div>${nfa()}` : `<div class="panel state"><p>No trades match these filters. Try loosening one, or move the risk slider up to search more trade types.</p></div>`);
     foldScreenForm(true);
   } catch (err) { box.innerHTML = errorState("Couldn't run this screen. Check your connection and try again.", err, retryButton(() => runScreen())); }
@@ -554,7 +554,7 @@ function renderChatMsg(role, text, cards = []) {
   div.className = `msg ${role === "user" ? "user" : "bot"}`;
   div.innerHTML = role === "user" ? esc(text) : md(text) + cards.map((t) => {
     const id = keepTrade(t);
-    return `<div class="mini"><b>${esc(t.symbol)} · ${esc(t.label)}</b>${t.expiry ? ` · ${esc(t.expiry)}` : ""}<br>Max loss ${money(t.max_loss)} · Breakeven ${t.breakeven ? money(t.breakeven, 2) : "—"}${t.pop ? ` · ${pct(t.pop)} chance of profit` : ""}
+    return `<div class="mini"><b>${esc(t.symbol)} · ${esc(t.label)}</b>${t.expiry ? ` · expires ${esc(fmtDate(t.expiry))}` : ""}<br>Max loss ${money(t.max_loss)} · Breakeven ${t.breakeven ? money(t.breakeven, 2) : "—"}${t.pop ? ` · ${pct(t.pop)} chance of profit` : ""}
       <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
   }).join("");
   $("#chat-log").appendChild(div); div.scrollIntoView({ behavior: "smooth", block: "end" });

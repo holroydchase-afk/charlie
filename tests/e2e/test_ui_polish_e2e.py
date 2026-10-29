@@ -158,7 +158,9 @@ def test_UX7_footer_fits_without_a_clipped_line(make_page, site_url, size):
     foot = pg.locator("#footer-disclaimer")
     sh, ch = foot.evaluate("(f) => [f.scrollHeight, f.clientHeight]")
     assert sh <= ch, f"footer clips its text: scrollHeight {sh} > clientHeight {ch}"
-    assert ch <= 48, f"footer is {ch}px tall (one line, ~40px)"
+    # One line (~40px); up to 600px wide the demo footer wraps chaseholroyd.com onto a second line (CHL-UX46).
+    limit = 56 if size[0] <= 600 else 48
+    assert ch <= limit, f"footer is {ch}px tall (limit {limit}px)"
     expect(foot).to_contain_text("Not financial advice")
 
 
