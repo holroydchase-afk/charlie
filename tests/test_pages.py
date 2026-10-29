@@ -152,9 +152,26 @@ def _gh_eval(expr, ctx):
 
 
 def _pages():
-    import yaml
-    wf = yaml.safe_load(PAGES.read_text())
-    return wf, wf.get("on", wf.get(True))  # YAML 1.1 reads the key `on` as True
+    """The deploy job's `if:` and the `on.schedule` crons, read from pages.yml without a YAML library
+    (CI installs only requirements.txt). Returns the same shapes yaml.safe_load would."""
+    lines = PAGES.read_text().splitlines()
+    expr, crons = None, []
+    for i, line in enumerate(lines):
+        m = re.match(r"^(\s*)if: >-\s*$", line)
+        if m and expr is None:
+            indent, body = len(m.group(1)), []
+            for nxt in lines[i + 1:]:
+                if nxt.strip() and len(nxt) - len(nxt.lstrip()) <= indent:
+                    break
+                if nxt.strip():
+                    body.append(nxt.strip())
+            expr = " ".join(body)
+        c = re.match(r"^\s*-\s*cron:\s*[\"']([^\"']+)[\"']", line)
+        if c:
+            crons.append({"cron": c.group(1)})
+    assert expr, "pages.yml deploy job has no folded `if: >-` expression"
+    on = {"schedule": crons} if crons else {}
+    return {"jobs": {"deploy": {"if": expr}}}, on
 
 
 def _deploys(event_name, repo="holroydchase-afk/charlie", private=False, run=None):
