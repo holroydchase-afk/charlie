@@ -134,7 +134,7 @@ def test_RM14_zero_or_negative_iv_is_finite(sigma):
 
 
 @pytest.mark.parametrize("sigma", [
-    pytest.param(0.0, marks=pytest.mark.xfail(strict=True, reason="CHL-RM8: greeks() divides by the raw sigma in gamma: zero IV raises ZeroDivisionError")),
+    0.0,
     -0.2,
 ])
 def test_RM34_greeks_zero_or_negative_iv_finite_and_sane(sigma):
@@ -143,7 +143,6 @@ def test_RM34_greeks_zero_or_negative_iv_finite_and_sane(sigma):
     assert g["gamma"] >= 0 and g["vega"] >= 0
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM1: bs_price/greeks/prob_above crash (math domain error) on zero spot")
 def test_RM15_zero_spot_does_not_crash():
     # A zero-priced stock: call worth 0, put worth K e^{-rT}. Expect a value or None, not a crash.
     assert bs_price("call", 0, 40, 0.5, 0.2, 0.1) == pytest.approx(0.0)
@@ -151,16 +150,30 @@ def test_RM15_zero_spot_does_not_crash():
     greeks("call", 0, 40, 0.5, 0.2)
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM2: bs_price crashes (ZeroDivisionError) on zero strike")
 def test_RM16_zero_strike_does_not_crash():
     v = bs_price("call", 42, 0, 0.5, 0.2, 0.1)
     assert v is None or math.isfinite(v)
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM3: bs_price crashes (math domain error) on negative spot")
 def test_RM17_negative_spot_does_not_crash():
     v = bs_price("call", -5, 40, 0.5, 0.2, 0.1)
     assert v is None or (math.isfinite(v) and v >= 0)
+
+
+def test_RM35_zero_spot_put_delta_is_minus_one_and_parity_holds():
+    # CHL-R1. At S=0 (K=40, r=10%, T=0.5) the call is worth 0 for every S near 0, so its delta is 0.
+    # Put-call parity: P = C - S + K e^{-rT} = 0 - S + 38.049, so dP/dS = -1 and delta put = -1.
+    # Check: Black-Scholes delta put = N(d1) - 1, and d1 -> -inf as S -> 0, so N(d1) -> 0 and delta -> -1.
+    # Hence delta call - delta put = 0 - (-1) = 1, the same identity as RM6.
+    gc = greeks("call", 0, 40, 0.5, 0.2, 0.1)
+    gp = greeks("put", 0, 40, 0.5, 0.2, 0.1)
+    assert gp["delta"] == pytest.approx(-1.0)
+    assert gc["delta"] - gp["delta"] == pytest.approx(1.0)
+    # Continuity: a stock at a billionth of a dollar has the same deltas as one at zero.
+    gp_tiny = greeks("put", 1e-9, 40, 0.5, 0.2, 0.1)
+    gc_tiny = greeks("call", 1e-9, 40, 0.5, 0.2, 0.1)
+    assert gp["delta"] == pytest.approx(gp_tiny["delta"], abs=1e-6)
+    assert gc["delta"] == pytest.approx(gc_tiny["delta"], abs=1e-6)
 
 
 # ---------------------------------------------------------------- hand-made chain
@@ -358,13 +371,11 @@ def test_RM28_zero_or_negative_capital_spreads_no_trade(capital):
             build(strategy, "TEST", SPOT, chain(), capital, level)
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM4: build('shares') with capital=0 raises ZeroDivisionError formatting the Infeasible message")
 def test_RM29_zero_capital_shares_no_trade():
     with pytest.raises(Infeasible):
         build("shares", "TEST", SPOT, [], 0, 1)
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM5: build('shares') with spot=0 raises ZeroDivisionError instead of Infeasible")
 def test_RM30_zero_spot_shares_no_trade():
     with pytest.raises(Infeasible):
         build("shares", "TEST", 0.0, [], 10000, 1)
@@ -381,7 +392,6 @@ def test_RM31_zero_bid_or_ask_excluded():
         build("bull_put_spread", "TEST", SPOT, ch, 25000, 3)
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM6: crossed quotes (bid > ask) pass _liquid and get traded")
 def test_RM32_crossed_quote_is_no_trade():
     # Only put is crossed: bid 2.10 > ask 1.90. A crossed market is bad data, not a fill.
     ch = [_opt(E44, 44, "put", 95, 2.10, 1.90, -0.21)]
@@ -389,8 +399,22 @@ def test_RM32_crossed_quote_is_no_trade():
         build("cash_secured_put", "TEST", SPOT, ch, 50000, 2)
 
 
-@pytest.mark.xfail(strict=True, reason="CHL-RM7: missing (None) bid/ask crashes _liquid with TypeError")
 def test_RM33_missing_quote_is_no_trade():
     ch = [_opt(E44, 44, "put", 95, None, None, -0.21)]
+    with pytest.raises(Infeasible):
+        build("cash_secured_put", "TEST", SPOT, ch, 50000, 2)
+
+
+@pytest.mark.parametrize("bid, ask", [
+    (float("nan"), 2.10),
+    (1.90, float("nan")),
+    (float("nan"), float("nan")),
+])
+def test_RM36_nan_quote_is_no_trade(bid, ask):
+    # CHL-R2. A NaN bid or ask is missing data, like None. Every comparison with NaN is False, so
+    # "bid <= 0" and "bid > ask" both let it through, and the mid (bid + ask) / 2 = NaN becomes the credit.
+    # The only put is otherwise the RM18 contract (95 strike, 44 DTE, delta -0.21), which builds fine
+    # with a real 1.90 / 2.10 quote, so the NaN alone must make it no trade.
+    ch = [_opt(E44, 44, "put", 95, bid, ask, -0.21)]
     with pytest.raises(Infeasible):
         build("cash_secured_put", "TEST", SPOT, ch, 50000, 2)
