@@ -61,4 +61,5 @@ jobs:
           CHARLIE_E2E: "1"
           CHARLIE_AXE_JS: node_modules/axe-core/axe.min.js
           CHARLIE_PYODIDE_DIR: pyodide-pkg
-        run: python -m pytest -q tests/e2e
+        # CHL-R3: browser-gated tests outside tests/e2e are named here by node id (a unit test checks).
+        run: python -m pytest -q tests/e2e tests/test_harden.py::test_CHL_PS1_e2e_pyodide_param_never_reaches_another_host
