@@ -38,7 +38,8 @@ function fmtDate(d) {
   if (!m) return String(d ?? "");
   return new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
-const pct = (x, d = 0) => (x === null || x === undefined) ? "—" : `${(x * 100).toFixed(d)}%`;
+// A real minus on percentages too (showcase P3), and no sign when it rounds to 0%.
+const pct = (x, d = 0) => { if (x === null || x === undefined) return "—"; const s = Math.abs(x * 100).toFixed(d); return (x < 0 && /[1-9]/.test(s) ? "−" : "") + s + "%"; };
 function toast(msg, ms = 2600) {
   const t = $("#toast"); t.textContent = msg; t.classList.remove("hidden");
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add("hidden"), ms);
