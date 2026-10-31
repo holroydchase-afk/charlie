@@ -808,10 +808,29 @@ $("#use-sample").onclick = async () => {  // demo only: show the fictional resum
   const text = await window.charlieStatic?.sampleResume();
   if (text) { const t = $("#profile-form").resume_text; t.value = text; t.focus(); }
 };
-$("#reset-demo").onclick = () => {
-  try { Object.keys(localStorage).filter((k) => k.startsWith("charlie:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
-  location.reload();
-};
+// CHL-DEMO-BAR (pm-tools docs/DEMO-BANNER.md): the static demo's bar. Details opens a push-down
+// drawer; Esc closes it and returns focus. Reset asks inline first, clears only Charlie's own keys
+// (Pages shares one origin with other demos), reloads, then opens the drawer once to say it worked.
+(() => {
+  const bar = $(".demo-bar"), toggle = $(".demo-bar__toggle"), panel = $("#demo-bar-panel");
+  const reset = $(".demo-bar__reset"), ask = $(".demo-bar__confirm"), RESET_FLAG = "charlie-demo-reset";
+  const setOpen = (open) => { toggle.setAttribute("aria-expanded", String(open)); panel.hidden = !open; };
+  const showAsk = (on) => { reset.hidden = on; ask.hidden = !on; };
+  toggle.onclick = () => { if (!panel.hidden) showAsk(false); setOpen(panel.hidden); };
+  bar.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !panel.hidden) { e.stopPropagation(); showAsk(false); setOpen(false); toggle.focus(); }
+  });
+  reset.onclick = () => { showAsk(true); $(".demo-bar__no").focus(); };
+  $(".demo-bar__no").onclick = () => { showAsk(false); reset.focus(); };
+  $(".demo-bar__yes").onclick = () => {
+    try { Object.keys(localStorage).filter((k) => k.startsWith("charlie:")).forEach((k) => localStorage.removeItem(k)); } catch (_) {}
+    try { sessionStorage.setItem(RESET_FLAG, "1"); } catch (_) {}
+    location.reload();
+  };
+  let wasReset = false;
+  try { wasReset = sessionStorage.getItem(RESET_FLAG) === "1"; sessionStorage.removeItem(RESET_FLAG); } catch (_) {}
+  if (wasReset) { const p = panel.querySelector("p"); p.textContent = "Sample data restored. " + p.textContent; setOpen(true); }
+})();
 // Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump.
 $(".tabs").addEventListener("keydown", (e) => {
   const tabs = $$(".tabs button"), i = tabs.indexOf(document.activeElement);

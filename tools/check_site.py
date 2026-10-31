@@ -3,7 +3,8 @@
 Usage: python tools/check_site.py site/ [--no-cdn]
 Scans every text file in the folder and every file inside charlie.zip. A URL is fine only if
 its host is in ALLOWED: the Pyodide CDN (the one network call the demo may make), the
-portfolio link, and the SVG namespace in the favicon. --no-cdn drops the CDN too, for a
+portfolio link, and the SVG namespace in the favicon. LINKS are exact URLs allowed on a host
+that isn't: the demo bar's "Code on GitHub" link to the public repo (CHL-DEMO-R4), and nothing else there. --no-cdn drops the CDN too, for a
 self-hosted build. The vendored Pyodide runtime in site/pyodide/ is not scanned: it's the
 unmodified npm release, and its stdlib mentions many URLs it never calls.
 
@@ -25,6 +26,7 @@ ALLOWED = {"cdn.jsdelivr.net", "chaseholroyd.com", "www.w3.org"}
 VENDORED = "pyodide"
 TEXT = {".html", ".js", ".css", ".json", ".py", ".txt", ".md"}
 URL = re.compile(r"https?://([A-Za-z0-9.-]+)")
+LINKS = re.compile(r"https://github\.com/holroydchase-afk/charlie(?=[\"'<>\s]|$)")
 CSP_META = re.compile(r'<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>', re.I)
 PYODIDE_PARAM = re.compile(r'\.get\(\s*["\']pyodide["\']\s*\)')
 ORIGIN_GUARD = re.compile(r"\.origin\s*===?\s*location\.origin|location\.origin\s*===?\s*[^;]*\.origin")
@@ -53,7 +55,7 @@ def check(site: Path, allowed: set[str] = ALLOWED) -> list[str]:
         for n, line in enumerate(text.splitlines(), 1):
             if KEYS.search(line):
                 problems.append(f"{name}:{n}: looks like an API key or token")
-            for host in URL.findall(line):
+            for host in URL.findall(LINKS.sub("", line)):
                 if host.lower() not in allowed:
                     problems.append(f"{name}:{n}: URL to {host}, which isn't on the allowed list")
     problems += check_csp(site, allowed)
@@ -110,5 +112,5 @@ if __name__ == "__main__":
     if not (site / "index.html").exists():
         sys.exit(f"{site} has no index.html; run tools/build_demo.py first")
     found = check(site, allowed)
-    print("\n".join(found) if found else f"ok: {site} has no keys and no hosts beyond {', '.join(sorted(allowed))}")
+    print("\n".join(found) if found else f"ok: {site} has no keys and no hosts beyond {', '.join(sorted(allowed))} (plus the repo link)")
     sys.exit(1 if found else 0)

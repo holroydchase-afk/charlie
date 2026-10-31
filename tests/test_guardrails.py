@@ -23,13 +23,19 @@ def _check(site):
 
 
 def test_demo_banner_back_link_and_reset_exist_for_static_mode_only():
+    # CHL-DEMO-BAR: the old #demo-banner became the studio demo bar (pm-tools docs/DEMO-BANNER.md).
     html = (WEB / "index.html").read_text()
-    banner = re.search(r'<div id="demo-banner"[^>]*>.*?</div>', html, re.S).group(0)
-    assert "static-only" in banner and "hidden" in banner
-    assert "sample" in banner.lower() and "stays in this browser" in banner
-    assert 'href="https://chaseholroyd.com/"' in banner and 'id="reset-demo"' in banner
+    m = re.search(r'<section\b[^>]*aria-label="Demo"[^>]*>.*?</section>', html, re.S)
+    assert m, "the static demo needs its demo bar"
+    banner = m.group(0)
+    open_tag = re.match(r"<section\b[^>]*>", banner).group(0)
+    assert "static-only" in open_tag and "hidden" in open_tag
+    assert "Sample data" in banner and "changes stay in this browser" in banner
+    assert "saved only in this browser" in banner
+    assert banner.count('href="https://chaseholroyd.com/"') >= 2  # ← Portfolio and the drawer's full way back
+    assert re.search(r"<button\b[^>]*>\s*Reset demo\s*</button>", banner)
     js = (WEB / "app.js").read_text()
-    assert ".static-only" in js and "reset-demo" in js
+    assert ".static-only" in js and "Sample data restored." in js
 
 
 def test_chat_panel_shows_the_disclaimer_in_markup():
@@ -54,6 +60,22 @@ def test_site_check_fails_on_a_key_or_an_unknown_host(tmp_path):
     js.write_text(clean + '\nconst k = "sk-ant-' + "a" * 24 + '";\n')
     r = _check(site)
     assert r.returncode == 1 and "key" in r.stdout.lower()
+
+
+def test_CHL_DEMO_R4_site_check_allows_only_the_repo_link_on_github(tmp_path):
+    # The drawer's "Code on GitHub" link is the one github.com URL the build may hold; nothing else there.
+    site = _build(tmp_path)
+    assert 'href="https://github.com/holroydchase-afk/charlie"' in (site / "index.html").read_text()
+    r = _check(site)
+    assert r.returncode == 0, r.stdout + r.stderr
+    js = site / "app.js"
+    clean = js.read_text()
+    for bad in ("https://github.com/someone-else/x", "https://github.com/holroydchase-afk/charlie/raw/main/x.js",
+                "https://github.com/holroydchase-afk/charlie-evil", "https://github.com/holroydchase-afk/charlie~x",
+                "https://github.com/holroydchase-afk/charlie@evil", "https://github.com/holroydchase-afk/charlie:x"):
+        js.write_text(clean + f'\nfetch("{bad}");\n')
+        r = _check(site)
+        assert r.returncode == 1 and "github.com" in r.stdout, bad
 
 
 def test_site_check_reads_the_python_zip_too(tmp_path):

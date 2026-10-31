@@ -41,8 +41,7 @@ jobs:
 
   e2e:
     # The built demo in Chromium: disclaimers on ideas and chat, the sample banner and back link, reset.
-    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 cannot install Chromium deps.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -51,7 +50,7 @@ jobs:
           cache: pip
       - name: Install
         run: |
-          pip install -r requirements.txt playwright==1.56.0
+          pip install -r requirements.txt playwright==1.64.1
           python -m playwright install --with-deps chromium
           npm install --no-save --no-audit --no-fund axe-core@4.10.3
           # The same self-hosted Pyodide that pages.yml ships.

@@ -29,5 +29,7 @@ def test_no_placeholder_text_or_dead_links():
         for href in re.findall(r'href="([^"]*)"', text):
             if href.startswith("#"):
                 assert href[1:] in TABS, f"{f}: {href} goes nowhere"
+            elif href == "https://github.com/holroydchase-afk/charlie":  # CHL-DEMO-R4: exactly the public repo
+                continue
             else:
                 assert href.startswith(("https://chaseholroyd.com/", "data:image/", "/static/")), f"{f}: {href}"
