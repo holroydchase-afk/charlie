@@ -46,3 +46,33 @@ def test_CHL_UX42_portfolio_explains_alert_chips_before_any_fire():
     app = (ROOT / "web" / "app.js").read_text()
     assert 'take_profit: "Take profit?", time: "Near expiry", breakeven: "Below breakeven"' in app
     assert '$("#alert-explainer").hidden = !r.positions.length' in app  # hidden while empty (keeps UX23's button high)
+
+
+def _js_formatter(name):
+    """Evaluate one `const name = ...;` arrow-function line from app.js in node."""
+    import json
+    import shutil
+    import subprocess
+    import pytest
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node not installed")
+    app = (ROOT / "web" / "app.js").read_text()
+    m = re.search(rf"^const {name} = .*?;$", app, re.M)
+    assert m, f"{name} moved in app.js"
+
+    def call(*args):
+        js = f"{m.group(0)}\nprocess.stdout.write(JSON.stringify({name}(...{json.dumps(list(args))})));"
+        return json.loads(subprocess.run([node, "-e", js], capture_output=True, text=True, check=True).stdout)
+    return call
+
+
+def test_CHL_P3_percentages_use_a_real_minus_sign():
+    """Showcase P3: a negative percentage (revenue growth in the drawer, % of max profit on a losing
+    paper trade) printed a hyphen, while dollar amounts use a real minus (UX30)."""
+    pct = _js_formatter("pct")
+    assert pct(-0.05) == "−5%"
+    assert pct(-0.123, 1) == "−12.3%"
+    assert pct(0.05) == "5%"
+    assert pct(-0.001) == "0%"  # no sign on an amount that rounds to zero, like money()
+    assert pct(None) == "—"
