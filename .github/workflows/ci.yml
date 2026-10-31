@@ -41,7 +41,8 @@ jobs:
 
   e2e:
     # The built demo in Chromium: disclaimers on ideas and chat, the sample banner and back link, reset.
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 cannot install Chromium deps.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -61,4 +62,9 @@ jobs:
           CHARLIE_E2E: "1"
           CHARLIE_AXE_JS: node_modules/axe-core/axe.min.js
           CHARLIE_PYODIDE_DIR: pyodide-pkg
-        run: python -m pytest -q tests/e2e
+        # CHL-R3: browser-gated tests outside tests/e2e are named here by node id (a unit test checks).
+        # They run in their own pytest process: tests/e2e keeps a sync Playwright loop open for the session,
+        # and a second sync_playwright() in the same process refuses to start.
+        run: |
+          python -m pytest -q tests/e2e
+          python -m pytest -q tests/test_harden.py::test_CHL_PS1_e2e_pyodide_param_never_reaches_another_host

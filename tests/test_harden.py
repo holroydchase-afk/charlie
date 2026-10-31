@@ -1110,3 +1110,22 @@ def test_CHL_PS15_malformed_holding_is_dropped_not_a_crash(via, client, static_a
         assert body["profile"]["holdings"].get("MSFT") == 10, body["profile"]["holdings"]
         assert "AAPL" not in body["profile"]["holdings"], "a malformed share count was kept"
     assert _call(via, client, static_api, "GET", "/api/profile")[0] == 200
+
+
+# ============================================================ CHL-R3 CI runs every browser test
+def test_CHL_R3_ci_e2e_job_runs_every_browser_gated_test_outside_tests_e2e():
+    """Tests skipped unless CHARLIE_E2E=1 only run in CI's e2e job, which collected just tests/e2e,
+    so a gated test elsewhere (PS1's ?pyodide= check) never ran. Each one must be named in that job."""
+    root = Path(__file__).resolve().parent
+    ci = (root.parent / ".github" / "workflows" / "ci.yml").read_text()
+    e2e_job = ci[ci.index("\n  e2e:"):]
+    nxt = re.search(r"\n  [\w-]+:\n", e2e_job[1:])  # stop at the next job
+    e2e_job = e2e_job[:nxt.start() + 1] if nxt else e2e_job
+    gated = []
+    for f in sorted(root.glob("test_*.py")):
+        src = f.read_text()
+        for m in re.finditer(r'@pytest\.mark\.skipif\(os\.environ\.get\("CHARLIE_E2E"\) != "1".*\n(?:@.*\n)*def (test_\w+)', src):
+            gated.append(f"tests/{f.name}::{m.group(1)}")
+    assert gated, "expected at least PS1's browser test to be gated"
+    missing = [t for t in gated if t not in e2e_job]  # by node id, so the job never runs a whole unit file
+    assert missing == [], f"CI's e2e job never runs: {missing}"
