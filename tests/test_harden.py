@@ -1129,3 +1129,17 @@ def test_CHL_R3_ci_e2e_job_runs_every_browser_gated_test_outside_tests_e2e():
     assert gated, "expected at least PS1's browser test to be gated"
     missing = [t for t in gated if t not in e2e_job]  # by node id, so the job never runs a whole unit file
     assert missing == [], f"CI's e2e job never runs: {missing}"
+
+
+def test_e2e_job_runs_on_latest_ubuntu_with_supported_playwright():
+    """ubuntu-latest is 26.04, where Playwright 1.56 couldn't install Chromium deps, so the e2e job was
+    pinned to 24.04. 1.64 knows 26.04: keep the job on ubuntu-latest with at least that version."""
+    ci = (Path(__file__).resolve().parent.parent / ".github" / "workflows" / "ci.yml").read_text()
+    e2e_job = ci[ci.index("\n  e2e:"):]
+    nxt = re.search(r"\n  [\w-]+:\n", e2e_job[1:])  # stop at the next job
+    e2e_job = e2e_job[:nxt.start() + 1] if nxt else e2e_job
+    runs_on = re.search(r"^\s+runs-on:\s*(\S+)", e2e_job, re.M)
+    assert runs_on and runs_on.group(1) == "ubuntu-latest", f"e2e job runs on {runs_on and runs_on.group(1)}"
+    pin = re.search(r"\bplaywright==(\d+)\.(\d+)\.(\d+)", e2e_job)
+    assert pin, "e2e job's install step doesn't pin playwright==X.Y.Z"
+    assert tuple(map(int, pin.groups())) >= (1, 64, 0), f"playwright {'.'.join(pin.groups())} < 1.64"
