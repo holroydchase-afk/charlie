@@ -163,10 +163,13 @@ LINES = """(el) => {  // how many rendered lines the element's own text takes
 
 
 def test_CHL_UX37_laptop_banner_says_reset_demo_with_a_space(make_page, site_url):
+    # CHL-DEMO-BAR: Reset demo now lives in the demo bar's drawer.
     pg = _open(make_page, site_url, LAPTOP)
-    btn = pg.locator("#reset-demo")
+    bar = pg.get_by_role("region", name="Demo")
+    bar.get_by_role("button", name="Demo details").click()
+    btn = bar.get_by_role("button", name="Reset demo", exact=True)
+    expect(btn).to_be_visible()
     assert btn.inner_text().strip() == "Reset demo", repr(btn.inner_text())
-    expect(pg.get_by_role("button", name="Reset demo", exact=True)).to_be_visible()
 
 
 def test_CHL_UX38_laptop_paper_table_dates_stay_on_one_line(make_page, site_url):

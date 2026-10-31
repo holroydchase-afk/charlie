@@ -57,7 +57,7 @@ Charlie has no servers of its own. "The local app" is a FastAPI process the user
 | Local app, **Delete my data** (sends `DELETE /api/profile?all=true` after a confirm listing what goes) | Every SQLite table: profile, resume intake, saved screens, cached ideas, paper trades (`Store.wipe`), then `VACUUM` rebuilds the file. `PRAGMA secure_delete=ON` is set on every connection, so deleted rows are overwritten with zeros. The market cache's own folders (`options`, `history`, `facts`, `ciks`) are removed too, since their file names are the tickers the profile pointed to (`Api.delete_profile`, `_clear_market_cache`). | **Built (release branches, not yet merged)** |
 | Local app, plain `DELETE /api/profile` | Profile, resume intake, the sample risk setting and cached ideas; saved screens and paper trades stay (`Api.delete_profile`). | **Built** |
 | Demo, **Delete my data** | Every `charlie:` key through `BrowserStore.wipe`. | **Built (release branches, not yet merged)** |
-| Demo, **Reset demo** | Every `localStorage` key starting `charlie:`, then a reload (`web/app.js`). | **Built** |
+| Demo, **Reset demo** (in the demo bar's drawer; asks inline first, Keep changes nothing) | Every `localStorage` key starting `charlie:` (other keys on the shared Pages origin stay), then a reload. A one-shot `sessionStorage` flag, `charlie-demo-reset`, holds no data; it opens the drawer once after the reload to say "Sample data restored." and is removed on read (`web/app.js`, CHL-DEMO-BAR). The `charlie-ack` flag (hyphen, not `charlie:`) stays: it only records that the visitor saw the practice-only notice. | **Built** |
 
 How long copies last:
 
@@ -66,4 +66,4 @@ How long copies last:
 - **Gap: vendor copies.** Anything sent to Anthropic (opt-in resume read, Claude chat) is retained under Anthropic's API terms, not deletable from Charlie. Cboe and the SEC may log requested tickers and IP addresses.
 - **Gap: demo visitors who never delete.** Demo data stays in the visitor's `localStorage` until they reset, delete or clear site data. That includes resume text a visitor pastes (CHL-PS10, deferred: staff-pm to choose session-only storage or not storing it).
 
-Last checked against code: 2026-10-29, branch `claude/project-thread-xs5yep` (ba54a45)
+Last checked against code: 2026-10-31, branch `claude/project-thread-0rhiwv` (Reset demo row, CHL-DEMO-BAR)

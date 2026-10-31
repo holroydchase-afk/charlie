@@ -8,6 +8,26 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <section class="demo-bar static-only hidden" aria-label="Demo">
+    <div class="demo-bar__row">
+      <a class="demo-bar__home" href="https://chaseholroyd.com/">← Portfolio</a>
+      <button type="button" class="demo-bar__toggle" aria-expanded="false" aria-controls="demo-bar-panel" aria-label="Demo details">
+        <span class="demo-bar__badge">Demo</span>
+        <span class="demo-bar__sum">Sample data<span class="demo-bar__long"> · changes stay in this browser</span></span>
+        <span class="demo-bar__more">Details<svg class="demo-bar__chev" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span>
+      </button>
+    </div>
+    <div class="demo-bar__panel" id="demo-bar-panel" hidden>
+      <p>This is the real Charlie, running on made-up sample data. Anything you change is saved only in this browser and is never sent anywhere. Reset demo puts the sample data back.</p>
+      <div class="demo-bar__actions">
+        <button type="button" class="demo-bar__reset">Reset demo</button>
+        <span class="demo-bar__confirm" role="group" aria-label="Confirm reset" hidden><span>Put the sample data back? Your changes will be lost.</span>
+          <button type="button" class="demo-bar__yes">Reset</button><button type="button" class="demo-bar__no">Keep</button></span>
+        <a class="demo-bar__back" href="https://chaseholroyd.com/">← Back to Chase's portfolio</a>
+        <a class="demo-bar__back" href="https://github.com/holroydchase-afk/charlie">Code on GitHub</a>
+      </div>
+    </div>
+  </section>
   <header class="top">
     <div class="brand">
       <span class="logo">C</span>
@@ -16,13 +36,8 @@
         <div class="brand-sub">Invest in what you know. Paper trading only.</div>
       </div>
     </div>
-    <span id="data-badge" class="badge">Loading…</span>
+    <span id="data-badge" class="badge server-only">Loading…</span>
   </header>
-  <div id="demo-banner" class="demo-banner static-only hidden" role="note">
-    <span><b>Sample data.</b><span class="wide-only"> Anything you enter stays in this browser.</span></span>
-    <span class="demo-actions"><a href="https://chaseholroyd.com/">Back to chaseholroyd.com</a> <span aria-hidden="true">·</span> <button id="reset-demo" class="link-btn" type="button"><span>Reset<span class="wide-only"> demo</span></span></button></span>
-  </div>
-
   <nav class="tabs" role="tablist">
     <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
     <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>

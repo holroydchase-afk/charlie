@@ -27,10 +27,16 @@ def test_every_idea_card_shows_the_disclaimer(page):
 
 
 def test_banner_says_sample_and_links_back(page):
-    banner = page.locator("#demo-banner")
-    expect(banner).to_be_visible()
-    expect(banner).to_contain_text("stays in this browser")
-    expect(page.locator("#demo-banner a")).to_have_attribute("href", "https://chaseholroyd.com/")
+    # CHL-DEMO-BAR: the demo bar replaced #demo-banner; the same promises, now on the bar and its drawer.
+    expect(page.locator("#demo-banner")).to_have_count(0)
+    bar = page.get_by_role("region", name="Demo")
+    expect(bar).to_be_visible()
+    expect(bar).to_contain_text("Sample data")
+    expect(bar.get_by_role("link", name="← Portfolio")).to_have_attribute("href", "https://chaseholroyd.com/")
+    bar.get_by_role("button", name="Demo details").click()
+    expect(bar).to_contain_text("saved only in this browser")
+    expect(bar.get_by_role("link", name="← Back to Chase's portfolio")).to_have_attribute(
+        "href", "https://chaseholroyd.com/")
     expect(page.locator("#profile-nudge")).to_contain_text("Alex Rivera, a fictional sample person")
 
 
@@ -52,7 +58,11 @@ def test_profile_shows_the_sample_and_can_load_its_resume(page):
 
 def test_reset_demo_clears_local_data(page):
     page.evaluate("localStorage.setItem('charlie:kv:sample_risk', '4')")
-    page.click("#reset-demo")
+    bar = page.get_by_role("region", name="Demo")
+    bar.get_by_role("button", name="Demo details").click()
+    bar.get_by_role("button", name="Reset demo").click()
+    with page.expect_navigation():
+        bar.get_by_role("button", name="Reset", exact=True).click()
     page.wait_for_load_state("load")
     expect(page.locator("#ideas .card").first).to_be_visible()
     keys = page.evaluate("Object.keys(localStorage).filter((k) => k.startsWith('charlie:'))")
