@@ -41,7 +41,8 @@ jobs:
 
   e2e:
     # The built demo in Chromium: disclaimers on ideas and chat, the sample banner and back link, reset.
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, where Playwright 1.56 cannot install Chromium deps.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
