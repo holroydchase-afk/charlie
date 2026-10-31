@@ -180,13 +180,14 @@ The Polish Freeze (since Oct 24) was lifted by Chase on Oct 28; the parked items
 - CHL-PS16: 23 commits carry Chase's personal email as author (already public). Recommended: leave history, and Chase ticks GitHub Settings → Emails → "Keep my email addresses private" and "Block command line pushes that expose my email".
 
 ## Portfolio / public presence
+- 2026-10-31: Portfolio card live: holroydchase-afk.github.io PR #42 (merged Oct 31, superseding #37) added chaseholroyd.com/charlie.html with the intake copy, demo and code links and this repo's `docs/screenshots/demo-phone.png` (post-#27), plus a Charlie row on the home page.
 - 2026-10-29: **Live demo: https://chaseholroyd.com/charlie/** (Pages from `main`, sample data only, paper only, no calls beyond the site). Showcase fixes on this branch deploy when it merges: disclaimer in the ticker drawer, footer link back to chaseholroyd.com, "Sample market day" date, weekly rebuild. Portfolio card INTAKE (URL, phone screenshot, 3 lines of copy) sent to Chase for Product Studio.
 - 2026-10-29: demo Portfolio explains the alert chips once a paper trade exists (CHL-UX42, not deployed).
 - 2026-10-28: demo verified on a local build (M1.14, not deployed): Today paints in 1.1 s on a 4x-throttled phone over slow 4G (69 ms on a laptop), the engine is ready in 35 s on that phone and 1.9 s on a laptop; recruiter-ready re-review 8.5/10, no open P0/P1, privacy GO.
 - 2026-10-28: demo shows a sample idea track record vs SPY and exit-plan alerts on paper trades (M1.13, not deployed).
 - 2026-10-28: demo gets a strict Content-Security-Policy and the ?pyodide= override is gone (M1.12, not deployed).
 - 2026-10-28: demo UI polish pass (M1.11, not deployed).
-- Portfolio page: INTAKE sent Oct 29 (waiting on Chase to paste it into Product Studio).
+- Portfolio page: INTAKE done Oct 29 (see the line above).
 - Demo data: the fictional sample resume in `samples/` and the built-in mock market data, saved only in the visitor's browser.
 - 2026-10-24: `pages.yml` is ready to publish the demo at chaseholroyd.com/charlie/ once the repo is public. The demo serves Pyodide itself and makes no third-party calls (not deployed).
 - 2026-10-24: recruiter-ready review done with no open P0 or P1 (`docs/reviews/2026-10-24-recruiter-ready.md`). The demo now has "Use the sample resume" (M1.9, not deployed).
