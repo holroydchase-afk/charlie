@@ -690,13 +690,18 @@ def test_UX30_win_rate_tile_hidden_until_a_trade_is_closed(make_page, site_url):
 
 # ---------------------------------------------------------------- CHL-UX31 banner targets at least 24px
 def test_UX31_banner_reset_and_back_link_are_at_least_24px_tall(make_page, site_url):
+    # CHL-DEMO-BAR raised the floor from 24px to the demo bar's 44px tap target.
     pg = _open(make_page, site_url, PHONE)
+    bar = pg.get_by_role("region", name="Demo")
+    targets = [bar.get_by_role("link", name="← Portfolio"), bar.get_by_role("button", name="Demo details")]
+    targets[1].click()
+    targets += [bar.get_by_role("button", name="Reset demo"), bar.get_by_role("link", name="← Back to Chase's portfolio")]
     small = []
-    for sel in ("#reset-demo", ".demo-actions a"):
-        b = pg.locator(sel).first.bounding_box()
-        if b["height"] < 24:
-            small.append(f"{sel}: {b['width']:.0f}x{b['height']:.0f}")
-    assert small == [], f"banner targets under 24px tall at 390: {small}"
+    for loc in targets:
+        b = loc.bounding_box()
+        if b["height"] < 44:
+            small.append(f"{loc.inner_text()!r}: {b['width']:.0f}x{b['height']:.0f}")
+    assert small == [], f"demo bar targets under 44px tall at 390: {small}"
 
 
 # ---------------------------------------------------------------- CHL-UX33 "Why this one" doesn't repeat the thesis
