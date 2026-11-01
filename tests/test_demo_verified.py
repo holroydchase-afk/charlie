@@ -76,3 +76,17 @@ def test_CHL_P3_percentages_use_a_real_minus_sign():
     assert pct(0.05) == "5%"
     assert pct(-0.001) == "0%"  # no sign on an amount that rounds to zero, like money()
     assert pct(None) == "—"
+
+
+def test_CHL_P3_corner_radii_come_from_the_scale():
+    """Showcase P3 "radii": one-off corner radii (4, 6, 7, 9, 10, 14, 16 px) sat beside the 8 and 12 px
+    tokens. Every border-radius is now a --radius* token, 0, a pill (999px) or a circle (50%)."""
+    css = (ROOT / "web" / "styles.css").read_text()
+    allowed = re.compile(r"^(var\(--radius(-[a-z]+)?\)|0|999px|50%)$")
+    bad = []
+    for m in re.finditer(r"border-radius:\s*([^;}]+)", css):
+        parts = m.group(1).strip().split()
+        if not all(allowed.match(p) for p in parts):
+            bad.append(m.group(1).strip())
+    assert bad == [], bad
+    assert re.search(r"--radius-xs:\s*4px", css) and re.search(r"--radius-lg:\s*16px", css)
