@@ -2,7 +2,7 @@
 
 The studio's opinion on screens, written down so a reviewer checks against rules instead of judging pixels by eye. Three layers, read in order, and stop as soon as you have what you need:
 
-1. **General rules (G1-G12) and visual craft (V1-V10)** apply to every screen. They live in `plugins/studio/agents/ux-reviewer.md` so the reviewer always has them loaded. `tools/ux-rules.mjs` checks the ones marked *code*.
+1. **General rules (G1-G14) and visual craft (V1-V12)** apply to every screen. They live in `plugins/studio/agents/ux-reviewer.md` so the reviewer always has them loaded. `tools/ux-rules.mjs` checks the ones marked *code*.
 2. **Screen types** (below): what a list, form, dialog, result or landing page must have. Read only the types on the screen you're reviewing.
 3. **Exceptions** (below): where the studio deliberately breaks a rule, and why.
 
@@ -38,7 +38,7 @@ Seeded on 2026-10-28 from what already works in Build Slate and chaseholroyd.com
 ### Start screen or landing (portfolio, demos)
 - S1. In 3 seconds: what it is, who it's for, and one proof point, above the fold (ES-R48).
 - S2. Copy matches the device: "Click and hold" on a mouse, "Press and hold" on touch; hide a "Take a photo" button where there's no camera (ES-R49, ES-R63, ES-R64).
-- S3. The way back to the portfolio and the case study is near the top, not only in the footer (ES-R55).
+- S3. A demo has a visible way back to the portfolio, plus one line on what it is and who it's for, near the top and not only in the footer. Missing either is a P0 (ES-R55).
 - S4. The page, README, link preview and screenshots tell the same story with the same numbers (ES-R65, ES-R66).
 
 ### Long-form page (portfolio case studies, resume)
@@ -59,6 +59,7 @@ In NN/g's tests, people over 65 finished 55% of web tasks against 74% for people
 - A4. Their words, not ours: "album", "send to the family", "print", never "feed", "sync" or "upload".
 - A5. Forgiving: undo instead of "Are you sure?", nothing lost on a slip, and the way back always in view.
 - A6. Impressive, not clunky: the photos are the hero (big, edge to edge), one typeface with character, calm color. Large and simple is the style, never a beige "accessibility mode".
+- A7. Calm, not watched: no read receipts, "x of y" or any count of who hasn't acted (G14). Show only positive signals, or nothing.
 
 ## Persona: the harshest critic
 Every product names one in its personas doc, so the reviewer knows whose teasing to pre-empt. Card: who they are, what they grew up with, what they'd say about a cheap-looking screen (one line in their voice), and what would make them show it off. Hearth: the grandparents. Portfolio: a hiring manager who has seen a hundred AI-built demos.
