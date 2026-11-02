@@ -118,6 +118,13 @@ Only Chase's calls go here. Product calls an agent makes on its own (the simples
 - What it beat: Charlie's own conventions (decisions only in HANDOFF, the qa-tdd addendum inside `.claude/agents/`).
 - Evidence: GitHub issue #40.
 
+### CHL-DEC-15: Merge own PRs on green (studio standard section 5)
+- Date: 2026-11-02
+- The call: Chase's word, "adopt", answering "keep never-merge-without-Chase, or adopt merge-on-green with a live-demo gate?"
+- Why: fewer asks of Chase; docs, tests and CI changes don't touch what visitors see.
+- What it beat: "never merge to `main` without Chase's go" (CLAUDE.md since Oct 23). A PR that changes what the demo build ships still waits for his go, because every merge redeploys the demo.
+- Evidence: the project thread for intake #40; CLAUDE.md "Merging"; PR #41.
+
 ## Open calls (waiting on Chase)
 
 These are in HANDOFF "Decisions to review". They get an entry above once he decides.

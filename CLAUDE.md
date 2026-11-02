@@ -13,7 +13,8 @@ Read `HANDOFF.md` first (where things stand), then `PLAN.md` (what's next). Rese
 - **Assume the repo is public.** It's private today; it goes public only after a privacy-security review and Chase's go (PLAN M1.5). No `data/`, `.env`, real profiles or resumes in git or in any demo build.
 - **The public demo is static:** sample data only, labeled as sample, saved only in the visitor's browser. No backend, login, API keys, analytics, or network calls except loading Pyodide. One engine: the Python in `charlie/` runs in the browser via Pyodide; don't fork scoring or strategy logic into JS without a recorded decision.
 - **Local app is single-user:** bind 127.0.0.1. No LAN or hosted deploy of the FastAPI server until auth and Origin checks exist.
-- Never deploy, publish, change repo visibility, buy anything, merge to `main`, force-push, rewrite history or delete branches without Chase's go.
+- Never deploy, publish, change repo visibility, buy anything, force-push, rewrite history or delete branches without Chase's go.
+- **Merging (studio standard section 5, Chase's "adopt", Nov 2).** Merge your own PRs on green, oldest first, with merge commits; a merge that breaks `main` gets a revert PR. Every merge to `main` redeploys the live demo (`pages.yml`), so a PR that changes what the demo build ships (`charlie/`, `web/`, `samples/`, `tools/build_demo.py`, `tools/check_site.py`, `pages.yml`) waits for Chase's go, with the open PRs listed in merge order. Docs, tests and other CI-only PRs merge on green.
 - Keep `HANDOFF.md` current in every push (the handoff-check workflow enforces it).
 - Run the tests before every push. Never skip, delete or weaken a test to get green.
 
