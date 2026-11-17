@@ -6,7 +6,8 @@ Who writes what:
 - The words (restated claim, premise check, players, signals) come from a curated playbook matched by
   keywords, or, when the LLM is available, from Claude's draft. Claude gets only the hunch text.
 - Every number (price, Charlie score, trade, max loss) comes from our own code: ``md`` and the
-  engine. Anything numeric in Claude's draft is dropped before it is read.
+  engine. Anything numeric in Claude's draft is dropped before it is read, and any Claude sentence that
+  makes a price, score, loss or "risk-free" claim is dropped too (CHL-PS-H1).
 - Familiarity moves rank (through the Charlie score), never size: trades are sized by
   ``strategies.build`` from capital and risk level only.
 
@@ -35,8 +36,23 @@ CLAUDE_LABEL = "Claude's draft, sources not checked"
 RANKED_LABEL = "Most exposed: exposure weight times Charlie score"
 MAX_IDEAS = 3
 MAX_PLAYERS = 20
+MAX_LIST = 8  # premise true/added/evidence from Claude (CHL-PS-H5)
 MAX_STR = 300
+CLAUDE_TIMEOUT = 30  # seconds per request, one retry: a stuck call can't hang the tab (CHL-PS-H5)
 HUNCH_SKIP = {"bull_call_spread"}
+
+# Claude's sentences may describe the world, never a stock's numbers (CHL-PS-H1). Premise text may keep
+# plain figures ("4.4% of US electricity"); player and signal text may not hold money or percentages at all.
+_STOCK_CLAIM = re.compile(r"\b(scores?|max(?:imum)?\s+loss(?:es)?|break-?evens?|price\s+targets?|target\s+prices?"
+                          r"|risk[- ]?free)\b|\d\s*/\s*100\b", re.I)
+_MONEY_OR_PCT = re.compile(r"\$\s?\d|\d\s?%|\bper\s?cent\b", re.I)
+_TRADE_NOTE_BELOW_BAR = ("Charlie's score for this one is below the bar for a paper trade at your risk level, so "
+                         "it stays a lead to read about.")
+
+
+def _stock_claim(text: str, strict: bool = False) -> bool:
+    return bool(_STOCK_CLAIM.search(text) or (strict and _MONEY_OR_PCT.search(text)))
+
 
 _DATE = re.compile(r"\d{4}-\d{2}(-\d{2})?")
 _TICKER = re.compile(r"[A-Z]{1,5}(?:[.-][A-Z])?")
@@ -315,7 +331,7 @@ class ClaudeDrafter:
         import anthropic
 
         from .chat import MODEL
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(timeout=CLAUDE_TIMEOUT, max_retries=1)
         resp = client.messages.create(
             model=MODEL,
             max_tokens=8000,
@@ -344,10 +360,11 @@ def _s(v, field: str, allow_empty: bool = False) -> str:
     return v.strip()[:MAX_STR]
 
 
-def _slist(v, field: str) -> list[str]:
+def _slist(v, field: str, strict: bool = False) -> list[str]:
+    """Non-empty strings, minus any that make a stock-number claim (strict: no money or percentages either)."""
     if not isinstance(v, list):
         raise DraftError(field)
-    return [_s(x, field) for x in v if isinstance(x, str) and x.strip()]
+    return [_s(x, field) for x in v if isinstance(x, str) and x.strip() and not _stock_claim(x, strict)]
 
 
 def validate_draft(raw: str) -> dict:
@@ -362,17 +379,22 @@ def validate_draft(raw: str) -> dict:
     if not all(isinstance(x, dict) for x in (r, pr, sg)) or not isinstance(pl, list):
         raise DraftError("shape")
     restate = {"claim": _s(r.get("claim"), "claim"), "horizon": _s(r.get("horizon"), "horizon")}
+    if _stock_claim(restate["claim"]) or _stock_claim(restate["horizon"]):
+        raise DraftError("claim")
     if pr.get("verdict") not in VERDICTS:
         raise DraftError("verdict")
-    true, added = _slist(pr.get("true"), "true"), _slist(pr.get("added"), "added")
-    added = [x for x in added if x not in true]
+    true, added = _slist(pr.get("true"), "true")[:MAX_LIST], _slist(pr.get("added"), "added")
+    added = [x for x in added if x not in true][:MAX_LIST]
     if not isinstance(pr.get("evidence"), list):
         raise DraftError("evidence")
     evidence = []
     for e in pr["evidence"]:
         if isinstance(e, dict) and isinstance(e.get("date"), str) and _DATE.fullmatch(e["date"].strip()) \
                 and isinstance(e.get("source"), str) and e["source"].strip() \
-                and isinstance(e.get("fact"), str) and e["fact"].strip():
+                and isinstance(e.get("fact"), str) and e["fact"].strip() \
+                and not _stock_claim(e["source"]) and not _stock_claim(e["fact"]):
+            if len(evidence) >= MAX_LIST:
+                break
             evidence.append({"source": _s(e["source"], "source"), "date": e["date"].strip(),
                              "fact": _s(e["fact"], "fact")})
     players = []
@@ -384,9 +406,13 @@ def validate_draft(raw: str) -> dict:
         sym = p.get("symbol")
         if sym is not None and not isinstance(sym, str):
             raise DraftError("symbol")
-        players.append({"symbol": sym, "name": _s(p.get("name"), "name"), "role": _s(p.get("role"), "role"),
+        name, role = _s(p.get("name"), "name"), _s(p.get("role"), "role")
+        if _stock_claim(name, strict=True) or _stock_claim(role, strict=True):
+            continue  # a player Claude dressed up with prices or scores is left off the map
+        players.append({"symbol": sym, "name": name, "role": role,
                         "tier": p["tier"], "listing": p["listing"], "exposure": p["exposure"]})
-    confirm, kill = _slist(sg.get("confirm"), "confirm"), _slist(sg.get("kill"), "kill")
+    confirm = _slist(sg.get("confirm"), "confirm", strict=True)
+    kill = _slist(sg.get("kill"), "kill", strict=True)
     kill = [x for x in kill if x not in confirm]
     if len(confirm) < 3 or len(kill) < 3:
         raise DraftError("signals")
@@ -427,13 +453,14 @@ def _enrich(players: list[dict], md, profile) -> tuple[list[dict], dict]:
     for p in players:
         sym, malformed = _clean_symbol(p.get("symbol"))
         info = lookup(sym) if sym and p["listing"] == "us" else None
+        name = p["name"]
         if info:
-            sym = info.symbol
+            sym, name = info.symbol, info.name  # a scored ticker always carries the universe's name (CHL-PS-H2)
         key = sym or p["name"].lower()
         if key in seen:
             continue
         seen.add(key)
-        row = {"symbol": sym, "name": p["name"], "role": p["role"], "tier": p["tier"], "listing": p["listing"],
+        row = {"symbol": sym, "name": name, "role": p["role"], "tier": p["tier"], "listing": p["listing"],
                "exposure": p["exposure"], "exposure_label": EXPOSURE_LABELS[p["exposure"]],
                "scored": False, "unscored_reason": None, "price": None, "score": None}
         if info:
@@ -488,17 +515,19 @@ def _ideas(chain, ranked, analyses, profile, level, md) -> list[dict]:
         if p["tier"] == "loser":
             continue
         a = analyses[x["symbol"]]
-        trade = _trade(a, profile, level, md)
+        # The daily ideas' score bar holds here too: below it the lead stays, with no trade (CHL-PS-H3).
+        below_bar = p["score"] < engine.MIN_SCORE_BY_LEVEL[level]
+        trade = None if below_bar else _trade(a, profile, level, md)
         role = p["role"]
         first = role.split(" ", 1)[0]
         role = role[0].lower() + role[1:] if first[:1].isupper() and first[1:].islower() else role
-        why = (f"{p['name']} is a {EXPOSURE_LABELS[p['exposure']]} of this hunch: {role}. "
-               f"Charlie score {p['score']}/100, rank score {x['rank_score']:g}.")
+        why = f"{p['name']} is a {EXPOSURE_LABELS[p['exposure']]} of this hunch: {role}."
         ideas.append({"symbol": p["symbol"], "name": p["name"], "label": "research lead", "why": why,
                       "key_risk": p.get("_key_risk") or _GENERIC_RISK[p["exposure"]],
                       "exposure": p["exposure"], "score": p["score"], "price": p["price"],
                       "trade": trade,
-                      "trade_note": None if trade else "No trade fits your capital and risk level for this one.",
+                      "trade_note": None if trade else _TRADE_NOTE_BELOW_BAR if below_bar
+                      else "No trade fits your capital and risk level for this one.",
                       "disclaimer": NFA})
     return ideas
 

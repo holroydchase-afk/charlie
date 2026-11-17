@@ -514,8 +514,25 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 .hunch-players { list-style: none; margin: 0; padding: 0; }
 .hp { padding: var(--s2) 0; border-top: 1px solid var(--line); min-width: 0; }
 .hp-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s2); }
-.hp-exp { margin-left: auto; font-size: var(--fs-xs); font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
-.hp-num { margin-top: 2px; }
+/* Exposure is plain words, not a badge (UX-H6): a small slice is muted, a pure play reads in full ink. */
+.hp-exp { margin-left: auto; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+.hp-exp[data-exp="pure_play"] { color: var(--ink); font-weight: 600; }
+.hp .nowrap { white-space: nowrap; }
+.hunch-rest { margin-top: var(--s2); border-top: 1px solid var(--line); }
 .rank-list { margin: var(--s1) 0 0; padding-left: 22px; }
 .rank-list li { margin: var(--s1) 0; }
 .hunch-lead { overflow-wrap: anywhere; }
+.hunch-lead .metric .v { overflow-wrap: normal; }  /* "Unlimited" never breaks mid-word (UX-H3) */
+.hunch-llm { margin: var(--s2) 0 0; }
+#tab-hunch summary { min-height: 44px; display: flex; align-items: center; margin: 0; }  /* 44px targets (UX-H9) */
+#tab-hunch details:not(.more) > summary { list-style: none; color: var(--accent); }
+#tab-hunch details:not(.more) > summary::-webkit-details-marker { display: none; }
+.hunch-trail dl { margin: 0 0 var(--s2); }
+.trail-row { display: grid; grid-template-columns: 8.5em 1fr; gap: var(--s1) var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.trail-row:first-child { border-top: 0; }
+.trail-row dt { font-weight: 700; }
+.trail-row dd { margin: 0; min-width: 0; }
+.trail-row a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-weight: 600; }
+.hunch-examples { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
+.hunch-examples .ghost { min-height: 44px; }
+@media (max-width: 480px) { .trail-row { grid-template-columns: 1fr; gap: 0; } }

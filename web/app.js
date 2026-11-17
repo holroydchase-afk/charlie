@@ -170,9 +170,10 @@ function chartBlock(t) {  // the legend keeps "today" and breakeven readable abo
     ${chartSlot("payoff", t)}
     <p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>`;
 }
-function planTicket(t, { nested = false } = {}) {  // nested: already inside a <details>, so no second one
+function planTicket(t, { nested = false, skipExit = false } = {}) {  // nested: already inside a <details>, so no second one
+  const plan = skipExit ? t.management.slice(1) : t.management;  // skipExit: the card already shows the exit plan line
   return `<div class="two-col">
-      <div><h3>Plan</h3><ul class="tight">${t.management.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      ${plan.length ? `<div><h3>Plan</h3><ul class="tight">${plan.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
       <div><h3>Order details (for paper practice)</h3><div class="ticket">${esc(t.ticket.join("\n"))}</div></div>
     </div>
     ${nested ? `<h3>${esc(t.explainer_title || t.label)}</h3>` : `<details><summary>${esc(t.explainer_title || t.label)}</summary>`}<div class="edu">${esc(t.learn)}<br><br><b>Risk:</b> ${esc(t.risk)}</div>${nested ? "" : "</details>"}`;
@@ -647,67 +648,129 @@ async function loadPaper() {
 }
 
 // ---------------------------------------------------------------- hunches (M3.1, local app only)
-// The trail, top to bottom: the claim restated, the premise check, who it touches, what Charlie can't
-// score, the most exposed names, up to three research leads (reusing the trade block, so max loss,
-// breakeven, exit plan and the disclaimer show), then the signs to watch. Every number came from the engine.
+// The trail, top to bottom: a short summary first (claim, premise, purest plays, research leads), then the
+// premise check with its evidence folded, who it touches, the most exposed names Charlie can score, up to
+// three research leads (trade numbers up front, plan and order details one tap away; max loss, breakeven,
+// exit plan and the disclaimer always show), then the signs to watch. Every number came from the engine.
 const VERDICT_LABEL = { true: "Holds up", partial: "Partly true", false: "Doesn't hold up" };
 const EXPOSURE_LABEL = { pure_play: "Pure play", meaningful: "Meaningful slice", small_slice: "Small slice" };
+const EXPOSURE_ORDER = { pure_play: 0, meaningful: 1, small_slice: 2 };
 const TIER_GROUPS = [["obvious", "Obvious"], ["sleeper", "Sleepers"], ["loser", "Could lose"]];
+const HUNCH_EXAMPLES = {
+  hearing: "Everyone wears earbuds all day, so hearing help becomes a huge consumer market.",
+  ai_power: "AI data centers need so much electricity that power demand is going to explode.",
+};
+const HUNCH_LLM_NOTE = { on: "Your hunch text is sent to Anthropic's Claude to draft the map. Leave out personal details.",
+  off: "Uses Charlie's built-in maps. No text leaves your computer." };
 function fmtMonth(d) {  // "2022-11" -> "Nov 2022"; full dates use fmtDate
   const m = /^(\d{4})-(\d{2})$/.exec(String(d ?? ""));
   return m ? new Date(+m[1], +m[2] - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : fmtDate(d);
 }
+const joinNames = (xs) => xs.length < 3 ? xs.join(" and ") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
 function hunchPlayer(p) {
-  const nums = p.scored ? `<span class="num">${money(p.price, 2)} · Score ${p.score}</span>` : `<span class="muted">Can't score yet</span>`;
+  // Two lines per name: who and how exposed, then the role with Charlie's numbers (or "Not scored").
+  const nums = p.scored ? ` · <span class="num nowrap">${money(p.price, 2)} · Score ${p.score}</span>` : ` · <span class="muted nowrap">Not scored</span>`;
   return `<li class="hp"><div class="hp-top"><b>${esc(p.name)}</b>${p.symbol ? ` <span class="muted small">${esc(p.symbol)}</span>` : ""}
-    <span class="hp-exp">${esc(EXPOSURE_LABEL[p.exposure] || p.exposure)}</span></div>
-    <div class="small">${esc(p.role)}</div><div class="small hp-num">${nums}</div></li>`;
+    <span class="hp-exp" data-exp="${esc(p.exposure)}">${esc(EXPOSURE_LABEL[p.exposure] || p.exposure)}</span></div>
+    <div class="small">${esc(p.role)}${nums}</div></li>`;
 }
 function hunchLead(i, n) {
   const t = i.trade;
+  const body = t ? `${tradeTag(t)}
+    ${heroMetrics(t)}
+    ${chartBlock(t)}
+    ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
+    ${tradeActions(keepTrade(t))}
+    <details class="more"><summary>Plan, risks and order details</summary>
+      ${moreMetrics(t)}
+      ${planTicket(t, { nested: true, skipExit: true })}
+    </details>`
+    : `<p class="muted small">${esc(i.trade_note || "No trade fits your capital and risk level for this one.")}</p>`;
   return `<article class="card hunch-lead" aria-labelledby="hl-${n}">
     <div class="card-head"><div>
-      <div class="card-title" id="hl-${n}"><span class="rank" aria-hidden="true">${n}</span>${esc(i.name)}<span class="sym">${esc(i.symbol)} · ${money(i.price, 2)}</span></div>
+      <div class="card-title" id="hl-${n}" tabindex="-1"><span class="rank" aria-hidden="true">${n}</span>${esc(i.name)}<span class="sym">${esc(i.symbol)} · ${money(i.price, 2)}</span></div>
       <div class="card-sub">Research lead · ${esc(EXPOSURE_LABEL[i.exposure] || "")} · Charlie score ${i.score}/100</div>
     </div></div>
     <p>${esc(i.why)}</p>
     <p class="small"><b>Key risk:</b> ${esc(i.key_risk)}</p>
-    ${t ? `${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}${tradeBlock(t)}`
-      : `<p class="muted small">${esc(i.trade_note || "No trade fits your capital and risk level for this one.")}</p>${nfa()}`}
+    ${body}
+    ${nfa()}
   </article>`;
+}
+function hunchNoMap(r) {
+  return `<div class="panel state"><h2>No map for this hunch yet</h2><p>${esc(r.message)}</p>
+    <p>Charlie has maps for hearing health and AI power demand.</p>
+    <div class="hunch-examples">
+      <button type="button" class="ghost" data-hunch-example="hearing">Try the hearing hunch</button>
+      <button type="button" class="ghost" data-hunch-example="ai_power">Try the AI power hunch</button>
+    </div></div>`;
+}
+function hunchTrail(r) {
+  const from = r.source === "claude" ? "Drafted by Claude from your words; sources not checked."
+    : "From Charlie's curated playbook for this theme.";
+  const purest = r.chain.filter((x) => x.tier !== "loser")
+    .map((x, n) => [x, n]).sort(([a, i], [b, j]) => (EXPOSURE_ORDER[a.exposure] - EXPOSURE_ORDER[b.exposure]) || i - j)
+    .slice(0, 3).map(([x]) => `${esc(x.name)}${x.scored ? "" : ` <span class="muted">(not scored)</span>`}`);
+  const leads = r.ideas.map((i, n) => `<a data-lead="hl-${n + 1}">${esc(i.symbol)}</a>`);  // href set once the card exists
+  const row = (k, v) => `<div class="trail-row"><dt>${k}</dt><dd>${v}</dd></div>`;
+  return `<div class="panel hunch-block hunch-trail"><h2>The trail</h2><dl>
+    ${row("Claim", `${esc(r.restate.claim)} <span class="muted small">(${esc(r.restate.horizon)})</span>`)}
+    ${row("Premise", `<span class="pill">${esc(VERDICT_LABEL[r.premise.verdict] || "Not checked")}</span>`)}
+    ${row("Purest plays", purest.length ? purest.join(", ") : "None found")}
+    ${row("Research leads", leads.length ? leads.join(", ") : "None Charlie can score")}
+    </dl><p class="muted small">${esc(from)}</p></div>`;
+}
+function hunchRanked(r) {
+  if (!r.ranked.length) return "";
+  // Honest heading (UX-H2): when even the top name is a small slice, say where the pure plays went.
+  const abroad = r.chain.filter((x) => !x.scored && x.exposure === "pure_play" && x.tier !== "loser");
+  let callout = "";
+  if (r.ranked[0].exposure === "small_slice") {
+    const where = new Set(abroad.map((x) => x.listing));
+    const why = where.has("private") && where.size > 1 ? "are listed outside the US or are private"
+      : where.has("private") ? "are private" : "are listed outside the US";
+    callout = `<p class="callout small">${abroad.length ? `The purest plays here (${esc(joinNames(abroad.map((x) => x.name)))}) ${why}, so Charlie can't score them. ` : ""}Each US name below gets only a small slice of its sales from this theme.</p>`;
+  }
+  return `<div class="panel hunch-block"><h2>Most exposed that Charlie can score</h2>${callout}
+    <ol class="rank-list">${r.ranked.map((x) => `<li><b>${esc(x.symbol)}</b> ${esc(x.name)} <span class="muted small">${esc(EXPOSURE_LABEL[x.exposure])} · score ${x.score}</span></li>`).join("")}</ol>
+    <details class="small"><summary>How this is ranked</summary><p>Each name's rank is how much of its business rides on the hunch, times its Charlie score: a pure play counts in full, a meaningful slice counts 0.6 and a small slice 0.25. Knowing a company moves its score, never a trade's size.</p></details></div>`;
 }
 function renderHunch(r) {
   const p = r.premise, box = $("#hunch-result");
-  const from = r.source === "claude" ? "Drafted by Claude from your words; sources not checked."
-    : r.source === "playbook" ? "From Charlie's curated playbook for this theme." : "";
-  const head = `<div class="panel hunch-block"><h2>The claim, restated</h2><p>${esc(r.restate.claim)}</p>
-    <p class="muted small">Time frame: ${esc(r.restate.horizon)}${from ? ` · ${esc(from)}` : ""}</p></div>`;
-  if (r.source === "none") {
-    box.innerHTML = head + `<div class="panel state"><p>${esc(r.message)}</p></div>`;
-    return;
-  }
+  if (r.source === "none") { box.innerHTML = hunchNoMap(r); return; }
   const list = (xs) => `<ul class="tight">${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
   const premise = `<div class="panel hunch-block"><h2>Is the premise true? <span class="pill">${esc(VERDICT_LABEL[p.verdict] || "Not checked")}</span></h2>
     ${p.label ? `<p class="callout small">${esc(p.label)}</p>` : ""}
     <div class="two-col"><div><h3>Backed by evidence</h3>${list(p.true)}</div><div><h3>Added by the hunch, not proven</h3>${list(p.added)}</div></div>
-    ${p.evidence.length ? `<h3>Evidence</h3><ul class="tight">${p.evidence.map((e) => `<li><b>${esc(e.source)}</b>, <span class="num">${esc(fmtMonth(e.date))}</span>: ${esc(e.fact)}</li>`).join("")}</ul>` : ""}</div>`;
-  const groups = TIER_GROUPS.map(([k, label]) => [label, r.chain.filter((x) => x.tier === k)]).filter(([, xs]) => xs.length);
-  const chain = `<div class="panel hunch-block"><h2>Who it touches</h2><div class="hunch-groups">${groups.map(([label, xs]) =>
-    `<div><h3>${label}</h3><ul class="hunch-players">${xs.map(hunchPlayer).join("")}</ul></div>`).join("")}</div></div>`;
-  const unscored = r.unscored.length ? `<div class="panel hunch-block"><h2>Can't score yet</h2>
-    <p class="muted small">Still on the map, with no price or score: Charlie only scores US stocks in its universe.</p>
-    <ul class="tight">${r.unscored.map((u) => `<li><b>${esc(u.name)}</b>${u.symbol ? ` (${esc(u.symbol)})` : ""}: ${esc(u.reason)}</li>`).join("")}</ul></div>` : "";
-  const ranked = r.ranked.length ? `<div class="panel hunch-block"><h2>Most exposed</h2>
-    <p class="muted small">Exposure weight (pure play 1, meaningful 0.6, small slice 0.25) times Charlie score. Knowing a company moves its score, never a trade's size.</p>
-    <ol class="rank-list">${r.ranked.map((x) => `<li><b>${esc(x.symbol)}</b> ${esc(x.name)} <span class="muted small num">${esc(EXPOSURE_LABEL[x.exposure])} · ${x.weight} × ${x.score} = ${x.rank_score}</span></li>`).join("")}</ol></div>` : "";
+    ${p.evidence.length ? `<details><summary>Evidence and sources (${p.evidence.length})</summary><ul class="tight">${p.evidence.map((e) => `<li><b>${esc(e.source)}</b>, <span class="num">${esc(fmtMonth(e.date))}</span>: ${esc(e.fact)}</li>`).join("")}</ul></details>` : ""}</div>`;
+  // The names Charlie scores show first; the rest of the map is one tap away (UX-H1, UX-H4).
+  const groups = (xs) => `<div class="hunch-groups">${TIER_GROUPS.map(([k, label]) => [label, xs.filter((x) => x.tier === k)])
+    .filter(([, g]) => g.length).map(([label, g]) =>
+    `<div><h3>${label}</h3><ul class="hunch-players">${g.map(hunchPlayer).join("")}</ul></div>`).join("")}</div>`;
+  const scored = r.chain.filter((x) => x.scored), rest = r.chain.filter((x) => !x.scored);
+  const chain = `<div class="panel hunch-block"><h2>Who it touches</h2>
+    ${rest.length ? `<p class="muted small">Charlie prices and scores only US stocks in its universe; the rest stay on the map.</p>` : ""}
+    ${scored.length ? groups(scored) : ""}
+    ${rest.length ? `<details class="hunch-rest"><summary>${scored.length ? `${rest.length} more on the map, not scored` : `The map (${rest.length}), not scored`}</summary>${groups(rest)}</details>` : ""}</div>`;
   const leads = r.ideas.length ? `<h2 class="mt-lg">Research leads</h2>
-    <p class="muted small">Up to three of the most exposed names, each with the safest trade your risk level allows. A starting point for your own reading.</p>
+    <p class="muted small">Up to three of the most exposed names, a starting point for your own reading. A paper trade shows only when the score clears Today's bar.</p>
     <div class="cards">${r.ideas.map((i, n) => hunchLead(i, n + 1)).join("")}</div>` : "";
   const sig = `<div class="panel hunch-block mt-lg"><h2>What to watch</h2><div class="two-col">
     <div><h3>Signs it's playing out</h3>${list(r.signals.confirm)}</div><div><h3>Signs it's wrong</h3>${list(r.signals.kill)}</div></div></div>`;
   const src = r.data_source && /^mock/i.test(r.data_source) ? `<p class="muted small">Prices and scores use demo data, not real market prices.</p>` : "";
-  box.innerHTML = head + premise + chain + unscored + ranked + leads + sig + src;
+  box.innerHTML = hunchTrail(r) + premise + chain + hunchRanked(r) + leads + sig + src;
+  box.querySelectorAll("a[data-lead]").forEach((a) => { if (document.getElementById(a.dataset.lead)) a.href = `#${a.dataset.lead}`; });
   drawCharts(box);
+}
+function hunchResultClick(e) {
+  const ex = e.target.closest("[data-hunch-example]");
+  if (ex) { $("#hunch-text").value = HUNCH_EXAMPLES[ex.dataset.hunchExample] || ""; hunchCount(); runHunch(); return; }
+  const lead = e.target.closest("a[data-lead]");
+  if (lead) {  // keep the tab's #hunch address; just bring the card into view
+    e.preventDefault();
+    const card = document.getElementById(lead.dataset.lead);
+    card?.scrollIntoView({ behavior: "smooth", block: "start" }); card?.focus({ preventScroll: true });
+  }
 }
 async function runHunch(e) {
   e && e.preventDefault();
@@ -866,6 +929,7 @@ $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v 
 $("#refresh-paper").onclick = loadPaper;
 $("#hunch-form").addEventListener("submit", runHunch);
 $("#hunch-text").addEventListener("input", hunchCount);
+$("#hunch-result").addEventListener("click", hunchResultClick);
 window.addEventListener("resize", () => { if ($("#tab-chat").classList.contains("active")) sizeChat(); });
 $("#delete-profile").onclick = async () => {
   const where = window.charlieStatic ? "this browser" : "this computer";
@@ -950,6 +1014,7 @@ async function boot() {
     if (!state.acked) openAck(false);
     $("#chat-mode").textContent = status.static ? "Demo mode: rule-based answers on sample data."
       : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    $("#hunch-llm").textContent = HUNCH_LLM_NOTE[status.llm ? "on" : "off"];  // whether a hunch leaves this computer (CHL-PS-H4)
     if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
       $$('[data-tab="hunch"], #tab-hunch').forEach((el) => el.remove());  // local-only tab: gone, not just hidden
       $$(".server-only").forEach((el) => el.classList.add("hidden"));

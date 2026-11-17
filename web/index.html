@@ -218,12 +218,13 @@
         </div>
       </div>
       <form id="hunch-form" class="panel hunch-form">
-        <label for="hunch-text">Your hunch <span class="hint">Up to 600 characters. With an Anthropic API key set, only this text is sent to Claude to draft the map; otherwise Charlie uses its own playbooks.</span></label>
+        <label for="hunch-text">Your hunch <span class="hint">Up to 600 characters.</span></label>
         <textarea id="hunch-text" name="text" rows="3" maxlength="600" placeholder="e.g. Everyone wears earbuds all day, so hearing help becomes a huge consumer market."></textarea>
         <div class="hunch-actions">
           <span id="hunch-count" class="muted small num">0 / 600</span>
           <button type="submit" class="primary">Run hunch</button>
         </div>
+        <p id="hunch-llm" class="muted small hunch-llm"></p>
       </form>
       <div id="hunch-result"></div>
       <p class="nfa">Not financial advice. Paper trading only.</p>
