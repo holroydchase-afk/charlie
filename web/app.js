@@ -170,9 +170,10 @@ function chartBlock(t) {  // the legend keeps "today" and breakeven readable abo
     ${chartSlot("payoff", t)}
     <p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>`;
 }
-function planTicket(t, { nested = false } = {}) {  // nested: already inside a <details>, so no second one
+function planTicket(t, { nested = false, skipExit = false } = {}) {  // nested: already inside a <details>, so no second one
+  const plan = skipExit ? t.management.slice(1) : t.management;  // skipExit: the card already shows the exit plan line
   return `<div class="two-col">
-      <div><h3>Plan</h3><ul class="tight">${t.management.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      ${plan.length ? `<div><h3>Plan</h3><ul class="tight">${plan.map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
       <div><h3>Order details (for paper practice)</h3><div class="ticket">${esc(t.ticket.join("\n"))}</div></div>
     </div>
     ${nested ? `<h3>${esc(t.explainer_title || t.label)}</h3>` : `<details><summary>${esc(t.explainer_title || t.label)}</summary>`}<div class="edu">${esc(t.learn)}<br><br><b>Risk:</b> ${esc(t.risk)}</div>${nested ? "" : "</details>"}`;
@@ -261,7 +262,7 @@ new MutationObserver(() => $$("[data-bar]").forEach((el) => { el.style.width = `
 function retryButton(fn) { const id = `r${Math.random().toString(36).slice(2, 8)}`; retries[id] = fn; return `data-retry="${id}"`; }
 
 // ---------------------------------------------------------------- tabs
-const RISK_TABS = ["today", "screener", "learn"];  // where the risk slider changes what you see
+const RISK_TABS = ["today", "screener", "hunch", "learn"];  // where the risk slider changes what you see
 function showTab(name) {
   $$(".tabs button").forEach((b) => {
     const on = b.dataset.tab === name;
@@ -433,6 +434,7 @@ async function onRisk() {
   const active = $(".tabs button.active").dataset.tab;
   if (active === "today") loadIdeas();
   if (active === "learn") renderLearn();
+  if (active === "hunch" && $("#hunch-result").children.length) runHunch();
   if (state.loaded.screener) syncStrategyChips();
   if (active === "screener") runScreen();
 }
@@ -645,6 +647,157 @@ async function loadPaper() {
        <button type="button" class="primary" data-goto="today">See today's ideas</button></div>`;
 }
 
+// ---------------------------------------------------------------- hunches (M3.1, local app only)
+// The trail, top to bottom: a short summary first (claim, premise, purest plays, research leads), then the
+// premise check with its evidence folded, who it touches, the most exposed names Charlie can score, up to
+// three research leads (trade numbers up front, plan and order details one tap away; max loss, breakeven,
+// exit plan and the disclaimer always show), then the signs to watch. Every number came from the engine.
+const VERDICT_LABEL = { true: "Holds up", partial: "Partly true", false: "Doesn't hold up" };
+const EXPOSURE_LABEL = { pure_play: "Pure play", meaningful: "Meaningful slice", small_slice: "Small slice" };
+const EXPOSURE_ORDER = { pure_play: 0, meaningful: 1, small_slice: 2 };
+const TIER_GROUPS = [["obvious", "Obvious"], ["sleeper", "Sleepers"], ["loser", "Could lose"]];
+const HUNCH_EXAMPLES = {
+  hearing: "Everyone wears earbuds all day, so hearing help becomes a huge consumer market.",
+  ai_power: "AI data centers need so much electricity that power demand is going to explode.",
+};
+const HUNCH_LLM_NOTE = { on: "Your hunch text is sent to Anthropic's Claude to draft the map. Leave out personal details.",
+  off: "Your hunch stays on this computer. Charlie uses its built-in maps." };
+function fmtMonth(d) {  // "2022-11" -> "Nov 2022"; full dates use fmtDate
+  const m = /^(\d{4})-(\d{2})$/.exec(String(d ?? ""));
+  return m ? new Date(+m[1], +m[2] - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : fmtDate(d);
+}
+const joinNames = (xs) => xs.length < 3 ? xs.join(" and ") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
+function hunchPlayer(p) {
+  // Two lines per name: who and how exposed, then the role with Charlie's numbers (or "Not scored").
+  const nums = p.scored ? ` · <span class="num nowrap">${money(p.price, 2)} · Score ${p.score}</span>` : ` · <span class="muted nowrap">Not scored</span>`;
+  return `<li class="hp"><div class="hp-top"><b>${esc(p.name)}</b>${p.symbol ? ` <span class="muted small">${esc(p.symbol)}</span>` : ""}
+    <span class="hp-exp" data-exp="${esc(p.exposure)}">${esc(EXPOSURE_LABEL[p.exposure] || p.exposure)}</span></div>
+    <div class="small">${esc(p.role)}${nums}</div></li>`;
+}
+function hunchLead(i, n) {
+  // Up front: the trade, max loss, breakeven and the exit plan. The chart, the paper-trade buttons and the
+  // explainers fold behind the card's details, so three leads fit a phone (QA-R1).
+  const t = i.trade;
+  const body = t ? `${tradeTag(t)}
+    ${heroMetrics(t)}
+    <p class="exit-line"><b>Breakeven:</b> <span class="num">${t.breakeven ? money(t.breakeven, 2) : "—"}</span> at expiry</p>
+    ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
+    <details class="more"><summary>Chart, plan and order details</summary>
+      ${chartBlock(t)}
+      ${tradeActions(keepTrade(t))}
+      ${moreMetrics(t)}
+      ${planTicket(t, { nested: true, skipExit: true })}
+    </details>`
+    : `<p class="muted small">${esc(i.trade_note || "No trade fits your capital and risk level for this one.")}</p>`;
+  return `<article class="card hunch-lead" aria-labelledby="hl-${n}">
+    <div class="card-head"><div>
+      <div class="card-title" id="hl-${n}" tabindex="-1"><span class="rank" aria-hidden="true">${n}</span>${esc(i.name)}<span class="sym">${esc(i.symbol)} · ${money(i.price, 2)}</span></div>
+      <div class="card-sub">Research lead · ${esc(EXPOSURE_LABEL[i.exposure] || "")} · Charlie score ${i.score}/100</div>
+    </div></div>
+    <p>${esc(i.why)}</p>
+    <p class="small"><b>Key risk:</b> ${esc(i.key_risk)}</p>
+    ${body}
+    ${nfa()}
+  </article>`;
+}
+function hunchNoMap(r) {
+  return `<div class="panel state"><h2>No map for this hunch yet</h2><p>${esc(r.message)}</p>
+    <p>Charlie has maps for hearing health and AI power demand.</p>
+    <div class="hunch-examples">
+      <button type="button" class="ghost" data-hunch-example="hearing">Try the hearing hunch</button>
+      <button type="button" class="ghost" data-hunch-example="ai_power">Try the AI power hunch</button>
+    </div></div>`;
+}
+function unscoredWhy(xs) {  // why Charlie can't score these names: "listed outside the US", "private" or both
+  const why = { non_us: "listed outside the US", private: "private" };
+  return [...new Set(xs.map((x) => why[x.listing] || "outside Charlie's list"))].join(" or ");
+}
+function hunchTrail(r) {
+  const from = r.source === "claude" ? "Drafted by Claude from your words; sources not checked."
+    : "From Charlie's curated playbook for this theme.";
+  const purest = r.chain.filter((x) => x.tier !== "loser")
+    .map((x, n) => [x, n]).sort(([a, i], [b, j]) => (EXPOSURE_ORDER[a.exposure] - EXPOSURE_ORDER[b.exposure]) || i - j)
+    .slice(0, 3).map(([x]) => x);
+  // "(not scored)" once, not after every name (UX-H19).
+  const unscored = purest.filter((x) => !x.scored);
+  const purestText = !purest.length ? "None found" : esc(purest.map((x) => x.name).join(", ")) + (!unscored.length ? ""
+    : ` <span class="muted">(${unscored.length === purest.length ? `none scored: ${unscoredWhy(unscored)}`
+      : `${esc(joinNames(unscored.map((x) => x.name)))} not scored`})</span>`);
+  const leads = r.ideas.map((i, n) => `<a data-lead="hl-${n + 1}">${esc(i.symbol)}</a>`);  // href set once the card exists
+  const row = (k, v) => `<div class="trail-row"><dt>${k}</dt><dd>${v}</dd></div>`;
+  return `<div class="panel hunch-block hunch-trail"><h2>The trail</h2><dl>
+    ${row("Claim", `${esc(r.restate.claim)} <span class="muted small">(${esc(r.restate.horizon)})</span>`)}
+    ${row("Premise", `<span class="pill">${esc(VERDICT_LABEL[r.premise.verdict] || "Not checked")}</span>`)}
+    ${row("Purest plays", purestText)}
+    ${row("Research leads", leads.length ? leads.join(", ") : "None Charlie can score")}
+    </dl><p class="muted small">${esc(from)}</p></div>`;
+}
+function hunchRanked(r) {
+  if (!r.ranked.length) return "";
+  // Honest heading (UX-H2): when even the top name is a small slice, say where the pure plays went.
+  const abroad = r.chain.filter((x) => !x.scored && x.exposure === "pure_play" && x.tier !== "loser");
+  let callout = "";
+  if (r.ranked[0].exposure === "small_slice") {
+    const why = `are ${unscoredWhy(abroad)}`;
+    callout = `<p class="callout small">${abroad.length ? `The purest plays here (${esc(joinNames(abroad.map((x) => x.name)))}) ${why}, so Charlie can't score them. ` : ""}Each US name below gets only a small slice of its sales from this theme.</p>`;
+  }
+  return `<div class="panel hunch-block"><h2>Most exposed that Charlie can score</h2>${callout}
+    <ol class="rank-list">${r.ranked.map((x) => `<li><b>${esc(x.symbol)}</b> ${esc(x.name)} <span class="muted small">${esc(EXPOSURE_LABEL[x.exposure])} · score ${x.score}</span></li>`).join("")}</ol>
+    <details class="small"><summary>How this is ranked</summary><p>Each name's rank is how much of its business rides on the hunch, times its Charlie score: a pure play counts in full, a meaningful slice counts 0.6 and a small slice 0.25. Knowing a company moves its score, never a trade's size.</p></details></div>`;
+}
+function renderHunch(r) {
+  const p = r.premise, box = $("#hunch-result");
+  if (r.source === "none") { box.innerHTML = hunchNoMap(r); return; }
+  const list = (xs) => `<ul class="tight">${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  const premise = `<div class="panel hunch-block"><h2>Is the premise true? <span class="pill">${esc(VERDICT_LABEL[p.verdict] || "Not checked")}</span></h2>
+    ${p.label ? `<p class="callout small">${esc(p.label)}</p>` : ""}
+    <div class="two-col"><div><h3>Backed by evidence</h3>${list(p.true)}</div><div><h3>Added by the hunch, not proven</h3>${list(p.added)}</div></div>
+    ${p.evidence.length ? `<details><summary>Evidence and sources (${p.evidence.length})</summary><ul class="tight">${p.evidence.map((e) => `<li><b>${esc(e.source)}</b>, <span class="num">${esc(fmtMonth(e.date))}</span>: ${esc(e.fact)}</li>`).join("")}</ul></details>` : ""}</div>`;
+  // The names Charlie scores show first; the rest of the map is one tap away (UX-H1, UX-H4).
+  const groups = (xs) => `<div class="hunch-groups">${TIER_GROUPS.map(([k, label]) => [label, xs.filter((x) => x.tier === k)])
+    .filter(([, g]) => g.length).map(([label, g]) =>
+    `<div><h3>${label}</h3><ul class="hunch-players">${g.map(hunchPlayer).join("")}</ul></div>`).join("")}</div>`;
+  const scored = r.chain.filter((x) => x.scored), rest = r.chain.filter((x) => !x.scored);
+  const chain = `<div class="panel hunch-block"><h2>Who it touches</h2>
+    ${rest.length ? `<p class="muted small">Charlie prices and scores only US stocks in its universe; the rest stay on the map.</p>` : ""}
+    ${scored.length ? groups(scored) : ""}
+    ${rest.length ? `<details class="hunch-rest"><summary>${scored.length ? `${rest.length} more on the map, not scored` : `The map (${rest.length}), not scored`}</summary>${groups(rest)}</details>` : ""}</div>`;
+  const leads = r.ideas.length ? `<h2 class="mt-lg">Research leads</h2>
+    <p class="muted small">Up to three of the most exposed names, a starting point for your own reading. A paper trade shows only when the score clears the same bar as the Today tab.</p>
+    <div class="cards">${r.ideas.map((i, n) => hunchLead(i, n + 1)).join("")}</div>` : "";
+  const sig = `<div class="panel hunch-block mt-lg"><h2>What to watch</h2><div class="two-col">
+    <div><h3>Signs it's playing out</h3>${list(r.signals.confirm)}</div><div><h3>Signs it's wrong</h3>${list(r.signals.kill)}</div></div></div>`;
+  const src = r.data_source && /^mock/i.test(r.data_source) ? `<p class="muted small">Prices and scores use demo data, not real market prices.</p>` : "";
+  box.innerHTML = hunchTrail(r) + premise + chain + hunchRanked(r) + leads + sig + src;
+  box.querySelectorAll("a[data-lead]").forEach((a) => { if (document.getElementById(a.dataset.lead)) a.href = `#${a.dataset.lead}`; });
+  drawCharts(box);
+}
+function hunchResultClick(e) {
+  const ex = e.target.closest("[data-hunch-example]");
+  if (ex) { $("#hunch-text").value = HUNCH_EXAMPLES[ex.dataset.hunchExample] || ""; hunchCount(); runHunch(); return; }
+  const lead = e.target.closest("a[data-lead]");
+  if (lead) {  // keep the tab's #hunch address; just bring the card into view
+    e.preventDefault();
+    const card = document.getElementById(lead.dataset.lead);
+    card?.scrollIntoView({ behavior: "smooth", block: "start" }); card?.focus({ preventScroll: true });
+  }
+}
+async function runHunch(e) {
+  e && e.preventDefault();
+  const f = $("#hunch-form"), ta = $("#hunch-text"), text = ta.value, btn = f.querySelector('button[type="submit"]'), box = $("#hunch-result");
+  if (!text.trim()) { toast("Type a hunch first."); ta.focus(); return; }
+  btn.disabled = true; btn.textContent = "Running hunch…";
+  box.innerHTML = skeletonCards(1, "Mapping your hunch…");
+  try {
+    const r = await postJSON("/api/hunch", { text, risk: state.risk });
+    if (r.data_source) setDataBadge(r.data_source);
+    renderHunch(r);
+  } catch (err) {
+    box.innerHTML = errorState("Couldn't run this hunch. Check your connection and try again.", err, retryButton(() => runHunch()));
+  } finally { btn.disabled = false; btn.textContent = "Run hunch"; }
+}
+const hunchCount = () => { $("#hunch-count").textContent = `${$("#hunch-text").value.length} / 600`; };
+
 // ---------------------------------------------------------------- learn
 function renderLearn() {
   const m = state.meta; if (!m) return;
@@ -784,6 +937,9 @@ $("#screen-form").scope.addEventListener("change", (e) => {
 $("#save-screen").onclick = () => { if (!$("#screen-form").save_name.value.trim()) return toast("Give the screen a name first."); runScreen(null, true); };
 $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#chat-input").value; $("#chat-input").value = ""; sendChat(v); });
 $("#refresh-paper").onclick = loadPaper;
+$("#hunch-form").addEventListener("submit", runHunch);
+$("#hunch-text").addEventListener("input", hunchCount);
+$("#hunch-result").addEventListener("click", hunchResultClick);
 window.addEventListener("resize", () => { if ($("#tab-chat").classList.contains("active")) sizeChat(); });
 $("#delete-profile").onclick = async () => {
   const where = window.charlieStatic ? "this browser" : "this computer";
@@ -868,7 +1024,9 @@ async function boot() {
     if (!state.acked) openAck(false);
     $("#chat-mode").textContent = status.static ? "Demo mode: rule-based answers on sample data."
       : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
+    $("#hunch-llm").textContent = HUNCH_LLM_NOTE[status.llm ? "on" : "off"];  // whether a hunch leaves this computer (CHL-PS-H4)
     if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
+      $$('[data-tab="hunch"], #tab-hunch').forEach((el) => el.remove());  // local-only tab: gone, not just hidden
       $$(".server-only").forEach((el) => el.classList.add("hidden"));
       $$(".static-only").forEach((el) => el.classList.remove("hidden"));
       document.body.classList.add("is-static");
@@ -876,7 +1034,7 @@ async function boot() {
     await loadProfile();
     renderProfile();
     const tab = location.hash.slice(1);
-    showTab(["today", "profile", "screener", "chat", "paper", "learn"].includes(tab) ? tab : "today");
+    showTab(["today", "profile", "screener", "chat", "paper", "learn", ...(status.static ? [] : ["hunch"])].includes(tab) ? tab : "today");
     // Static demo: the first screen came from prebuilt answers; load the engine once it has painted.
     requestAnimationFrame(() => setTimeout(() => window.charlieStatic?.start(), 50));
   } catch (e) { $("#ideas").innerHTML = errorState("Charlie couldn't start. Check your connection and try again.", e, retryButton(boot)); }

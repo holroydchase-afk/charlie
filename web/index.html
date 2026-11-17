@@ -42,6 +42,7 @@
     <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
     <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
     <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
+    <button data-tab="hunch" role="tab" id="tabbtn-hunch" aria-controls="tab-hunch" aria-selected="false" tabindex="-1" class="server-only">Hunches</button>
     <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
     <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Portfolio</button>
     <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
@@ -206,6 +207,27 @@
         <div id="saved-screens" class="chips"></div>
       </form>
       <div id="screen-results"></div>
+    </section>
+
+    <!-- HUNCHES (local app only; the static demo removes this tab) -->
+    <section id="tab-hunch" class="tab server-only" role="tabpanel" aria-labelledby="tabbtn-hunch">
+      <div class="section-head">
+        <div>
+          <h1>Hunches</h1>
+          <p class="muted">Type a hunch about the world. Charlie restates it, checks the premise, maps the companies it touches and ranks the most exposed ones it can score.</p>
+        </div>
+      </div>
+      <form id="hunch-form" class="panel hunch-form">
+        <label for="hunch-text">Your hunch <span class="hint">Up to 600 characters.</span></label>
+        <textarea id="hunch-text" name="text" rows="3" maxlength="600" placeholder="e.g. Everyone wears earbuds all day, so hearing help becomes a huge consumer market."></textarea>
+        <div class="hunch-actions">
+          <span id="hunch-count" class="muted small num">0 / 600</span>
+          <button type="submit" class="primary">Run hunch</button>
+        </div>
+        <p id="hunch-llm" class="muted small hunch-llm"></p>
+      </form>
+      <div id="hunch-result"></div>
+      <p class="nfa">Not financial advice. Paper trading only.</p>
     </section>
 
     <!-- CHAT -->
