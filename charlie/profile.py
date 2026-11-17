@@ -13,6 +13,7 @@ raises a name's *ranking*, never its position size or risk budget.
 
 from __future__ import annotations
 
+import contextlib
 import io
 import re
 from collections import defaultdict
@@ -131,14 +132,30 @@ def _pdf_stream_size(stream, budget: int) -> int:
         raise FileTooComplex(f"a PDF stream couldn't be decoded within limits ({type(e).__name__})")
 
 
-def _check_pdf(pages) -> None:
-    """Refuse a PDF whose page content (and the forms the pages draw) decodes to over MAX_PDF_CONTENT
-    bytes, before any text extraction. A stream shared by many pages counts once per page, since pypdf
-    parses it once per page."""
+@contextlib.contextmanager
+def _pdf_decode_limits():
+    """Lower pypdf's per-stream inflate caps to _PDF_DECODE_LIMIT while a PDF is read (CHL-PS14).
+    pypdf 7 takes them from its Configuration (setting the old module constants raises there);
+    pypdf 6 reads the module constants in pypdf.filters."""
+    import pypdf
+    fields = ("zlib_maximum_output_length", "lzw_maximum_output_length", "run_length_maximum_output_length")
+    if hasattr(pypdf, "apply_configuration"):
+        current = pypdf.get_configuration()
+        lowered = {f: _PDF_DECODE_LIMIT for f in fields if getattr(current, f, 0) > _PDF_DECODE_LIMIT}
+        with pypdf.apply_configuration(**lowered):
+            yield
+        return
     import pypdf.filters as pf
     for name in ("ZLIB_MAX_OUTPUT_LENGTH", "LZW_MAX_OUTPUT_LENGTH", "RUN_LENGTH_MAX_OUTPUT_LENGTH"):
         if getattr(pf, name, 0) > _PDF_DECODE_LIMIT:
             setattr(pf, name, _PDF_DECODE_LIMIT)
+    yield
+
+
+def _check_pdf(pages) -> None:
+    """Refuse a PDF whose page content (and the forms the pages draw) decodes to over MAX_PDF_CONTENT
+    bytes, before any text extraction. A stream shared by many pages counts once per page, since pypdf
+    parses it once per page."""
     total = 0
 
     def add(stream):
@@ -186,10 +203,11 @@ def extract_text(filename: str, data: bytes) -> str:
     name = (filename or "").lower()
     if name.endswith(".pdf") or data[:4] == b"%PDF":
         from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(data))
-        pages = [reader.pages[i] for i in range(min(len(reader.pages), MAX_PDF_PAGES))]
-        _check_pdf(pages)  # before pypdf parses a single operator (CHL-PS14)
-        return _capped((p.extract_text() or "") for p in pages)
+        with _pdf_decode_limits():
+            reader = PdfReader(io.BytesIO(data))
+            pages = [reader.pages[i] for i in range(min(len(reader.pages), MAX_PDF_PAGES))]
+            _check_pdf(pages)  # before pypdf parses a single operator (CHL-PS14)
+            return _capped((p.extract_text() or "") for p in pages)
     if name.endswith(".docx") or data[:2] == b"PK":
         _check_zip(data)  # before python-docx unpacks anything
         import docx
