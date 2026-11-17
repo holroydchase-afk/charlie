@@ -928,3 +928,34 @@ def test_CHL_PS_H6_same_origin_post_still_works(hunch, md, monkeypatch):
     _no_claude(monkeypatch, hunch)
     r = _client(monkeypatch, md).post("/api/hunch", json={"text": HEARING}, headers={"Origin": LOOPBACK})
     assert r.status_code == 200, r.text[:200]
+
+
+# ---------------------------------------------------------------- CHL-UX-H14 the below-the-bar note names the score and the bar
+# ux-reviewer round 2 (Nov 17): "below the bar" never said what the bar is. The note must say the lead's
+# own score and the score paper trades need at this risk level, in words a person reads, e.g.
+# "Charlie scores it 53; paper trades need 55 at this risk level".
+
+@pytest.mark.parametrize("text", [HEARING, AI_POWER], ids=["hearing", "ai_power"])
+@pytest.mark.parametrize("level", [1, 2, 3, 4, 5])
+def test_CHL_UX_H14_below_the_bar_note_names_the_score_and_the_bar(hunch, md, text, level):
+    bar = engine.MIN_SCORE_BY_LEVEL[level]
+    r = hunch.run_hunch(text, md, _profile(level=level), level=level)
+    problems = []
+    for i in r["ideas"]:
+        if i["score"] >= bar:
+            continue
+        note = i.get("trade_note") or ""
+        if not re.search(rf"\bscores(?:\s+it)?\s+{i['score']}(?!\d|\s*/\s*100)", note, re.I):
+            problems.append(f"{i['symbol']}: no 'scores {i['score']}' in {note!r}")
+        if not re.search(rf"\bneeds?\b\D{{0,24}}(?<!\d){bar}(?!\d)", note, re.I):
+            problems.append(f"{i['symbol']}: no 'need(s) ... {bar}' in {note!r}")
+        if not re.search(r"risk level", note, re.I):
+            problems.append(f"{i['symbol']}: the note doesn't tie the bar to the risk level: {note!r}")
+    assert problems == [], problems
+
+
+def test_CHL_UX_H14_the_named_bar_case_is_not_vacuous(hunch, md):
+    # The AI hunch at level 1 has NVDA below the bar (the reviewer's case), so the test above bites.
+    r = hunch.run_hunch(AI_POWER, md, _profile(level=1), level=1)
+    below = [i["symbol"] for i in r["ideas"] if i["score"] < engine.MIN_SCORE_BY_LEVEL[1]]
+    assert "NVDA" in below, [(i["symbol"], i["score"]) for i in r["ideas"]]

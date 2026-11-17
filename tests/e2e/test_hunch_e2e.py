@@ -202,7 +202,9 @@ def test_CHL_HUNCH_17_hunches_tab_fits_and_passes_axe(browser, local_app, axe_so
 AI_POWER = "AI data centers need so much electricity that power demand is going to explode."
 GIBBERISH = "Zorbly quandix flemwort will plonk the wibbertons."
 HINT_ON = "Your hunch text is sent to Anthropic's Claude to draft the map."
-HINT_OFF = "Uses Charlie's built-in maps. No text leaves your computer."
+# CHL-UX-H16 (round 2): the offline note leads with the reassurance. This constant moved with it, on purpose,
+# so the CHL-PS-H4 hint test below pins the new copy with the same strictness.
+HINT_OFF = "Your hunch stays on this computer. Charlie uses its built-in maps."
 HEARING_PURE_ABROAD = ("Sonova", "Demant", "Amplifon")  # the hearing map's pure plays listed outside the US
 
 
@@ -453,5 +455,226 @@ def test_CHL_UX_H9_every_disclosure_toggle_on_the_tab_is_44px_tall(browser, loca
         count = pg.locator("#tab-hunch summary").count()
         assert count, "no disclosure toggles on the tab"
         assert short == [], short
+    finally:
+        ctx.close()
+
+
+# ============================================================ M3.1 review round 2 (red first, qa-tdd, Nov 17)
+# ux-reviewer round 2, CHL-UX-H12 to H19 (scratchpad hunch-ux-review.md). H18 (orphan words) stays a
+# manual screenshot check. The unit half of H14 is in tests/test_hunch.py. QA-R1 (qa-tdd's own): the
+# page-height budget held only at the default risk level; it now holds at levels 1 to 5.
+
+def _risk_level(base):
+    import httpx
+    return httpx.get(base + "api/profile", timeout=10).json()["profile"]["risk_level"]
+
+
+def _set_risk(base, level):
+    """Set the saved risk level before the page loads (the page reads it on load). Callers restore it."""
+    import httpx
+    r = httpx.post(base + "api/profile/risk", json={"risk_level": level}, timeout=10)
+    r.raise_for_status()
+    assert _risk_level(base) == level
+
+
+def _at_risk(browser, base, level, width, height=844, scheme="light"):
+    _set_risk(base, level)
+    ctx, pg = _open(browser, base, width, height, scheme)
+    expect(pg.locator("#risk")).to_have_value(str(level))
+    return ctx, pg
+
+
+@pytest.fixture
+def restore_risk(local_app):
+    before = _risk_level(local_app)
+    yield
+    _set_risk(local_app, before)
+
+
+# ---------------------------------------------------------------- CHL-UX-H12 "Unlimited" fits inside its tile
+
+METRIC_FIT = """(root) => [...root.querySelectorAll('.hunch-lead .metric .v')].filter((el) => el.getClientRects().length)
+  .map((el) => { const r = document.createRange(); r.selectNodeContents(el);
+    const text = r.getBoundingClientRect(), tile = el.closest('.metric').getBoundingClientRect();
+    return { v: el.textContent.trim(), sw: el.scrollWidth, cw: el.clientWidth,
+             textRight: Math.round(text.right), tileRight: Math.round(tile.right) }; })"""
+
+
+@pytest.mark.parametrize("level", [2, 5])
+@pytest.mark.parametrize("width", [360, 390])
+def test_CHL_UX_H12_unlimited_fits_inside_its_metric_tile_on_a_phone(browser, local_app, restore_risk, width, level):
+    ctx, pg = _at_risk(browser, local_app, level, width)
+    try:
+        _run(pg, HEARING)
+        tiles = pg.locator("#hunch-result").evaluate(METRIC_FIT)
+        assert any(t["v"] == "Unlimited" for t in tiles), f"fixture assumption: no 'Unlimited' in {tiles}"
+        spill = [t for t in tiles if t["sw"] > t["cw"] or t["textRight"] > t["tileRight"]]
+        assert spill == [], f"metric values spill out of their tiles at {width}px, risk {level}: {spill}"
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H13 a lead link lands below the sticky header
+
+SETTLED = """() => new Promise((done) => { let last = -1, same = 0;
+  const tick = () => { const y = scrollY; same = y === last ? same + 1 : 0; last = y;
+    if (same >= 10) done(y); else requestAnimationFrame(tick); }; tick(); })"""
+
+
+@pytest.mark.parametrize("width", [360, 390])
+def test_CHL_UX_H13_after_tapping_a_trail_lead_the_company_name_is_below_the_header(browser, local_app, width):
+    ctx, pg = _open(browser, local_app, width, 844)
+    try:
+        panel, data = _run(pg, HEARING)
+        trail = pg.locator("#hunch-result > *").first
+        expect(trail.get_by_role("heading", name="The trail")).to_be_visible()
+        problems = []
+        for n, idea in enumerate(data["ideas"], start=1):
+            pg.evaluate("scrollTo(0, 0)")
+            trail.get_by_role("link", name=re.compile(re.escape(idea["symbol"]))).click()
+            pg.evaluate(SETTLED)
+            header_bottom = pg.get_by_role("banner").bounding_box()
+            header_bottom = header_bottom["y"] + header_bottom["height"]
+            title = pg.locator(f"#hl-{n}")
+            expect(title).to_contain_text(idea["name"])
+            box = title.bounding_box()
+            if box["y"] < header_bottom - 0.5:
+                problems.append(f"{idea['symbol']}: title top {box['y']:.0f} is under the header (bottom {header_bottom:.0f})")
+            if box["y"] + box["height"] > 844:
+                problems.append(f"{idea['symbol']}: title is below the screen at {box['y']:.0f}")
+        assert problems == [], problems
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H14 the below-the-bar note on screen
+
+def test_CHL_UX_H14_below_the_bar_card_names_the_score_and_the_bar(browser, local_app, restore_risk):
+    from charlie import engine
+    ctx, pg = _at_risk(browser, local_app, 1, 390)
+    try:
+        panel, data = _run(pg, AI_POWER)
+        bar = engine.MIN_SCORE_BY_LEVEL[1]
+        below = [(n, i) for n, i in enumerate(data["ideas"]) if i["score"] < bar]
+        assert any(i["symbol"] == "NVDA" for _, i in below), f"fixture assumption: {data['ideas']}"
+        cards = panel.get_by_role("article")
+        problems = []
+        for n, idea in below:
+            text = cards.nth(n).inner_text()
+            assert idea["trade"] is None
+            if not re.search(rf"\bscores(?:\s+it)?\s+{idea['score']}(?!\d|\s*/\s*100)", text, re.I):
+                problems.append(f"{idea['symbol']}: card doesn't say it scores {idea['score']}")
+            if not re.search(rf"\bneeds?\b\D{{0,24}}(?<!\d){bar}(?!\d)", text, re.I):
+                problems.append(f"{idea['symbol']}: card doesn't say paper trades need {bar}")
+        assert problems == [], problems
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H15 no "Today's bar"
+
+def test_CHL_UX_H15_research_leads_intro_has_no_todays_bar_wording(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        panel, _ = _run(pg, HEARING)
+        expect(panel.get_by_role("heading", name="Research leads")).to_be_visible()
+        text = pg.locator("#tab-hunch").evaluate("(el) => el.textContent")
+        assert not re.search(r"today.s\s+bar", text, re.I), "the Hunches tab says \"Today's bar\""
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H16 offline note leads with the reassurance
+
+STAYS = "Your hunch stays on this computer."
+
+
+@pytest.mark.parametrize("llm", [False, True], ids=["claude_off", "claude_on"])
+def test_CHL_UX_H16_offline_note_leads_with_your_hunch_stays_on_this_computer(browser, local_app, llm):
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    pg = ctx.new_page()
+
+    def status(route):
+        res = route.fetch()
+        body = res.json()
+        body["llm"] = llm
+        route.fulfill(response=res, json=body)
+    pg.route("**/api/status", status)
+    try:
+        pg.goto(local_app)
+        expect(pg.locator("#ideas .card").first).to_be_visible(timeout=60_000)
+        if pg.locator("#ack-btn").is_visible():
+            pg.click("#ack-btn")
+        expect(pg.locator("#chat-mode")).to_have_text(re.compile(r"^Claude is connected" if llm else r"^Offline"))
+        panel = _hunch_panel(pg)
+        note = pg.locator("#hunch-llm")
+        if llm:
+            # The other direction: when the text does go to Claude, the page never says it stays here.
+            expect(panel.get_by_text(STAYS)).to_have_count(0)
+        else:
+            expect(note).to_be_visible()
+            expect(note).to_have_text(re.compile(r"^\s*" + re.escape(STAYS)))
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H17 "A, B and C", never "A and B and C"
+
+def test_CHL_UX_H17_callout_lists_names_with_a_single_and(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        panel, data = _run(pg, HEARING)
+        heading = panel.get_by_role("heading", name="Most exposed that Charlie can score", exact=True)
+        text = _block_of(heading).inner_text()
+        m = re.search(r"purest plays here \(([^)]*)\)", text)
+        assert m, f"fixture assumption: no list of purest plays in {text!r}"
+        names = m.group(1)
+        assert len(re.findall(r"\band\b", names)) <= 1, f"names joined with more than one 'and': {names!r}"
+        assert not re.search(r"\band\s+\w+\s+and\b", names), names
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H19 "(not scored)" said once in the trail
+
+def test_CHL_UX_H19_not_scored_appears_at_most_once_in_the_trail(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        _run(pg, HEARING)
+        trail = pg.locator("#hunch-result > *").first
+        expect(trail.get_by_role("heading", name="The trail")).to_be_visible()
+        text = trail.evaluate("(el) => el.textContent")
+        n = len(re.findall(r"\(not scored\)", text, re.I))
+        assert n <= 1, f"'(not scored)' appears {n} times in the trail"
+        # Still honest: the purest plays row says Charlie can't score them.
+        row = trail.locator(".trail-row", has_text="Purest plays").inner_text()
+        assert re.search(r"not scored|none scored", row, re.I), row
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- QA-R1 page-height budget at every risk level
+
+@pytest.mark.parametrize("level", [1, 2, 3, 4, 5])
+@pytest.mark.parametrize("hunch_text", [HEARING, AI_POWER], ids=["hearing", "ai_power"])
+def test_QA_R1_hunch_result_stays_under_the_height_budget_at_every_risk_level(
+        browser, local_app, restore_risk, hunch_text, level):
+    ctx, pg = _at_risk(browser, local_app, level, 390)
+    try:
+        panel, data = _run(pg, hunch_text)
+        height = pg.locator("#hunch-result").bounding_box()["height"]
+        trades = sum(1 for i in data["ideas"] if i["trade"])
+        assert height < 4500, f"result is {height:.0f}px tall at 390, risk {level}, {trades} trade blocks, folds closed"
+        # Fitting the budget may fold a lead's trade block (chart, actions, explainers) behind its card's
+        # details, never the hard-rule parts: max loss, breakeven, the exit plan and the disclaimer show.
+        cards = panel.get_by_role("article")
+        for n, idea in enumerate(data["ideas"]):
+            card = cards.nth(n)
+            expect(card.get_by_text(NFA, exact=True)).to_be_visible()
+            if idea["trade"]:
+                for words in (r"max loss", r"breakeven", r"exit plan"):
+                    expect(card.get_by_text(re.compile(words, re.I)).first).to_be_visible()
+        assert pg.errors == []
     finally:
         ctx.close()
