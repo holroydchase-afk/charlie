@@ -32,6 +32,7 @@ MAX_SCREEN_NAME = 100
 MAX_NOTE = 500
 MAX_CHAT_CONTENT = 4000
 MAX_CHAT_MESSAGES = 40
+MAX_HUNCH = 600  # characters in one hunch (CHL-HUNCH-15)
 
 
 class ApiError(Exception):
@@ -326,6 +327,24 @@ class Api:
             raise ApiError(400, "last message must be from the user")
         return chat_mod.chat(msgs[-20:], self.md, self.store, self.current_profile(), allow_llm=not self.static)
 
+    # hunches (M3.1): local app only. The module is imported here, not at the top, so the static
+    # demo never loads it (it isn't in the demo's bundle) and never reaches Claude.
+    def hunch(self, text, risk: int | None = None) -> dict:
+        if self.static:
+            raise ApiError(404, "Not Found")
+        if not isinstance(text, str) or not text.strip():
+            raise ApiError(422, "Type a hunch first.")
+        if len(text) > MAX_HUNCH:
+            raise ApiError(422, f"A hunch must be at most {MAX_HUNCH} characters.")
+        from . import hunch as hunch_mod
+        p = self.current_profile()
+        level = max(1, min(5, risk or p.risk_level))
+        try:
+            client = hunch_mod.claude_client()
+        except Exception:
+            client = None
+        return hunch_mod.run_hunch(text, self.md, p, level, client=client)
+
     # paper trading
     def paper(self) -> dict:
         return portfolio.summary(self.md, self.store)
@@ -402,6 +421,8 @@ class Api:
                 return 200, self.delete_screen(seg[1])
             if m == "POST" and seg == ["chat"]:
                 return 200, self.chat(b.get("messages"))
+            if m == "POST" and seg == ["hunch"] and not self.static:
+                return 200, self.hunch(b.get("text"), _int(b.get("risk")))
             if seg == ["paper"]:
                 if m == "GET":
                     return 200, self.paper()

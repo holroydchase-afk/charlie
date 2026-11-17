@@ -259,6 +259,18 @@ def chat(body: ChatBody):
     return api().chat(body.messages)
 
 
+# ----------------------------------------------------------------------------- hunches (M3.1)
+
+class HunchBody(BaseModel):
+    text: str = ""  # the 600-character limit is checked in Api.hunch, so both modes answer the same 422
+    risk: int | None = None
+
+
+@app.post("/api/hunch")
+def hunch(body: HunchBody):
+    return api().hunch(body.text, body.risk)
+
+
 # ----------------------------------------------------------------------------- paper trading
 
 class PaperBody(BaseModel):

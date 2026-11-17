@@ -41,6 +41,16 @@ Charlie has no servers of its own. "The local app" is a FastAPI process the user
 
 **What we can see:** nothing; with a key set, Anthropic sees the chat and the tool results listed above. There is no separate opt-in for chat beyond setting the key (see the threat model).
 
+## Hunches (local app)
+
+1. The user types a hunch of at most 600 characters in the Hunches tab and runs it (`POST /api/hunch` in `charlie/server.py`, `Api.hunch` in `charlie/handlers.py`). Empty, blank or longer text is refused with 422. The tab and the route exist only in the local app: the static demo removes the tab and its router answers 404, and never imports `charlie/hunch.py` or `anthropic`. Sees: the user's machine only. **Built (M3.1 branch, not yet merged)**
+2. **Playbook** (default when no key is set, or `CHARLIE_LLM=off`): the text is matched by keywords to a curated playbook (hearing health, AI power demand) on the machine (`match_playbook` in `charlie/hunch.py`). No match returns "no playbook yet" with the closest universe domain. Sees: nobody. **Built (M3.1 branch, not yet merged)**
+3. **Claude draft** (only when an Anthropic key is set and `CHARLIE_LLM` isn't `off`): the hunch text, and nothing else, goes to the Anthropic API as the single user message, with a fixed system prompt and JSON schema (`ClaudeDrafter.draft`). No resume, profile, holdings, capital, risk level or tool results are sent. Our code validates the reply, drops any numbers (price, score, max loss), sends unknown or malformed tickers to "Can't score yet", rewrites forbidden words, and labels the premise "Claude's draft, sources not checked". Any error, refusal or schema miss falls back to the playbook path. Sees: Anthropic, the hunch text for this request. **Built (M3.1 branch, not yet merged)**
+4. Prices and Charlie scores come only from the market facade and the engine, for US names in the universe (same Cboe and SEC behaviour as Daily ideas, step 3); up to 3 research leads get a trade from `strategies.build`, sized by capital and risk level only, with max loss, breakeven, exit plan and the disclaimer added by code (`run_hunch`). **Built (M3.1 branch, not yet merged)**
+5. Nothing about a hunch is stored: no table, no cache entry beyond the market data cache. Logs record the hunch's length only, never its text, and a failed Claude call logs only the error type. **Built (M3.1 branch, not yet merged)**
+
+**What we can see:** nothing; with a key set, Anthropic sees the hunch text. There is no separate opt-in for hunches beyond setting the key, as with chat (the tab's hint says so).
+
 ## Demo visit (static site)
 
 1. The visitor loads `index.html`, the web files and `prebuilt.json` from the site's own origin. The page carries a meta Content-Security-Policy allowing only its own origin plus WebAssembly (`'wasm-unsafe-eval'`) for scripts and fetches (`build_demo.csp()` in `tools/build_demo.py`). Sees: the static host (GitHub Pages) sees the request, like any web host. **Built** (static files); **Built (release branches, not yet merged)** (CSP)
@@ -66,4 +76,4 @@ How long copies last:
 - **Gap: vendor copies.** Anything sent to Anthropic (opt-in resume read, Claude chat) is retained under Anthropic's API terms, not deletable from Charlie. Cboe and the SEC may log requested tickers and IP addresses.
 - **Gap: demo visitors who never delete.** Demo data stays in the visitor's `localStorage` until they reset, delete or clear site data. That includes resume text a visitor pastes (CHL-PS10, deferred: staff-pm to choose session-only storage or not storing it).
 
-Last checked against code: 2026-10-31, branch `claude/project-thread-0rhiwv` (Reset demo row, CHL-DEMO-BAR)
+Last checked against code: 2026-11-17, branch `claude/project-thread-df58b3` (Hunches section, M3.1)
