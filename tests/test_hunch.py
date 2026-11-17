@@ -752,3 +752,179 @@ def test_CHL_HUNCH_16_word_check_is_on_word_boundaries():
     assert not FORBIDDEN.search("Shrinking share count from a steady buyback; buying is not the point.")
     assert FORBIDDEN.search("BUY now") and FORBIDDEN.search("a Winner") and FORBIDDEN.search("We recommend")
     assert FORBIDDEN.search("guaranteed upside") and FORBIDDEN.search("winners")
+
+
+# ============================================================ M3.1 review fixes (red first, qa-tdd, Nov 17)
+# Findings: privacy-security CHL-PS-H1 to H6 and ux-reviewer CHL-UX-H1 to H10 (the browser half is in
+# tests/e2e/test_hunch_e2e.py). Decisions by the chief of staff: H3 keeps the top 3 leads but gives a paper
+# trade only at or above the daily ideas' score floor for that level.
+
+# ---------------------------------------------------------------- CHL-PS-H1 Claude's invented numbers
+
+# (where in Claude's draft, the injected text, sentinels that must never reach any hunch string)
+PS_H1_PAYLOADS = {
+    "player_role": ("Trades at $412.50, Charlie score 99/100, max loss $0, risk-free",
+                    ("$412.50", "99/100", "max loss $0", "risk-free")),
+    "player_name": ("Sonova, price target $250, up 40% on its score",
+                    ("$250", "price target", "40%")),
+    "signal_confirm": ("Price target $900 by March", ("$900", "price target")),
+    "signal_kill": ("Breakeven at $3.33 makes it risk-free", ("$3.33", "breakeven at", "risk-free")),
+    "premise_true": ("Apple's score is 99/100 with max loss $0", ("99/100", "max loss $0")),
+    "premise_added": ("Shares are risk-free with a target price of $777", ("risk-free", "$777")),
+    "evidence_fact": ("Analysts set a price target of $888; breakeven is $12.", ("$888", "breakeven is")),
+}
+
+
+def _inject_ps_h1(d: dict, where: str, text: str) -> dict:
+    if where == "player_role":
+        d["players"][0]["role"] = text                    # AAPL, scored, so it feeds a lead's why
+    elif where == "player_name":
+        d["players"][3]["name"] = text                    # Sonova, unscored, so H2's rename can't hide it
+    elif where == "signal_confirm":
+        d["signals"]["confirm"][0] = text
+    elif where == "signal_kill":
+        d["signals"]["kill"][0] = text
+    elif where == "premise_true":
+        d["premise"]["true"].append(text)
+    elif where == "premise_added":
+        d["premise"]["added"].append(text)
+    elif where == "evidence_fact":
+        d["premise"]["evidence"].append({"source": "Some bank", "date": "2026-10", "fact": text})
+    return d
+
+
+@pytest.mark.parametrize("where", sorted(PS_H1_PAYLOADS))
+def test_CHL_PS_H1_claude_text_numbers_never_reach_leads(hunch, md, where):
+    text, sentinels = PS_H1_PAYLOADS[where]
+    r = hunch.run_hunch(HEARING, md, _profile(), client=FakeClaude(_inject_ps_h1(claude_draft(), where, text)))
+    assert r == _json(r)
+    copy = [s.lower() for s in _hunch_copy(r)]  # every hunch string outside the engine's own trade dicts
+    leaks = [(m, s) for m in sentinels for s in copy if m.lower() in s]
+    assert leaks == [], leaks
+    for side in ("confirm", "kill"):  # dropping a bad signal still leaves (or falls back to) 3 each
+        assert len(r["signals"][side]) == 3, r["signals"]
+
+
+def test_CHL_PS_H1_plain_percentages_in_premise_facts_still_show(hunch, md):
+    # The other direction: a sourced fact with a plain percentage is not a price claim and survives.
+    fact = "US data centers used about 4.4% of US electricity in 2023."
+    d = claude_draft()
+    d["premise"]["true"].append(fact)
+    d["premise"]["evidence"].append({"source": "LBNL", "date": "2024-12", "fact": fact})
+    r = hunch.run_hunch(HEARING, md, _profile(), client=FakeClaude(d))
+    assert r["source"] == "claude"
+    assert fact in r["premise"]["true"]
+    assert fact in [e["fact"] for e in r["premise"]["evidence"]]
+
+
+# ---------------------------------------------------------------- CHL-PS-H2 universe names for scored tickers
+
+def test_CHL_PS_H2_scored_tickers_use_the_universe_name(hunch, md):
+    d = claude_draft()
+    d["players"][0]["name"] = "Totally Not Apple"  # AAPL
+    r = hunch.run_hunch(HEARING, md, _profile(), client=FakeClaude(d))
+    assert r["source"] == "claude"
+    real = lookup("AAPL").name
+    aapl = [p for p in r["chain"] if p["symbol"] == "AAPL"]
+    assert aapl and aapl[0]["name"] == real, aapl
+    assert [x["name"] for x in r["ranked"] if x["symbol"] == "AAPL"] == [real]
+    assert all(i["name"] == real for i in r["ideas"] if i["symbol"] == "AAPL")
+    assert "Totally Not Apple" not in json.dumps(r)
+
+
+# ---------------------------------------------------------------- CHL-PS-H3 leads keep the daily score floor
+
+@pytest.mark.parametrize("text", [HEARING, AI_POWER], ids=["hearing", "ai_power"])
+@pytest.mark.parametrize("level", [1, 2, 3, 4, 5])
+def test_CHL_PS_H3_no_paper_trade_below_the_daily_score_floor(hunch, md, text, level):
+    floor = engine.MIN_SCORE_BY_LEVEL[level]
+    r = hunch.run_hunch(text, md, _profile(level=level), level=level)
+    losers = {p["symbol"] for p in r["chain"] if p["tier"] == "loser"}
+    eligible = [x for x in r["ranked"] if x["symbol"] not in losers]
+    assert len(r["ideas"]) == min(3, len(eligible)), "leads still list the top 3"
+    for i in r["ideas"]:
+        if i["score"] >= floor:
+            continue
+        assert i["trade"] is None, f"{i['symbol']} scores {i['score']} < {floor} at level {level} but has a trade"
+        note = i.get("trade_note") or ""
+        assert re.search(r"\bscore\b", note, re.I) and re.search(r"risk level", note, re.I), note
+        assert not re.search(r"MIN_SCORE|threshold|floor", note), note  # plain words, not code words
+
+
+def test_CHL_PS_H3_the_floor_check_is_not_vacuous(hunch, md):
+    # Pins that the case above really exercises a lead below the bar (COST and AAPL at level 1).
+    r = hunch.run_hunch(HEARING, md, _profile(level=1), level=1)
+    below = [i for i in r["ideas"] if i["score"] < engine.MIN_SCORE_BY_LEVEL[1]]
+    above = [i for i in r["ideas"] if i["score"] >= engine.MIN_SCORE_BY_LEVEL[1]]
+    assert below and above, [(i["symbol"], i["score"]) for i in r["ideas"]]
+    assert all(i["trade"] for i in above)  # the other direction: at or above the bar, a trade is still offered
+
+
+# ---------------------------------------------------------------- CHL-PS-H5 timeout and list caps
+
+def _timeout_seconds(t):
+    if isinstance(t, (int, float)) and not isinstance(t, bool):
+        return float(t)
+    parts = [getattr(t, k, None) for k in ("read", "connect", "write", "pool")]
+    parts = [p for p in parts if isinstance(p, (int, float))]
+    return max(parts) if parts else None
+
+
+def test_CHL_PS_H5_anthropic_call_has_a_timeout_of_60s_or_less(hunch, monkeypatch):
+    import anthropic
+    made, calls = [], []
+    reply = NS(stop_reason="end_turn", content=[NS(type="text", text=json.dumps(claude_draft()))])
+
+    def create(**kw):
+        calls.append(kw)
+        return reply
+
+    def ctor(*a, **k):
+        made.append(k)
+        return NS(messages=NS(create=create), beta=NS(messages=NS(create=create)))
+    monkeypatch.setattr(anthropic, "Anthropic", ctor)
+    monkeypatch.setenv("CHARLIE_LLM", "on")
+    hunch.claude_client().draft(HEARING)
+    timeouts = [k["timeout"] for k in made + calls if "timeout" in k]
+    assert timeouts, f"no explicit timeout (constructor {made}, create keys {[sorted(c) for c in calls]})"
+    secs = [_timeout_seconds(t) for t in timeouts]
+    assert all(s is not None and 0 < s <= 60 for s in secs), timeouts
+
+
+def test_CHL_PS_H5_claudes_lists_are_capped(hunch, md):
+    d = claude_draft()
+    d["players"] += [{"symbol": None, "name": f"Overseas maker {n}", "role": "Hearing parts abroad",
+                      "tier": "sleeper", "listing": "non_us", "exposure": "meaningful"} for n in range(500)]
+    d["premise"]["true"] += [f"Supported point number {n}" for n in range(500)]
+    d["premise"]["added"] += [f"Assumed point number {n}" for n in range(500)]
+    d["premise"]["evidence"] += [{"source": f"Journal {n}", "date": "2025-01", "fact": f"Finding {n}"}
+                                 for n in range(500)]
+    d["signals"]["confirm"] += [f"Extra confirm sign {n}" for n in range(50)]
+    d["signals"]["kill"] += [f"Extra kill sign {n}" for n in range(50)]
+    r = hunch.run_hunch(HEARING, md, _profile(), client=FakeClaude(d))
+    assert r["source"] == "claude"
+    assert len(r["chain"]) <= 25, len(r["chain"])
+    assert len(r["unscored"]) <= 25, len(r["unscored"])
+    assert len(r["premise"]["evidence"]) <= 8, len(r["premise"]["evidence"])
+    assert len(r["premise"]["true"]) <= 8, len(r["premise"]["true"])
+    assert len(r["premise"]["added"]) <= 8, len(r["premise"]["added"])
+    assert len(r["signals"]["confirm"]) == 3 and len(r["signals"]["kill"]) == 3
+
+
+# ---------------------------------------------------------------- CHL-PS-H6 cross-site POST
+
+@pytest.mark.parametrize("origin", ["https://evil.example", "http://127.0.0.1.evil.example:8000", "null"])
+def test_CHL_PS_H6_cross_site_post_to_hunch_is_403_and_never_calls_claude(hunch, md, monkeypatch, origin):
+    called = []
+    monkeypatch.setattr(hunch, "claude_client", lambda: called.append(1) or FakeClaude(claude_draft()))
+    r = _client(monkeypatch, md).post("/api/hunch", json={"text": HEARING}, headers={"Origin": origin})
+    assert r.status_code == 403, (r.status_code, r.text[:200])
+    assert called == []
+    assert HEARING not in r.text
+
+
+def test_CHL_PS_H6_same_origin_post_still_works(hunch, md, monkeypatch):
+    # The other direction: the local app's own page can still run a hunch.
+    _no_claude(monkeypatch, hunch)
+    r = _client(monkeypatch, md).post("/api/hunch", json={"text": HEARING}, headers={"Origin": LOOPBACK})
+    assert r.status_code == 200, r.text[:200]

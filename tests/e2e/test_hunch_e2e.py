@@ -192,3 +192,266 @@ def test_CHL_HUNCH_17_hunches_tab_fits_and_passes_axe(browser, local_app, axe_so
         assert errors == []
     finally:
         ctx.close()
+
+
+# ============================================================ M3.1 review fixes (red first, qa-tdd, Nov 17)
+# ux-reviewer CHL-UX-H1 to H10 and privacy-security CHL-PS-H4 (scratchpad hunch-*-review.md). The unit
+# half (CHL-PS-H1 to H6) is in tests/test_hunch.py. Not in scope: UX-H8 (the "Buy shares" trade-block
+# exemption stays) and UX-H11 (shared engine sizing).
+
+AI_POWER = "AI data centers need so much electricity that power demand is going to explode."
+GIBBERISH = "Zorbly quandix flemwort will plonk the wibbertons."
+HINT_ON = "Your hunch text is sent to Anthropic's Claude to draft the map."
+HINT_OFF = "Uses Charlie's built-in maps. No text leaves your computer."
+HEARING_PURE_ABROAD = ("Sonova", "Demant", "Amplifon")  # the hearing map's pure plays listed outside the US
+
+
+def _run(pg, text):
+    """Type a hunch, press Run hunch, wait for the result; returns (panel, the API's JSON)."""
+    panel = _hunch_panel(pg)
+    panel.get_by_role("textbox", name=re.compile("hunch", re.I)).fill(text)
+    with pg.expect_response(lambda r: r.url.endswith("/api/hunch") and r.request.method == "POST") as resp:
+        panel.get_by_role("button", name="Run hunch", exact=True).click()
+    data = resp.value.json()
+    if data["ideas"]:
+        expect(panel.get_by_role("article").first).to_be_visible(timeout=60_000)
+    else:
+        expect(pg.locator("#hunch-result > *").first).to_be_visible(timeout=60_000)
+    return panel, data
+
+
+def _block_of(heading):
+    """The panel (nearest enclosing div or section) that a heading heads."""
+    return heading.locator("xpath=ancestor::*[self::div or self::section][1]")
+
+
+# ---------------------------------------------------------------- CHL-PS-H4 + CHL-UX-H10 the hint follows status.llm
+
+@pytest.mark.parametrize("llm,hint,other", [(True, HINT_ON, HINT_OFF), (False, HINT_OFF, HINT_ON)],
+                         ids=["claude_on", "claude_off"])
+def test_CHL_PS_H4_CHL_UX_H10_hint_says_whether_the_hunch_leaves_the_computer(browser, local_app, llm, hint, other):
+    ctx = browser.new_context(viewport={"width": 390, "height": 844})
+    pg = ctx.new_page()
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+
+    def status(route):  # the server runs with the LLM off; the page must follow whatever status.llm says
+        res = route.fetch()
+        body = res.json()
+        body["llm"] = llm
+        route.fulfill(response=res, json=body)
+    pg.route("**/api/status", status)
+    try:
+        pg.goto(local_app)
+        expect(pg.locator("#ideas .card").first).to_be_visible(timeout=60_000)
+        if pg.locator("#ack-btn").is_visible():
+            pg.click("#ack-btn")
+        # The stub took (the chat tab already follows status.llm), so a miss below is the hint's own.
+        expect(pg.locator("#chat-mode")).to_have_text(re.compile(r"^Claude is connected" if llm else r"^Offline"))
+        panel = _hunch_panel(pg)
+        expect(panel.get_by_text(hint, exact=False)).to_be_visible()
+        expect(panel.get_by_text(other, exact=False)).to_have_count(0)
+        assert not re.search(r"api key", panel.inner_text(), re.I), "API-key jargon on the Hunches tab"
+        assert errors == []
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H1 "The trail" first, details folded
+
+def test_CHL_UX_H1_the_trail_summary_comes_first_and_the_rest_is_folded(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        panel, data = _run(pg, HEARING)
+        first = pg.locator("#hunch-result > *").first
+        expect(first.get_by_role("heading", name="The trail")).to_be_visible()
+        for row in ("Claim", "Premise", "Purest plays", "Research leads"):
+            expect(first).to_contain_text(row)
+        expect(first).to_contain_text("Sonova")  # the purest play, even though Charlie can't score it
+        # Each research lead is a link in the summary that lands on its card.
+        assert data["ideas"]
+        run_y = panel.get_by_role("button", name="Run hunch", exact=True).bounding_box()["y"]
+        for n, idea in enumerate(data["ideas"]):
+            link = first.get_by_role("link", name=re.compile(re.escape(idea["symbol"])))
+            expect(link).to_have_count(1)
+            href = link.get_attribute("href")
+            assert href and href.startswith("#"), href
+            target = pg.locator(href)
+            expect(target).to_have_count(1)
+            assert target.evaluate("(el) => !!el.closest('article')"), f"{href} is not a research lead card"
+            if n == 0:
+                assert link.bounding_box()["y"] - run_y <= 1.5 * 844, "first lead link is more than 1.5 screens down"
+        # Evidence is folded closed, one tap away.
+        ev = panel.locator("summary", has_text=re.compile(r"evidence", re.I))
+        expect(ev).to_have_count(1)
+        fact = panel.get_by_text(re.compile(r"JAMA Otolaryngology"))
+        expect(fact).to_be_hidden()
+        ev.click()
+        expect(fact).to_be_visible()
+        ev.click()
+        # Each lead's order details are folded too.
+        cards = panel.get_by_role("article")
+        for i in range(cards.count()):
+            expect(cards.nth(i).get_by_role("heading", name=re.compile(r"order details", re.I))).to_be_hidden()
+        height = pg.locator("#hunch-result").bounding_box()["height"]
+        assert height < 4500, f"hearing result is {height:.0f}px tall at 390 with folds closed"
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H2 honest "most exposed" heading
+
+def test_CHL_UX_H2_heading_and_callout_when_every_scored_name_is_a_small_slice(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        panel, data = _run(pg, HEARING)
+        assert {p["exposure"] for p in data["chain"] if p["scored"]} == {"small_slice"}, "fixture assumption"
+        heading = panel.get_by_role("heading", name="Most exposed that Charlie can score", exact=True)
+        expect(heading).to_be_visible()
+        block = _block_of(heading)
+        for name in HEARING_PURE_ABROAD:
+            expect(block).to_contain_text(name)
+        # The other direction: a map whose scored names include pure plays gets no such callout.
+        panel, data = _run(pg, AI_POWER)
+        assert "pure_play" in {p["exposure"] for p in data["chain"] if p["scored"]}, "fixture assumption"
+        heading = panel.get_by_role("heading", name="Most exposed that Charlie can score", exact=True)
+        expect(heading).to_be_visible()
+        block_text = _block_of(heading).inner_text()
+        unscored = [u["name"] for u in data["unscored"]]
+        assert not [n for n in unscored if n in block_text], block_text
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H3 metric values never wrap mid-word
+
+LINE_BOXES = """(root) => [...root.querySelectorAll('.metric .v')].filter((el) => el.getClientRects().length)
+  .map((el) => { const r = document.createRange(); r.selectNodeContents(el);
+    const tops = new Set([...r.getClientRects()].filter((x) => x.width > 0).map((x) => Math.round(x.top)));
+    return [el.textContent.trim(), tops.size]; })"""
+
+
+@pytest.mark.parametrize("width", [360, 390])
+def test_CHL_UX_H3_no_lead_metric_wraps_on_a_phone(browser, local_app, width):
+    ctx, pg = _open(browser, local_app, width, 844)
+    try:
+        _run(pg, HEARING)
+        lines = pg.locator("#hunch-result").evaluate(LINE_BOXES)
+        assert lines, "no metric values rendered"
+        assert any(v == "Unlimited" for v, _ in lines), f"fixture assumption: no 'Unlimited' in {lines}"
+        wrapped = [(v, n) for v, n in lines if n > 1]
+        assert wrapped == [], wrapped
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H4 say each thing once
+
+def test_CHL_UX_H4_unscored_note_score_and_exit_plan_each_appear_once(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        panel, data = _run(pg, HEARING)
+        whole = pg.locator("#hunch-result").evaluate("(el) => el.textContent")
+        n = len(re.findall(r"Can.t score yet", whole))
+        assert n <= 1, f"'Can't score yet' appears {n} times"
+        cards = panel.get_by_role("article")
+        assert cards.count() == len(data["ideas"])
+        problems = []
+        for i, idea in enumerate(data["ideas"]):
+            text = cards.nth(i).evaluate("(el) => el.textContent")
+            s = idea["score"]
+            shown = re.findall(rf"(?<![\d.]){s}\s*/\s*100|\b[Ss]core\s*:?\s*{s}(?![\d.])", text)
+            if len(shown) != 1:
+                problems.append(f"{idea['symbol']} score shown {len(shown)} times: {shown}")
+            if idea["trade"] and idea["trade"]["management"]:
+                plan = idea["trade"]["management"][0]
+                if text.count(plan) != 1:
+                    problems.append(f"{idea['symbol']} exit plan shown {text.count(plan)} times")
+        assert problems == []
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H5 unmatched hunch has a next step
+
+def test_CHL_UX_H5_unmatched_hunch_offers_the_two_example_hunches(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        for example, expect_sym in ((re.compile(r"hearing", re.I), "AAPL"), (re.compile(r"AI power", re.I), "NVDA")):
+            panel, data = _run(pg, GIBBERISH)
+            assert data["source"] == "none"
+            result = pg.locator("#hunch-result")
+            expect(result.get_by_role("heading", name="No map for this hunch yet")).to_be_visible()
+            expect(result).not_to_contain_text("Time frame: Not set")
+            buttons = result.get_by_role("button", name=re.compile(r"hearing|AI power", re.I))
+            expect(buttons).to_have_count(2)
+            with pg.expect_response(lambda r: r.url.endswith("/api/hunch")) as resp:
+                result.get_by_role("button", name=example).click()
+            assert resp.value.json()["source"] == "playbook"
+            expect(panel.get_by_role("article").first).to_be_visible(timeout=60_000)
+            expect(result).to_contain_text(expect_sym)
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H6 small slice doesn't look like success
+
+STYLE_OF = """(el) => { const c = getComputedStyle(el); return [c.color, c.backgroundColor]; }"""
+TOKENS = """(names) => names.map((n) => { const d = document.createElement('span');
+  d.style.color = `var(${n})`; document.body.appendChild(d); const v = getComputedStyle(d).color; d.remove(); return v; })"""
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_CHL_UX_H6_small_slice_exposure_is_not_styled_as_success(browser, local_app, scheme):
+    ctx, pg = _open(browser, local_app, 390, 844, scheme)
+    try:
+        panel, _ = _run(pg, HEARING)
+        who = _block_of(panel.get_by_role("heading", name="Who it touches"))
+        small = who.get_by_text(re.compile(r"^\s*small slice", re.I))
+        pure = who.get_by_text(re.compile(r"^\s*pure play", re.I))
+        assert small.count() and pure.count()
+        accent, good, accent_soft = pg.evaluate(TOKENS, ["--accent", "--good", "--accent-soft"])
+        bad = []
+        for i in range(small.count()):
+            color, bg = small.nth(i).evaluate(STYLE_OF)
+            if color in (accent, good) or bg == accent_soft:
+                bad.append((small.nth(i).inner_text(), color, bg))
+        assert bad == [], f"small slice uses the success colors ({accent}, {good}, {accent_soft}): {bad}"
+        assert small.first.evaluate(STYLE_OF) != pure.first.evaluate(STYLE_OF), "small slice looks like pure play"
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H7 no rank math on screen
+
+def test_CHL_UX_H7_no_raw_rank_math_is_shown(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        _run(pg, HEARING)
+        shown = pg.locator("#hunch-result").inner_text()
+        math = re.findall(r"×|\d\s*[x*]\s*\d+(?:\.\d+)?\s*=\s*\d", shown)
+        assert math == [], math
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H9 44px disclosure toggles
+
+def test_CHL_UX_H9_every_disclosure_toggle_on_the_tab_is_44px_tall(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        _run(pg, HEARING)
+        short = pg.evaluate("""() => {
+            const tab = document.querySelector('#tab-hunch');
+            tab.querySelectorAll('details').forEach((d) => { d.open = true; });  // reach nested toggles too
+            return [...tab.querySelectorAll('summary')].filter((s) => s.getClientRects().length)
+              .map((s) => [s.textContent.trim().slice(0, 40), Math.round(s.getBoundingClientRect().height)])
+              .filter(([, h]) => h < 44); }""")
+        count = pg.locator("#tab-hunch summary").count()
+        assert count, "no disclosure toggles on the tab"
+        assert short == [], short
+    finally:
+        ctx.close()
