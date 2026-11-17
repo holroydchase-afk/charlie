@@ -13,9 +13,11 @@ Module ``charlie/hunch.py``. It must not import ``anthropic`` at module level.
     ``level`` defaults to ``profile.risk_level``. The result is plain JSON (``allow_nan=False``):
 
     restate      {"claim": str, "horizon": str}
-    premise      {"verdict": "true"|"partial"|"false", "true": [str], "added": [str],
+    premise      {"verdict": "true"|"partial"|"false"|None, "true": [str], "added": [str],
                   "evidence": [{"source": str, "date": "YYYY-MM[-DD]", "fact": str}],
                   "label": "Claude's draft, sources not checked"   # only when source == "claude"}
+                  verdict is None only when source == "none": Charlie didn't check the premise, so it
+                  never reads as "false" (CHL-HUNCH-12); playbook and Claude results always carry one.
     chain        [player], every player:
                   {"symbol": str|None, "name": str, "role": str, "tier": "obvious"|"sleeper"|"loser",
                    "listing": "us"|"non_us"|"private", "exposure": "pure_play"|"meaningful"|"small_slice",
@@ -509,6 +511,28 @@ def test_CHL_HUNCH_12_gibberish_has_no_closest_domain(hunch, md):
     assert r["source"] == "none" and r["closest_domain"] is None
     assert "no playbook yet" in r["message"].lower()
     assert r["chain"] == [] and r["ideas"] == []
+
+
+@pytest.mark.parametrize("text", [CYBER_NO_PLAYBOOK, GIBBERISH], ids=["closest_domain", "gibberish"])
+def test_CHL_HUNCH_12_unmatched_hunch_leaves_the_premise_unchecked_not_false(hunch, md, text):
+    # No playbook and no Claude means nobody judged the premise: it must not read as "false".
+    r = hunch.run_hunch(text, md, _profile())
+    assert r["source"] == "none"
+    assert r["premise"] == {"verdict": None, "true": [], "added": [], "evidence": []}
+    json.dumps(r, allow_nan=False)
+
+
+@pytest.mark.parametrize("text", [HEARING, AI_POWER], ids=["hearing", "ai_power"])
+def test_CHL_HUNCH_12_matched_hunch_always_carries_a_verdict(hunch, md, text):
+    r = hunch.run_hunch(text, md, _profile())
+    assert r["source"] == "playbook"
+    assert r["premise"]["verdict"] in {"true", "partial", "false"}
+
+
+def test_CHL_HUNCH_12_claude_draft_always_carries_a_verdict(hunch, md):
+    r = hunch.run_hunch(HEARING, md, _profile(), client=FakeClaude(claude_draft()))
+    assert r["source"] == "claude"
+    assert r["premise"]["verdict"] in {"true", "partial", "false"}
 
 
 # ============================================================ CHL-HUNCH-13 Claude falls back safely
