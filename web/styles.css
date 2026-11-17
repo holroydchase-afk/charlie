@@ -536,3 +536,20 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 .hunch-examples { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
 .hunch-examples .ghost { min-height: 44px; }
 @media (max-width: 480px) { .trail-row { grid-template-columns: 1fr; gap: 0; } }
+/* UX-H12: "Unlimited" fits its tile on a 360px phone (16px there, the usual 20px from about 435px up). */
+.hunch-lead .hero-m .metric .v { font-size: clamp(var(--fs-md), 4.4vw, var(--fs-lg)); }
+/* UX-H13: a trail link lands with the company name below the sticky header (52px plus room to breathe). */
+.hunch-lead .card-title { scroll-margin-top: 72px; }
+/* QA-R1: three research leads fit a phone's height budget at every risk level. Tighter spacing on the
+   Hunches tab only (Today's cards keep theirs), and the trail's labels run in ("Claim: ...") on phones. */
+@media (max-width: 600px) {
+  #tab-hunch .hunch-block { padding: var(--s3); margin-bottom: var(--s3); }
+  #tab-hunch .hunch-lead { padding: var(--s3); }
+  .hunch-lead .metrics.hero-m { margin: var(--s2) 0; }
+}
+@media (max-width: 480px) {
+  .trail-row { display: block; }
+  .trail-row dt, .trail-row dd { display: inline; }
+  .trail-row dt { margin-right: var(--s1); }
+  .trail-row dt::after { content: ":"; }
+}

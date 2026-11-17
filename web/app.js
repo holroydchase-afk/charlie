@@ -661,7 +661,7 @@ const HUNCH_EXAMPLES = {
   ai_power: "AI data centers need so much electricity that power demand is going to explode.",
 };
 const HUNCH_LLM_NOTE = { on: "Your hunch text is sent to Anthropic's Claude to draft the map. Leave out personal details.",
-  off: "Uses Charlie's built-in maps. No text leaves your computer." };
+  off: "Your hunch stays on this computer. Charlie uses its built-in maps." };
 function fmtMonth(d) {  // "2022-11" -> "Nov 2022"; full dates use fmtDate
   const m = /^(\d{4})-(\d{2})$/.exec(String(d ?? ""));
   return m ? new Date(+m[1], +m[2] - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : fmtDate(d);
@@ -675,13 +675,16 @@ function hunchPlayer(p) {
     <div class="small">${esc(p.role)}${nums}</div></li>`;
 }
 function hunchLead(i, n) {
+  // Up front: the trade, max loss, breakeven and the exit plan. The chart, the paper-trade buttons and the
+  // explainers fold behind the card's details, so three leads fit a phone (QA-R1).
   const t = i.trade;
   const body = t ? `${tradeTag(t)}
     ${heroMetrics(t)}
-    ${chartBlock(t)}
+    <p class="exit-line"><b>Breakeven:</b> <span class="num">${t.breakeven ? money(t.breakeven, 2) : "—"}</span> at expiry</p>
     ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
-    ${tradeActions(keepTrade(t))}
-    <details class="more"><summary>Plan, risks and order details</summary>
+    <details class="more"><summary>Chart, plan and order details</summary>
+      ${chartBlock(t)}
+      ${tradeActions(keepTrade(t))}
       ${moreMetrics(t)}
       ${planTicket(t, { nested: true, skipExit: true })}
     </details>`
@@ -705,18 +708,27 @@ function hunchNoMap(r) {
       <button type="button" class="ghost" data-hunch-example="ai_power">Try the AI power hunch</button>
     </div></div>`;
 }
+function unscoredWhy(xs) {  // why Charlie can't score these names: "listed outside the US", "private" or both
+  const why = { non_us: "listed outside the US", private: "private" };
+  return [...new Set(xs.map((x) => why[x.listing] || "outside Charlie's list"))].join(" or ");
+}
 function hunchTrail(r) {
   const from = r.source === "claude" ? "Drafted by Claude from your words; sources not checked."
     : "From Charlie's curated playbook for this theme.";
   const purest = r.chain.filter((x) => x.tier !== "loser")
     .map((x, n) => [x, n]).sort(([a, i], [b, j]) => (EXPOSURE_ORDER[a.exposure] - EXPOSURE_ORDER[b.exposure]) || i - j)
-    .slice(0, 3).map(([x]) => `${esc(x.name)}${x.scored ? "" : ` <span class="muted">(not scored)</span>`}`);
+    .slice(0, 3).map(([x]) => x);
+  // "(not scored)" once, not after every name (UX-H19).
+  const unscored = purest.filter((x) => !x.scored);
+  const purestText = !purest.length ? "None found" : esc(purest.map((x) => x.name).join(", ")) + (!unscored.length ? ""
+    : ` <span class="muted">(${unscored.length === purest.length ? `none scored: ${unscoredWhy(unscored)}`
+      : `${esc(joinNames(unscored.map((x) => x.name)))} not scored`})</span>`);
   const leads = r.ideas.map((i, n) => `<a data-lead="hl-${n + 1}">${esc(i.symbol)}</a>`);  // href set once the card exists
   const row = (k, v) => `<div class="trail-row"><dt>${k}</dt><dd>${v}</dd></div>`;
   return `<div class="panel hunch-block hunch-trail"><h2>The trail</h2><dl>
     ${row("Claim", `${esc(r.restate.claim)} <span class="muted small">(${esc(r.restate.horizon)})</span>`)}
     ${row("Premise", `<span class="pill">${esc(VERDICT_LABEL[r.premise.verdict] || "Not checked")}</span>`)}
-    ${row("Purest plays", purest.length ? purest.join(", ") : "None found")}
+    ${row("Purest plays", purestText)}
     ${row("Research leads", leads.length ? leads.join(", ") : "None Charlie can score")}
     </dl><p class="muted small">${esc(from)}</p></div>`;
 }
@@ -726,9 +738,7 @@ function hunchRanked(r) {
   const abroad = r.chain.filter((x) => !x.scored && x.exposure === "pure_play" && x.tier !== "loser");
   let callout = "";
   if (r.ranked[0].exposure === "small_slice") {
-    const where = new Set(abroad.map((x) => x.listing));
-    const why = where.has("private") && where.size > 1 ? "are listed outside the US or are private"
-      : where.has("private") ? "are private" : "are listed outside the US";
+    const why = `are ${unscoredWhy(abroad)}`;
     callout = `<p class="callout small">${abroad.length ? `The purest plays here (${esc(joinNames(abroad.map((x) => x.name)))}) ${why}, so Charlie can't score them. ` : ""}Each US name below gets only a small slice of its sales from this theme.</p>`;
   }
   return `<div class="panel hunch-block"><h2>Most exposed that Charlie can score</h2>${callout}
@@ -753,7 +763,7 @@ function renderHunch(r) {
     ${scored.length ? groups(scored) : ""}
     ${rest.length ? `<details class="hunch-rest"><summary>${scored.length ? `${rest.length} more on the map, not scored` : `The map (${rest.length}), not scored`}</summary>${groups(rest)}</details>` : ""}</div>`;
   const leads = r.ideas.length ? `<h2 class="mt-lg">Research leads</h2>
-    <p class="muted small">Up to three of the most exposed names, a starting point for your own reading. A paper trade shows only when the score clears Today's bar.</p>
+    <p class="muted small">Up to three of the most exposed names, a starting point for your own reading. A paper trade shows only when the score clears the same bar as the Today tab.</p>
     <div class="cards">${r.ideas.map((i, n) => hunchLead(i, n + 1)).join("")}</div>` : "";
   const sig = `<div class="panel hunch-block mt-lg"><h2>What to watch</h2><div class="two-col">
     <div><h3>Signs it's playing out</h3>${list(r.signals.confirm)}</div><div><h3>Signs it's wrong</h3>${list(r.signals.kill)}</div></div></div>`;

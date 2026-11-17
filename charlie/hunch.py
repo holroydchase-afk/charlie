@@ -46,8 +46,9 @@ HUNCH_SKIP = {"bull_call_spread"}
 _STOCK_CLAIM = re.compile(r"\b(scores?|max(?:imum)?\s+loss(?:es)?|break-?evens?|price\s+targets?|target\s+prices?"
                           r"|risk[- ]?free)\b|\d\s*/\s*100\b", re.I)
 _MONEY_OR_PCT = re.compile(r"\$\s?\d|\d\s?%|\bper\s?cent\b", re.I)
-_TRADE_NOTE_BELOW_BAR = ("Charlie's score for this one is below the bar for a paper trade at your risk level, so "
-                         "it stays a lead to read about.")
+# Names the bar and the score (CHL-UX-H14): "below the bar" alone never said what the bar is.
+_TRADE_NOTE_BELOW_BAR = ("No paper trade for this one: at your risk level Charlie needs a score of {bar} or more, "
+                         "and {name} scores {score}. It stays a lead to read about.")
 
 
 def _stock_claim(text: str, strict: bool = False) -> bool:
@@ -162,7 +163,7 @@ HEARING = {
         _p(None, "Cochlear", "Cochlear implants for severe loss, listed in Australia (ASX)", "sleeper", "non_us",
            "meaningful"),
         _p("REGN", "Regeneron", "Gene therapy research for genetic hearing loss", "sleeper", "us", "small_slice"),
-        _p(None, "Loop and Etymotic", "Earplugs and hearing protection for loud music", "sleeper", "private",
+        _p(None, "Loop & Etymotic", "Earplugs and hearing protection for loud music", "sleeper", "private",
            "pure_play"),
         _p(None, "Premium clinic-sold hearing aids",
            "The high-priced clinic channel of Sonova, Demant and GN, if earbuds take the mild-loss market",
@@ -526,7 +527,8 @@ def _ideas(chain, ranked, analyses, profile, level, md) -> list[dict]:
                       "key_risk": p.get("_key_risk") or _GENERIC_RISK[p["exposure"]],
                       "exposure": p["exposure"], "score": p["score"], "price": p["price"],
                       "trade": trade,
-                      "trade_note": None if trade else _TRADE_NOTE_BELOW_BAR if below_bar
+                      "trade_note": None if trade else _TRADE_NOTE_BELOW_BAR.format(
+                          bar=engine.MIN_SCORE_BY_LEVEL[level], name=p["name"], score=p["score"]) if below_bar
                       else "No trade fits your capital and risk level for this one.",
                       "disclaimer": NFA})
     return ideas
