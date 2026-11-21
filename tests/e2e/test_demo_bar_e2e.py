@@ -67,12 +67,12 @@ def test_CHL_DEMO_BAR_slim_and_collapsed_on_load(make_page, site_url, width):
     toggle = _toggle(pg)
     expect(toggle).to_have_attribute("aria-expanded", "false")
     expect(_panel(pg)).to_be_hidden()
-    assert toggle.bounding_box()["height"] >= 44, "toggle is a 44px tap target"
+    assert toggle.bounding_box()["height"] >= 48, "toggle is a 48px tap target (CHL-DS-14, was 44)"
     # DEMO-R1: the way back is on the collapsed bar, not only in the drawer.
     home = bar.get_by_role("link", name="← Portfolio")
     expect(home).to_be_visible()
     expect(home).to_have_attribute("href", HOME)
-    assert home.bounding_box()["height"] >= 44, "back link is a 44px tap target"
+    assert home.bounding_box()["height"] >= 48, "back link is a 48px tap target (CHL-DS-14, was 44)"
     assert pg.evaluate(OVERFLOW) <= 0
 
 
@@ -127,8 +127,8 @@ def test_CHL_DEMO_BAR_opens_to_standard_copy_pushes_app_down_esc_closes(make_pag
     expect(panel).to_be_visible()
     assert " ".join(panel.locator("p").first.inner_text().split()) == COPY
     assert pg.evaluate(app_top) > closed, "the drawer pushes the app down instead of covering it"
-    # DEMO-R4: drawer text at least 16px; every control at least 44px tall.
-    assert float(panel.locator("p").first.evaluate("(p) => getComputedStyle(p).fontSize")[:-2]) >= 16
+    # DEMO-R4: drawer text at least 17px (CHL-DS-7, was 16); every control at least 48px tall (CHL-DS-14, was 44).
+    assert float(panel.locator("p").first.evaluate("(p) => getComputedStyle(p).fontSize")[:-2]) >= 17
     back = panel.get_by_role("link", name=BACK)
     expect(back).to_have_attribute("href", HOME)
     # CHL-DEMO-R4: the optional third action is there, a plain link to the public repo.
@@ -136,7 +136,7 @@ def test_CHL_DEMO_BAR_opens_to_standard_copy_pushes_app_down_esc_closes(make_pag
     expect(gh).to_be_visible()
     expect(gh).to_have_attribute("href", GITHUB)
     for el in (panel.get_by_role("button", name="Reset demo"), back, gh):
-        assert el.bounding_box()["height"] >= 44, f"{el.inner_text()!r} is under 44px tall"
+        assert el.bounding_box()["height"] >= 48, f"{el.inner_text()!r} is under 48px tall"
     # Order: Reset demo, then the way back, then GitHub.
     order = panel.evaluate("""(p) => [...p.querySelectorAll('a, button')].map((e) => e.textContent.trim())
         .filter((t) => t === 'Reset demo' || t.startsWith('← Back') || t === 'Code on GitHub')""")
@@ -160,7 +160,7 @@ def test_CHL_DEMO_BAR_drawn_in_charlies_type_and_colors(make_page, site_url, sch
         "(b) => { const s = getComputedStyle(b); return [s.fontFamily, s.backgroundColor, s.color]; }")
     body_font = pg.evaluate("getComputedStyle(document.body).fontFamily")
     assert bar_font.replace(" ", "") == body_font.replace(" ", ""), (bar_font, body_font)
-    assert bar_bg == _color(pg, "var(--panel)"), "bar surface is Charlie's card surface (--panel)"
+    assert bar_bg == _color(pg, "var(--surface)"), "bar surface is the studio surface token (--surface, was --panel)"
     assert bar_fg == _color(pg, "var(--ink)"), "bar text is Charlie's body text color (--ink)"
     # DEMO-R2: the Demo badge never wears the accent color, in fill, text or outline.
     accent = _color(pg, "var(--accent)")

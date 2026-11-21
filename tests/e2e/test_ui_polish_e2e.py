@@ -118,15 +118,16 @@ EFFECTIVE_FONT_PX = """(root) => [...root.querySelectorAll('svg.payoff text')].f
 })"""
 
 
-def test_UX5_payoff_and_sparkline_text_is_at_least_11px(make_page, site_url):
+def test_UX5_payoff_and_sparkline_text_is_at_least_17px(make_page, site_url):
+    # CHL-DS-7 (studio principle 1): the floor rose from 11px to 17px, chart labels included.
     pg = _open(make_page, site_url, PHONE)
     small = [f"today card: '{x['text']}' {x['px']:.1f}px" for x in pg.locator("#ideas").evaluate(EFFECTIVE_FONT_PX)
-             if x["px"] < 11 or x["h"] < 11]
+             if x["px"] < 17 or x["h"] < 17]
     pg.locator("#ideas .card [data-ticker]").first.click()
     drawer = pg.locator("#drawer")
     expect(drawer.locator("svg.payoff").first).to_be_visible()
     small += [f"drawer: '{x['text']}' {x['px']:.1f}px" for x in drawer.evaluate(EFFECTIVE_FONT_PX)
-              if x["px"] < 11 or x["h"] < 11]
+              if x["px"] < 17 or x["h"] < 17]
     assert small == []
 
 
@@ -255,7 +256,8 @@ def test_UX11_drawer_is_a_modal_dialog_that_moves_and_returns_focus(make_page, s
     assert pg.evaluate("document.querySelector('#drawer').contains(document.activeElement)"), \
         "focus stays behind the overlay after opening the drawer"
     close = pg.locator("#drawer-close").bounding_box()
-    assert close["width"] >= 44 and close["height"] >= 44, f"close button is {close['width']:.0f}x{close['height']:.0f}"
+    # CHL-DS-14 (studio principle 2): 44 -> 48.
+    assert close["width"] >= 48 and close["height"] >= 48, f"close button is {close['width']:.0f}x{close['height']:.0f}"
     pg.keyboard.press("Escape")
     expect(drawer).to_be_hidden()
     assert pg.evaluate("document.activeElement?.dataset?.testOpener === '1'"), "Escape doesn't return focus to the opener"
@@ -688,9 +690,9 @@ def test_UX30_win_rate_tile_hidden_until_a_trade_is_closed(make_page, site_url):
     expect(pg.locator("#paper-stats .metric .k", has_text="Win rate")).to_be_visible(timeout=ENGINE)
 
 
-# ---------------------------------------------------------------- CHL-UX31 banner targets at least 24px
-def test_UX31_banner_reset_and_back_link_are_at_least_24px_tall(make_page, site_url):
-    # CHL-DEMO-BAR raised the floor from 24px to the demo bar's 44px tap target.
+# ---------------------------------------------------------------- CHL-UX31 banner targets at least 48px
+def test_UX31_banner_reset_and_back_link_are_at_least_48px_tall(make_page, site_url):
+    # CHL-DEMO-BAR raised the floor from 24px to the demo bar's 44px tap target; CHL-DS-14 raised it to 48px.
     pg = _open(make_page, site_url, PHONE)
     bar = pg.get_by_role("region", name="Demo")
     targets = [bar.get_by_role("link", name="← Portfolio"), bar.get_by_role("button", name="Demo details")]
@@ -699,9 +701,9 @@ def test_UX31_banner_reset_and_back_link_are_at_least_24px_tall(make_page, site_
     small = []
     for loc in targets:
         b = loc.bounding_box()
-        if b["height"] < 44:
+        if b["height"] < 48:
             small.append(f"{loc.inner_text()!r}: {b['width']:.0f}x{b['height']:.0f}")
-    assert small == [], f"demo bar targets under 44px tall at 390: {small}"
+    assert small == [], f"demo bar targets under 48px tall at 390: {small}"
 
 
 # ---------------------------------------------------------------- CHL-UX33 "Why this one" doesn't repeat the thesis

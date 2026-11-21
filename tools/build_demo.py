@@ -27,7 +27,9 @@ MODULES = [
     "charlie/profile.py", "charlie/scoring.py", "charlie/strategies.py", "charlie/options_math.py", "charlie/track_record.py",
     "charlie/universe.py", "charlie/data/__init__.py", "charlie/data/market.py", "charlie/data/mock.py",
 ]
-WEB_FILES = ["app.js", "styles.css", "static.js"]
+WEB_FILES = ["app.js", "styles.css", "themes.css", "theme-init.js", "static.js"]
+# The self-hosted font (Atkinson Hyperlegible Next, OFL-1.1): three weights and its licence (CHL-DS-5).
+FONT_FILES = [f"atkinson-hyperlegible-next-latin-{w}-normal.woff2" for w in (400, 500, 600)] + ["OFL-LICENSE"]
 # The Pyodide runtime files the demo actually fetches (checked in Chromium); nothing else is shipped.
 PYODIDE_FILES = ["pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json"]
 CDN_BASE = re.compile(r'"https://cdn\.jsdelivr\.net/pyodide/v[0-9.]+/full/"')
@@ -48,6 +50,9 @@ def build(out: Path, day: str | None = None, pyodide_dir: Path | None = None) ->
     out.mkdir(parents=True, exist_ok=True)
     for name in WEB_FILES:
         shutil.copy(ROOT / "web" / name, out / name)
+    (out / "fonts").mkdir(exist_ok=True)
+    for name in FONT_FILES:
+        shutil.copy(ROOT / "web" / "fonts" / name, out / "fonts" / name)
     if pyodide_dir:
         missing = [n for n in PYODIDE_FILES if not (Path(pyodide_dir) / n).is_file()]
         if missing:

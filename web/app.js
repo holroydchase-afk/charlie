@@ -62,7 +62,8 @@ function md(text) {
 
 // ---------------------------------------------------------------- charts
 // Charts are drawn at their rendered width (UX5): a placeholder <div class="chart"> holds the data, and
-// drawChart() writes an SVG whose viewBox matches the box, so the 12px labels stay 12px on a phone.
+// drawChart() writes an SVG whose viewBox matches the box, so the 17px labels (CHL-DS-7) stay 17px on a phone.
+// Few labels (studio principle 1, Q4): P&L at the top, $0 and the bottom; prices at the two ends.
 const chartData = {};
 function chartSlot(kind, data) {
   const id = `g${Math.random().toString(36).slice(2, 8)}`;
@@ -100,7 +101,7 @@ function payoffAt(trade, px) {
 const signedMoney = (v) => (Math.round(v) === 0 ? "$0" : (v > 0 ? "+" : "−") + money(Math.abs(v)));
 const payoffRange = (t) => [t.spot * 0.7, t.spot * 1.3];
 function payoffSVG(trade, W = 520) {
-  const H = W < 480 ? 112 : 160, padR = 8, top = 14, bottom = 24, gap = 8;
+  const H = W < 480 ? 112 : 168, padR = 8, top = 16, bottom = 32, gap = 8;
   const [lo, hi] = payoffRange(trade), N = 80;
   const pts = [];
   for (let i = 0; i <= N; i++) { const px = lo + (hi - lo) * i / N; pts.push([px, payoffAt(trade, px)]); }
@@ -111,7 +112,7 @@ function payoffSVG(trade, W = 520) {
   const yLabs = [[0, "$0"]];
   if (Math.round(yMax) !== 0) yLabs.push([yMax, signedMoney(yMax)]);
   if (Math.round(yMin) !== 0) yLabs.push([yMin, signedMoney(yMin)]);
-  const padL = gap + 4 + Math.max(...yLabs.map(([, s]) => s.length)) * 7.2;
+  const padL = gap + 4 + Math.max(...yLabs.map(([, s]) => s.length)) * 10.5;  // 17px tabular figures
   const X = (px) => padL + (px - lo) / (hi - lo) * (W - padL - padR);
   const Y = (v) => top + (yMax - v) / (yMax - yMin) * (H - top - bottom);
   const path = pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
@@ -121,9 +122,9 @@ function payoffSVG(trade, W = 520) {
   };
   const be = trade.breakeven && trade.breakeven > lo && trade.breakeven < hi
     ? `<circle class="be" cx="${X(trade.breakeven).toFixed(1)}" cy="${Y(0).toFixed(1)}" r="4.5"/>` : "";
-  // Keep the $0 label; drop an extreme label that would sit within 15px of it.
-  const shown = yLabs.filter(([v], i) => i === 0 || Math.abs(Y(v) - Y(0)) >= 15);
-  const yText = shown.map(([v, s]) => `<text class="y-label" x="${(padL - gap).toFixed(1)}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${s}</text>`).join("");
+  // Keep the $0 label; drop an extreme label that would sit within 22px of it (one 17px line).
+  const shown = yLabs.filter(([v], i) => i === 0 || Math.abs(Y(v) - Y(0)) >= 22);
+  const yText = shown.map(([v, s]) => `<text class="y-label" x="${(padL - gap).toFixed(1)}" y="${(Y(v) + 6).toFixed(1)}" text-anchor="end">${s}</text>`).join("");
   return `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Profit and loss at expiration, from ${signedMoney(yMin)} to ${signedMoney(yMax)}, for ${esc(trade.symbol)} prices from ${money(lo)} to ${money(hi)}">
     <path class="gain-area" d="${area((v) => Math.max(v, 0))}"/>
     <path class="loss-area" d="${area((v) => Math.min(v, 0))}"/>
@@ -136,10 +137,10 @@ function payoffSVG(trade, W = 520) {
   </svg>`;
 }
 function sparkSVG(hist, W = 640) {
-  const H = 110, c = hist.map((h) => h.close), lo = Math.min(...c), hi = Math.max(...c);
-  const d = c.map((v, i) => `${i ? "L" : "M"}${(i / (c.length - 1) * W).toFixed(1)},${(H - 20 - (v - lo) / (hi - lo || 1) * (H - 40)).toFixed(1)}`).join("");
+  const H = 128, c = hist.map((h) => h.close), lo = Math.min(...c), hi = Math.max(...c);
+  const d = c.map((v, i) => `${i ? "L" : "M"}${(i / (c.length - 1) * W).toFixed(1)},${(H - 28 - (v - lo) / (hi - lo || 1) * (H - 56)).toFixed(1)}`).join("");
   return `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Price history from ${money(lo)} to ${money(hi)}"><path class="curve" d="${d}"/>
-    <text x="2" y="12">${money(hi)}</text><text x="2" y="${H - 4}">${money(lo)}</text></svg>`;
+    <text x="2" y="16">${money(hi)}</text><text x="2" y="${H - 4}">${money(lo)}</text></svg>`;
 }
 
 // ---------------------------------------------------------------- trade + idea rendering
@@ -185,14 +186,19 @@ function keepTrade(t) {
   window._trades = window._trades || {}; window._trades[id] = t;
   return id;
 }
-function tradeActions(id) {
+// Button kinds (CHL-DS-15): one main action per screen. main = "primary" (the drawer's first trade: a
+// deliberate moment), "tinted" (card 1 on Today), or "" (every other card: secondary).
+function tradeActions(id, main = "") {
+  const paper = main === "primary" ? `<button class="btn-primary" data-paper="${id}">Paper trade this</button>`
+    : main === "tinted" ? `<button class="btn-tinted" data-paper="${id}">Paper trade this</button>`
+    : `<button class="btn-secondary" data-paper="${id}">Paper trade this</button>`;
   return `<div class="actions">
-      <button class="primary" data-paper="${id}">Paper trade this</button>
-      <button class="ghost" data-copy="${id}">Copy trade details</button>
+      ${paper}
+      <button class="btn-secondary" data-copy="${id}">Copy trade details</button>
     </div>`;
 }
 // The full trade (drawer, screener rows): headline numbers, chart, then every detail.
-function tradeBlock(t, { withActions = true } = {}) {
+function tradeBlock(t, { withActions = true, main = "" } = {}) {
   const id = keepTrade(t);
   return `
     ${tradeTag(t)}
@@ -200,13 +206,13 @@ function tradeBlock(t, { withActions = true } = {}) {
     ${chartBlock(t)}
     <details><summary>More numbers</summary>${moreMetrics(t)}</details>
     ${planTicket(t)}
-    ${withActions ? tradeActions(id) : ""}
+    ${withActions ? tradeActions(id, main) : ""}
     ${nfa()}`;
 }
 // Phone (UX34): "Score 76 · A"; wider screens: "Charlie score 76/100 · A". The aria-label carries the full words.
 function gradeLabel(ch) { return `<span class="gword">Charlie score </span><span class="gcap">Score </span>${ch.score}<span class="gout">/100</span> · ${ch.grade}`; }
 // Idea card (UX4): collapsed by default; plan, risks and order details are one tap away.
-function ideaCard(idea) {
+function ideaCard(idea, i = 0) {
   const a = idea.analysis, t = idea.trade, th = idea.thesis, ch = a.charlie, id = keepTrade(t);
   return `<article class="card">
     <div class="card-head">
@@ -214,7 +220,7 @@ function ideaCard(idea) {
         <div class="card-title"><span class="rank" aria-hidden="true">${idea.rank}</span>${esc(a.name)}<span class="sym">${esc(a.symbol)} · ${money(a.quote.price, 2)}</span></div>
         <div class="card-sub">${esc(a.domain_label || "")} · ${esc(ch.lynch_category)}</div>
       </div>
-      <button class="grade ${ch.grade}" data-ticker="${a.symbol}" title="Munger-style checklist score. Open for the full breakdown."
+      <button class="btn-secondary grade ${ch.grade}" data-ticker="${a.symbol}" title="Munger-style checklist score. Open for the full breakdown."
         aria-label="Charlie score ${ch.score} out of 100, grade ${ch.grade}. Open details for ${esc(a.name)}."><span class="gscore">${gradeLabel(ch)}</span><span class="gmore">Details</span></button>
     </div>
     <div class="chips why-chips">${th.why_you.map((w) => `<span class="chip">✓ ${esc(w)}</span>`).join("")}</div>
@@ -223,7 +229,7 @@ function ideaCard(idea) {
     ${heroMetrics(t)}
     ${chartBlock(t)}
     ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
-    ${tradeActions(id)}
+    ${tradeActions(id, i === 0 ? "tinted" : "")}
     <details class="more"><summary>Plan, risks and order details</summary>
       ${moreMetrics(t)}
       ${planTicket(t, { nested: true })}
@@ -251,7 +257,7 @@ function errorState(text, err, retryAttr) {
   // 4xx messages from the handlers are already plain English; anything else stays in "Technical details".
   const plain = err && err.status >= 400 && err.status < 500 && err.message;
   return `<div class="panel state error" role="alert"><div class="icon" aria-hidden="true">!</div>
-    <p>${esc(plain || text)}</p><button type="button" class="primary" ${retryAttr}>Try again</button>
+    <p>${esc(plain || text)}</p><button type="button" class="btn-tinted" ${retryAttr}>Try again</button>
     ${!plain && err && !window.charlieStatic ? `<details><summary>Technical details</summary>${esc(err.message)}</details>` : ""}</div>`;
 }
 const retries = {};
@@ -282,7 +288,7 @@ function topIdea(idea) {
   el.classList.toggle("hidden", !idea);
   if (!idea) return;
   const t = idea.trade;
-  el.innerHTML = `Top idea today: <b>${esc(idea.analysis.symbol)}</b> · ${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)} <span aria-hidden="true">›</span>`;
+  el.innerHTML = `<span>Top idea today: <b>${esc(idea.analysis.symbol)}</b> · ${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)} <span aria-hidden="true">›</span></span>`;
 }
 async function loadIdeas(refresh = false) {
   const box = $("#ideas");
@@ -291,7 +297,7 @@ async function loadIdeas(refresh = false) {
     const r = await api(`/api/ideas?risk=${state.risk}&count=${$("#idea-count").value}${refresh ? "&refresh=true" : ""}`);
     $("#today-sub").innerHTML = `${state.status?.static ? "Sample market day: " : ""}${esc(fmtDate(r.date))} · <b>${esc(r.risk_label)}</b>: ${esc(r.risk_plain || r.risk_blurb)}`;
     setDataBadge(r.data_source);
-    box.innerHTML = r.ideas.length ? r.ideas.map(ideaCard).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
+    box.innerHTML = r.ideas.length ? r.ideas.map((idea, i) => ideaCard(idea, i)).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
     topIdea(r.ideas[0]);
     drawCharts(box);
     $("#ideas-skipped").innerHTML = r.skipped.length
@@ -396,7 +402,7 @@ function renderProfile() {
       <div class="chips">${d.evidence.map((e) => `<span class="chip">${esc(e)}</span>`).join("")}</div>
     </div>`).join("")}
     <h3>Companies you're positioned to understand</h3>
-    <div class="chips">${p.tickers.map((t) => `<button class="chip" data-ticker="${t.symbol}" title="${esc(t.why.join("; "))}">${esc(t.symbol)} · ${esc(t.name)}</button>`).join("")}</div>
+    <div class="chips">${p.tickers.map((t) => `<button class="chip btn-secondary" data-ticker="${t.symbol}" title="${esc(t.why.join("; "))}">${esc(t.symbol)} · ${esc(t.name)}</button>`).join("")}</div>
     <p class="muted small">Capital ${money(p.capital)} · Risk level ${p.risk_level} · Holdings ${Object.keys(p.holdings).length ? esc(Object.entries(p.holdings).map(([k, v]) => `${k} ${v}`).join(", ")) : "none"} · Built with ${esc(p.source)}</p>`;
 }
 async function submitProfile(e) {
@@ -412,7 +418,7 @@ async function submitProfile(e) {
   try {
     const r = await api("/api/profile", { method: "POST", body: fd });
     state.profile = r.profile; state.risk = r.profile.risk_level; syncRisk();
-    $("#profile-status").innerHTML = `Done. Your circle is below, and Today now shows ideas for it. <button type="button" class="link-btn" data-goto="today">See today's ideas</button>`;
+    $("#profile-status").innerHTML = `Done. Your circle is below, and Today now shows ideas for it. <button type="button" class="btn-quiet" data-goto="today">See today's ideas</button>`;
     setWhose(true);
     renderProfile(); toast("Profile saved. Today's ideas are updated.");
   } catch (err) { $("#profile-status").textContent = err.message; }
@@ -539,7 +545,7 @@ async function runScreen(e, save = false) {
 async function loadSavedScreens() {
   const r = await api("/api/screens");
   window._saved = r.screens;
-  $("#saved-screens").innerHTML = r.screens.length ? `<span class="muted small">Saved:</span>` + r.screens.map((s, i) => `<button type="button" class="chip" data-saved="${i}">${esc(s.name)}</button>`).join("") : "";
+  $("#saved-screens").innerHTML = r.screens.length ? `<span class="muted small">Saved:</span>` + r.screens.map((s, i) => `<button type="button" class="chip btn-secondary" data-saved="${i}">${esc(s.name)}</button>`).join("") : "";
 }
 
 // ---------------------------------------------------------------- chat
@@ -556,7 +562,7 @@ function renderChatMsg(role, text, cards = []) {
   div.innerHTML = role === "user" ? esc(text) : md(text) + cards.map((t) => {
     const id = keepTrade(t);
     return `<div class="mini"><b>${esc(t.symbol)} · ${esc(t.label)}</b>${t.expiry ? ` · expires ${esc(fmtDate(t.expiry))}` : ""}<br>Max loss ${money(t.max_loss)} · Breakeven ${t.breakeven ? money(t.breakeven, 2) : "—"}${t.pop ? ` · ${pct(t.pop)} chance of profit` : ""}
-      <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
+      <div class="actions"><button class="btn-secondary" data-paper="${id}">Paper trade</button><button class="btn-secondary" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
   }).join("");
   $("#chat-log").appendChild(div); div.scrollIntoView({ behavior: "smooth", block: "end" });
   return div;
@@ -577,7 +583,7 @@ async function sendChat(text) {
   } catch (e) {
     state.chat.pop();
     const plain = e.status >= 400 && e.status < 500 ? e.message : "Charlie couldn't answer just now.";
-    pending.innerHTML = `<p>${esc(plain)}</p><button type="button" class="ghost" ${retryButton(() => { mine.remove(); pending.remove(); sendChat(text); })}>Try again</button>`;
+    pending.innerHTML = `<p>${esc(plain)}</p><button type="button" class="btn-secondary" ${retryButton(() => { mine.remove(); pending.remove(); sendChat(text); })}>Try again</button>`;
   }
 }
 
@@ -627,7 +633,7 @@ async function loadPaper() {
   const ALERT_LABEL = { take_profit: "Take profit?", time: "Near expiry", breakeven: "Below breakeven" };
   const chips = (p, srText = true) => (p.alerts || []).map((a) => `<span class="alert-chip" data-alert="${esc(a.type)}" title="${esc(a.message)}">${esc(ALERT_LABEL[a.type] || a.type)}${srText ? `<span class="sr-only">: ${esc(a.message)}</span>` : ""}</span>`).join("");
   const alertBlock = (p) => (p.alerts?.length ? `<div class="alert-row">${chips(p, false)}</div><ul class="alert-msgs">${p.alerts.map((a) => `<li>${esc(a.message)}</li>`).join("")}</ul>` : "");
-  const closeBtn = (p) => (p.status === "open" ? `<button class="ghost" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
+  const closeBtn = (p) => (p.status === "open" ? `<button class="btn-secondary" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
   $("#paper-list").innerHTML = r.positions.length ? `
     <div class="pos-cards">${r.positions.map((p) => `<div class="pos-card">
       <div class="rc-top"><span><b>${esc(p.symbol)}</b> <span class="muted small">${esc(p.trade.label)}</span></span><span class="muted small">${esc(p.status)}</span></div>
@@ -642,7 +648,7 @@ async function loadPaper() {
     </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>${nfa()}`
     : `<div class="panel state"><div class="icon" aria-hidden="true">$</div><h2>No paper trades yet</h2>
        <p>Pick an idea on Today and tap Paper trade this to practice with pretend money.</p>
-       <button type="button" class="primary" data-goto="today">See today's ideas</button></div>`;
+       <button type="button" class="btn-tinted" data-goto="today">See today's ideas</button></div>`;
 }
 
 // ---------------------------------------------------------------- learn
@@ -722,14 +728,14 @@ async function openTicker(sym) {
       <p class="muted small">Financials: ${f.source === "mock" ? "sample numbers, illustrative and not real filings." : esc(f.source)}${f.fiscal_year ? ` (FY${f.fiscal_year})` : ""}</p>
       <h2 class="mt-lg">Ways to express it at your risk level</h2>
       ${nfa()}
-      ${d.trades.map((t) => `<div class="card"><div class="card-title sm">${esc(t.label)}</div>${tradeBlock(t)}</div>`).join("") || "<p>No trade fits your capital and risk level for this stock.</p>"}
+      ${d.trades.map((t, i) => `<div class="card"><div class="card-title sm">${esc(t.label)}</div>${tradeBlock(t, { main: i === 0 ? "primary" : "" })}</div>`).join("") || "<p>No trade fits your capital and risk level for this stock.</p>"}
       ${d.blocked.length ? `<details><summary>Not available (and why)</summary><ul class="tight">${d.blocked.map((b) => `<li><b>${esc(b.label)}</b>: ${esc(b.reason)}</li>`).join("")}</ul></details>` : ""}`;
     drawCharts(body);
   } catch (e) { body.innerHTML = errorState("Couldn't load this company. Try again.", e, retryButton(() => openTicker(sym))); }
 }
 function openScreenRow(x) {
   openDrawer(`${esc(x.name)} <span class="sym">${esc(x.symbol)}</span>`);
-  $("#drawer-body").innerHTML = `<p><button class="link" data-ticker="${esc(x.symbol)}">Full company analysis →</button></p><div class="card">${tradeBlock(x.trade)}</div>`;
+  $("#drawer-body").innerHTML = `<p><button class="btn-quiet" data-ticker="${esc(x.symbol)}">Full company analysis →</button></p><div class="card">${tradeBlock(x.trade, { main: "primary" })}</div>`;
   drawCharts($("#drawer-body"));
 }
 
@@ -856,6 +862,25 @@ function closeAck() {
   ackOpener?.focus(); ackOpener = null;
 }
 $("#read-more").onclick = () => openAck(true);
+// Appearance (studio principle 10, CHL-DS-17/18): Auto follows the phone; Light or Dark is kept in
+// localStorage "charlie-appearance" (outside the charlie: prefix, so Reset demo keeps it, like charlie-ack)
+// and theme-init.js puts it on <html> before the first paint. Anything else stored means Auto.
+const APPEARANCE_KEY = "charlie-appearance";
+function setAppearance(v) {
+  const pick = v === "light" || v === "dark" ? v : "auto";
+  if (pick === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", pick);
+  try { if (pick === "auto") localStorage.removeItem(APPEARANCE_KEY); else localStorage.setItem(APPEARANCE_KEY, pick); } catch (_) {}
+}
+(() => {
+  let saved = null;
+  try { saved = localStorage.getItem(APPEARANCE_KEY); } catch (_) {}
+  const now = saved === "light" || saved === "dark" ? saved : "auto";
+  $$("#appearance input[name=appearance]").forEach((r) => {
+    r.checked = r.value === now;
+    r.addEventListener("change", () => { if (r.checked) setAppearance(r.value); });
+  });
+})();
 $("#ack-btn").onclick = closeAck;
 
 async function boot() {

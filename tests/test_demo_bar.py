@@ -101,7 +101,8 @@ def test_CHL_DEMO_BAR_6_bar_css_uses_product_tokens_not_the_accent():
     assert rules, "styles.css styles the .demo-bar"
     body = " ".join(rules)
     assert "--accent" not in body and "--warn" not in body, "the bar and badge never use the accent or warn colors"
-    assert "var(--panel" in body and "var(--ink" in body, "surface and text come from Charlie's own tokens"
+    # CHL-DS-1: Charlie's --panel became the studio --surface token.
+    assert "var(--surface" in body and "var(--ink" in body, "surface and text come from the studio tokens"
 
 
 def test_CHL_DEMO_R1_header_data_badge_is_hidden_in_the_static_demo_only():
