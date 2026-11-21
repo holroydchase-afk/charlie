@@ -964,3 +964,151 @@ def test_CHL_DS_R14_empty_portfolio_has_no_icon_circle_and_no_refresh(make_page,
     refresh = pg.locator("#tab-paper").get_by_role("button", name="Refresh")
     vis = refresh.count() and refresh.first.is_visible()
     assert icons == 0 and not vis, f"empty Portfolio shows {icons} icon circle(s) and Refresh visible={bool(vis)}"
+
+
+# ---------------------------------------------------------------- CHL-DS-R15 card head: sector line under the score button
+CARD_HEADS = """() => [...document.querySelectorAll('#ideas .card')].map((c, i) => {
+    const b = (s) => { const e = c.querySelector(s); return e ? e.getBoundingClientRect() : null; };
+    const t = b('.card-title'), s = b('.card-sub'), g = b('.grade');
+    return {i: i + 1, titleBottom: t && t.bottom, subTop: s && s.top, gradeBottom: g && g.bottom,
+            h: c.getBoundingClientRect().height}; })"""
+
+
+@pytest.mark.parametrize("size", [SMALL, PHONE], ids=["320x700", "390x844"])
+def test_CHL_DS_R15_card_sector_line_sits_below_the_score_button_and_the_title(make_page, site_url, size):
+    pg = make_page(*size)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.evaluate("document.querySelectorAll('#ideas details').forEach((d) => d.open = false)")
+    heads = pg.evaluate(CARD_HEADS)
+    assert heads, "no idea cards"
+    bad = []
+    for h in heads:
+        if None in (h["titleBottom"], h["subTop"], h["gradeBottom"]):
+            bad.append(f"card {h['i']}: missing .card-title, .card-sub or .grade ({h})")
+            continue
+        if h["subTop"] < h["gradeBottom"] - 0.5:
+            bad.append(f"card {h['i']}: .card-sub top {h['subTop']:.1f} is above the .grade bottom {h['gradeBottom']:.1f}")
+        if h["titleBottom"] > h["subTop"] + 0.5:
+            bad.append(f"card {h['i']}: .card-title bottom {h['titleBottom']:.1f} runs past the .card-sub top {h['subTop']:.1f}")
+    if size == PHONE and heads[0]["h"] > 800:
+        bad.append(f"card 1 is {heads[0]['h']:.0f}px tall at 390 (want <= 800)")
+    assert bad == [], f"at {size[0]}px:\n" + "\n".join(bad)
+
+
+# ---------------------------------------------------------------- CHL-DS-R16 jumping to card 1 lands below the sticky bar
+# The sticky bar = every visible fixed/sticky element pinned at the top of the viewport (header, tabs), not
+# the bottom demo bar or a full-screen modal.
+STICKY_BOTTOM = """() => { let b = 0;
+    for (const e of document.querySelectorAll('body *')) {
+      const p = getComputedStyle(e).position;
+      if ((p !== 'sticky' && p !== 'fixed') || !e.checkVisibility()) continue;
+      const r = e.getBoundingClientRect();
+      if (r.height === 0 || r.top > 1 || r.bottom > innerHeight / 2) continue;
+      b = Math.max(b, r.bottom);
+    }
+    return b; }"""
+
+
+def _settle_scroll(pg):
+    pg.wait_for_function("""() => new Promise((ok) => { let y = scrollY, n = 0;
+        const t = setInterval(() => { if (scrollY === y) { if (++n >= 5) { clearInterval(t); ok(true); } } else { y = scrollY; n = 0; } }, 50); })""",
+                         timeout=10_000)
+
+
+def _card_one_under_sticky(pg):
+    got = pg.evaluate("""(sb) => { const t = document.querySelector('#ideas .card .card-title').getBoundingClientRect();
+        return {top: t.top, bottom: t.bottom, sticky: sb, vh: innerHeight, y: scrollY}; }""", pg.evaluate(STICKY_BOTTOM))
+    assert got["sticky"] > 0, "found no sticky bar at the top of the page"
+    assert got["top"] >= got["sticky"] - 0.5 and got["bottom"] <= got["vh"], \
+        f"card 1 title spans {got['top']:.0f} to {got['bottom']:.0f}px but the sticky bar ends at {got['sticky']:.0f}px " \
+        f"(viewport {got['vh']}px, scrollY {got['y']:.0f})"
+
+
+def test_CHL_DS_R16_hero_top_idea_link_lands_card_one_title_below_the_sticky_bar_at_390(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.evaluate("scrollTo(0, 0)")
+    link = pg.locator("#hero-top-idea")
+    expect(link).to_be_visible()
+    link.click()
+    _settle_scroll(pg)
+    _card_one_under_sticky(pg)
+
+
+def test_CHL_DS_R16_card_one_scrolled_into_view_sits_below_the_sticky_bar_at_1280(make_page, site_url):
+    pg = make_page(*DESKTOP)
+    pg.goto(site_url)
+    _ready(pg)
+    link = pg.locator("#hero-top-idea")
+    if link.is_visible():
+        link.click()
+    else:  # no hero link at 1280: scroll card 1 the way the link does (app.js, block: "start")
+        pg.evaluate("document.querySelector('#ideas .card').scrollIntoView({block: 'start'})")
+    _settle_scroll(pg)
+    _card_one_under_sticky(pg)
+
+
+# ---------------------------------------------------------------- CHL-DS-R17 Appearance options stack at 390
+def test_CHL_DS_R17_appearance_options_each_take_a_48px_row_with_one_left_edge_at_390(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    _open_tab(pg, "profile")
+    rows = pg.evaluate("""() => [...document.querySelectorAll('#appearance input[type=radio]')].map((r) => {
+        const b = r.labels[0].getBoundingClientRect(); return {t: r.labels[0].innerText.trim(), l: b.left, top: b.top, b: b.bottom, h: b.height}; })""")
+    assert len(rows) == 3, rows
+    bad = [f"'{r['t']}' is {r['h']:.0f}px tall (want >= 48)" for r in rows if r["h"] < TARGET - 0.5]
+    bad += [f"'{b['t']}' (top {b['top']:.0f}) is not on its own row below '{a['t']}' (bottom {a['b']:.0f})"
+            for a, b in zip(rows, rows[1:]) if b["top"] < a["b"] - 0.5]
+    if max(r["l"] for r in rows) - min(r["l"] for r in rows) > 0.5:
+        bad.append("left edges differ: " + ", ".join(f"'{r['t']}' {r['l']:.0f}" for r in rows))
+    assert bad == [], "Appearance at 390:\n" + "\n".join(bad)
+
+
+# ---------------------------------------------------------------- CHL-DS-R18 the tab bar shows there is more at 320
+# Testable signal for the engineer: while the tab scroller (nav.tabs .tabs-inner) has more to its right
+# (scrollLeft + clientWidth < scrollWidth - 1), nav.tabs carries the class "has-more" and its ::after draws the
+# right-edge fade (computed content is not "none", display is not "none", width > 0). Scrolled to the end, the
+# class is gone and ::after draws nothing (content "none" or display "none" or width 0). Update it on the
+# scroller's "scroll" event and on resize.
+TAB_FADE = """() => { const n = document.querySelector('nav.tabs'), s = n.querySelector('.tabs-inner'), a = getComputedStyle(n, '::after');
+    return {more: s.scrollLeft + s.clientWidth < s.scrollWidth - 1, sl: s.scrollLeft, cw: s.clientWidth, sw: s.scrollWidth,
+            cls: n.classList.contains('has-more'),
+            fade: a.content !== 'none' && a.content !== 'normal' && a.display !== 'none' && parseFloat(a.width) > 0}; }"""
+
+
+def test_CHL_DS_R18_tab_bar_fades_on_the_right_while_more_tabs_are_hidden_at_320(make_page, site_url):
+    pg = make_page(*SMALL)
+    pg.goto(site_url)
+    _ready(pg)
+    start = pg.evaluate(TAB_FADE)
+    assert start["more"], f"precondition: the tab bar doesn't overflow at 320 ({start})"
+    pg.evaluate("(() => { const s = document.querySelector('nav.tabs .tabs-inner'); s.scrollLeft = s.scrollWidth; })()")
+    pg.wait_for_timeout(300)
+    end = pg.evaluate(TAB_FADE)
+    assert not end["more"], f"precondition: couldn't scroll the tab bar to its end ({end})"
+    bad = []
+    if not (start["cls"] and start["fade"]):
+        bad.append(f"at rest with more tabs to the right: nav.tabs.has-more={start['cls']}, ::after fade drawn={start['fade']} (want both)")
+    if end["cls"] or end["fade"]:
+        bad.append(f"scrolled to the end: nav.tabs.has-more={end['cls']}, ::after fade drawn={end['fade']} (want neither)")
+    assert bad == [], "\n".join(bad)
+
+
+# ---------------------------------------------------------------- CHL-DS-R19 drawer reasons are plain lines, not pills
+def test_CHL_DS_R19_drawer_reason_lines_are_why_lines_with_no_fill(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.locator("#ideas .card [data-ticker]").first.click()
+    expect(pg.locator("#drawer svg.payoff").first).to_be_visible(timeout=ENGINE)
+    got = pg.evaluate("""() => { const b = document.querySelector('#drawer-body');
+        const lines = [...b.querySelectorAll('.why-line')].filter((e) => e.checkVisibility())
+            .map((e) => ({t: e.textContent.trim().slice(0, 40), bg: getComputedStyle(e).backgroundColor}));
+        const pills = [...b.querySelectorAll('span.chip')].filter((e) => e.checkVisibility()).map((e) => e.textContent.trim().slice(0, 40));
+        return {lines, pills}; }""")
+    filled = [x for x in got["lines"] if x["bg"] not in ("rgba(0, 0, 0, 0)", "transparent")]
+    assert got["lines"] and not filled and not got["pills"], \
+        {"drawer .why-line count": len(got["lines"]), "with a fill": filled, "reasons still as span.chip pills": got["pills"]}

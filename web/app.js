@@ -280,6 +280,17 @@ function showTab(name) {
   ({ today: loadIdeas, profile: renderProfile, screener: initScreener, paper: loadPaper, learn: renderLearn, chat: openChat }[name] || (() => {}))();
 }
 
+// CHL-DS-R18: while more tabs sit past the right edge, nav.tabs.has-more draws a fade there.
+const tabScroller = $("nav.tabs .tabs-inner");
+function updateTabFade() {
+  const s = tabScroller;
+  $("nav.tabs").classList.toggle("has-more", s.scrollLeft + s.clientWidth < s.scrollWidth - 1);
+}
+tabScroller.addEventListener("scroll", updateTabFade, { passive: true });
+addEventListener("resize", updateTabFade);
+updateTabFade();
+document.fonts?.ready.then(updateTabFade);
+
 // ---------------------------------------------------------------- today
 // UX28: one line in the hero (phones) so the first screen carries a real number; it scrolls to card 1.
 function topIdea(idea) {
@@ -726,7 +737,7 @@ async function openTicker(sym) {
       <p class="src-line">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)}${src}</p>
       ${chartSlot("spark", d.history)}
       ${d.history.length ? `<div class="muted small">${esc(fmtDate(d.history[0].date))} to ${esc(fmtDate(d.history[d.history.length - 1].date))}</div>` : ""}
-      <div class="chips">${(d.familiarity_why.length ? d.familiarity_why : ["Outside your stated circle"]).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>
+      <div class="why-chips">${d.familiarity_why.length ? d.familiarity_why.map((w) => `<span class="why-line">✓ ${esc(w)}</span>`).join("") : `<span class="why-line">Outside your stated circle</span>`}</div>
       <h3>Munger checklist</h3>${factorBars(ch)}
       ${ch.red_flags.length ? `<h3>Red flags (inversion)</h3><ul class="tight flags">${ch.red_flags.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div class="metrics">

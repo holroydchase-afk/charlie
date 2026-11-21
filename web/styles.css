@@ -101,6 +101,13 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 /* Tabs: six at the top for now (Q1, pending Chase). The picked tab is the accent, with a 2px mark. */
 .tabs { padding: 0 var(--s4); border-bottom: 1px solid var(--line); background: var(--surface); }
 .tabs-inner { display: flex; gap: var(--s1); max-width: 1088px; margin: 0 auto; overflow-x: auto; }
+/* CHL-DS-R18: a 24px fade on the right while more tabs are hidden (app.js sets .has-more); taps pass through it. */
+nav.tabs { position: relative; }
+nav.tabs::after { content: none; }
+nav.tabs.has-more::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 24px; pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--surface));
+}
 .tabs button {
   min-height: 48px; min-width: 48px; border: 0; background: none; padding: 0 var(--s3); font: inherit; color: var(--muted); cursor: pointer;
   border-bottom: 2px solid transparent; border-top: 2px solid transparent; white-space: nowrap; border-radius: 0;
@@ -189,6 +196,8 @@ legend { font-weight: 600; padding: 0; margin-bottom: var(--s2); }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s5); min-width: 0; }
 .card-head { display: flex; justify-content: space-between; gap: var(--s3); align-items: flex-start; }
 .card-head > div:first-child { min-width: 0; }
+/* CHL-DS-R16: jumping to card 1 clears the sticky header (60px) plus 16px. */
+#ideas .card { scroll-margin-top: calc(var(--s6) * 2 + var(--s3)); }
 .card-title { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
 .card-title.sm { font-size: var(--fs-body); line-height: var(--lh-body); }
 .card-title .sym { color: var(--muted); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-body); margin-left: var(--s2); white-space: nowrap; }
@@ -420,10 +429,17 @@ tr.clickable:hover td { background: var(--fill); }
   /* CHL-DS-R4: on phones the sector line runs under both the name and the score button. */
   .card-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s3); }
   .card { padding: var(--s3) var(--s4); }
-  .card-head > div:first-child { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: subgrid; column-gap: var(--s3); }
+  /* CHL-DS-R15: the title's wrapper is a subgrid in both directions, so row 1 is as tall as the taller of the
+     title and the score button, and the sector line takes row 2 under both. (display: contents would also do it,
+     but leaves the wrapper with no box, which focus checks read as layout moving.) */
+  .card-head > div:first-child:not(.card-title) { grid-column: 1 / -1; grid-row: 1 / span 2; display: grid; grid-template-columns: subgrid; grid-template-rows: subgrid; column-gap: var(--s3); row-gap: 0; }
   .card-head .card-title { grid-column: 1; grid-row: 1; }
-  .card-head .grade { grid-column: 2; grid-row: 1; align-self: start; }
+  /* The 4px sits under the score button, not on the sector line: when a two-line name is the taller cell,
+     card 1 keeps its 800px budget at 390. */
+  .card-head .grade { grid-column: 2; grid-row: 1; align-self: start; margin-bottom: var(--s1); }
   .card-head .card-sub { grid-column: 1 / -1; grid-row: 2; }
+  /* CHL-DS-R16: jumping to card 1 clears the sticky header (48px) plus 16px. */
+  #ideas .card { scroll-margin-top: calc(var(--s6) * 2); }
   /* Compact badge on phones ("Score 76 · A", UX34), so the title and sector get the width; aria-label keeps the full words. */
   .card-head .grade .gword, .card-head .grade .gout { display: none; }
   .card-head .grade .gcap { display: inline; }
@@ -518,6 +534,9 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 /* CHL-DS-R10: Paper capital and Starting risk level stack on phones, so the select's words fit. */
 @media (max-width: 480px) {
   .field-pair { flex-direction: column; align-items: stretch; gap: 0; }
+  /* CHL-DS-R17: on phones the Appearance options are a list: full-width 48px rows, 8px apart. */
+  .appearance .choices { flex-direction: column; align-items: stretch; }
+  .appearance .choice { display: flex; width: 100%; border-radius: var(--r-md); }
 }
 /* CHL-DS-R8: the footer disclaimer fits one row at 320px. */
 @media (max-width: 359px) {
