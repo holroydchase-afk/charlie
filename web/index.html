@@ -31,6 +31,7 @@
     </div>
   </section>
   <header class="top">
+    <div class="top-inner">
     <div class="brand">
       <span class="logo">C</span>
       <div>
@@ -39,14 +40,17 @@
       </div>
     </div>
     <span id="data-badge" class="badge server-only">Loading…</span>
+    </div>
   </header>
-  <nav class="tabs" role="tablist">
+  <nav class="tabs" aria-label="Sections">
+    <div class="tabs-inner" role="tablist">
     <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
     <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
     <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
     <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
     <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Portfolio</button>
     <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
+    </div>
   </nav>
 
   <main>
@@ -106,6 +110,7 @@
         </div>
       </div>
       <div class="grid2">
+        <div class="profile-col">
         <form id="profile-form" class="panel">
           <label class="server-only">Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
             <input type="file" name="resume" accept=".pdf,.docx,.txt,.md">
@@ -124,7 +129,7 @@
           <label>Shares you already own <span class="muted small">(unlocks covered calls)</span>
             <input name="holdings" placeholder="e.g. AAPL 100, KO 200">
           </label>
-          <div class="row gap">
+          <div class="row gap field-pair">
             <label class="grow">Paper capital ($)
               <input name="capital" type="number" min="1000" step="500" value="25000">
             </label>
@@ -140,22 +145,32 @@
           </div>
           <label class="check server-only"><input type="checkbox" name="use_ai"> Also let Claude read my resume (sends the text to Anthropic's API; only works when an API key is set)</label>
           <div class="actions">
-            <button type="submit" class="btn-primary">Build my profile</button>
-            <button type="button" class="btn-danger" id="delete-profile">Delete my data</button>
+            <button type="submit" class="btn-tinted">Build my profile</button>
           </div>
           <p id="profile-status" class="muted small"></p>
+          <div class="delete-row">
+            <button type="button" class="btn-quiet danger-text" id="delete-profile" aria-expanded="false" aria-controls="delete-confirm">Delete my data</button>
+            <div id="delete-confirm" class="delete-confirm" role="group" aria-label="Confirm delete" hidden>
+              <p id="delete-what">This deletes your profile, resume, saved screens, paper trades and saved ideas from this browser.</p>
+              <div class="actions">
+                <button type="button" class="btn-danger" id="delete-yes">Delete my data</button>
+                <button type="button" class="btn-secondary" id="delete-no">Keep my data</button>
+              </div>
+            </div>
+          </div>
         </form>
+        <fieldset id="appearance" class="appearance mt-lg">
+          <legend>Appearance</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="appearance" value="auto" checked> Match device</label>
+            <label class="choice"><input type="radio" name="appearance" value="light"> Light</label>
+            <label class="choice"><input type="radio" name="appearance" value="dark"> Dark</label>
+          </div>
+          <p class="muted">Match device follows your phone or computer's light or dark setting.</p>
+        </fieldset>
+        </div>
         <div id="profile-view" class="panel"></div>
       </div>
-      <fieldset id="appearance" class="appearance mt-lg">
-        <legend>Appearance</legend>
-        <div class="choices">
-          <label class="choice"><input type="radio" name="appearance" value="auto" checked> Auto</label>
-          <label class="choice"><input type="radio" name="appearance" value="light"> Light</label>
-          <label class="choice"><input type="radio" name="appearance" value="dark"> Dark</label>
-        </div>
-        <p class="muted">Auto follows your phone or computer's setting.</p>
-      </fieldset>
     </section>
 
     <!-- SCREENER -->
@@ -226,7 +241,7 @@
           <h1>Chat with Charlie</h1>
         </div>
       </div>
-      <div class="chat-wrap panel">
+      <div class="chat-wrap">
         <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Conversation with Charlie">
           <div class="msg bot">Hi, I'm Charlie. Ask me about today's ideas, any company in your circle, or how a strategy works.
             <div class="chips suggestions">
@@ -277,9 +292,10 @@
       <div class="drawer-head">
         <div class="drawer-head-text">
           <div id="drawer-title" class="drawer-title">Company details</div>
+          <div id="drawer-sub" class="drawer-sub"></div>
           <p class="drawer-nfa"><span class="static-only hidden">Sample data · </span>Not financial advice. Paper trading only.</p>
         </div>
-        <button class="close btn-quiet" id="drawer-close" type="button" aria-label="Close details">×</button>
+        <button class="close btn-quiet" id="drawer-close" type="button" aria-label="Close details">Close</button>
       </div>
       <div id="drawer-body"></div>
     </div>

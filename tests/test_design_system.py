@@ -746,7 +746,16 @@ def test_CHL_DS_15_deliberate_moments_use_primary_and_cannot_undo_uses_danger():
         return set(re.search(r'class="([^"]*)"', m.group(0)).group(1).split())
     assert "btn-primary" in cls(r'<button\b[^>]*id="ack-btn"[^>]*>'), "ack 'Got it' is the primary button"
     assert "btn-danger" in cls(r'<button\b[^>]*class="[^"]*demo-bar__yes[^"]*"[^>]*>'), "demo reset confirm is danger"
-    assert "btn-danger" in cls(r'<button\b[^>]*id="delete-profile"[^>]*>'), "Delete my data is danger"
+    # Fix round 1 (CHL-DS-R2, section 6: danger is for cannot-undo): the trigger is quiet in --danger-text and
+    # opens an inline confirm; the confirm's "Delete my data" is the danger button.
+    assert cls(r'<button\b[^>]*id="delete-profile"[^>]*>') == {"btn-quiet", "danger-text"}, "the delete trigger is quiet, danger-text"
+    yes = re.search(r'<button\b[^>]*id="delete-yes"[^>]*>([^<]*)</button>', html)
+    assert yes and yes.group(1).strip() == "Delete my data", "the inline confirm has a 'Delete my data' button"
+    assert "btn-danger" in cls(r'<button\b[^>]*id="delete-yes"[^>]*>'), "the confirm's Delete my data is danger"
+    stray = [f"{n}: {t[:90]}" for n, t in _button_tags() if "danger-text" in t and 'id="delete-profile"' not in t]
+    assert stray == [], f"only the delete trigger may be a danger-text quiet button: {stray}"
+    assert any(r["sel"].strip() == ".btn-quiet.danger-text" and ("color", "var(--danger-text)") in r["decls"] for r in _all_rules()), \
+        ".btn-quiet.danger-text uses var(--danger-text)"
 
 
 # ============================================================ CHL-DS-16/18 theme-init.js, index.html wiring

@@ -166,10 +166,10 @@ function moreMetrics(t) {
   if (t.expected_move) m.push(["Typical move by expiry", money(t.expected_move, 2)]);
   return `<div class="metrics">${m.map(([k, v]) => metric(k, v)).join("")}</div>`;
 }
-function chartBlock(t) {  // the legend keeps "today" and breakeven readable above the chart
+function chartBlock(t, { caption = true } = {}) {  // the legend keeps "today" and breakeven readable above the chart
   return `<div class="chart-legend"><span class="key-spot">Today <b>${money(t.spot, 2)}</b></span><span class="key-be">Breakeven <b>${t.breakeven ? money(t.breakeven, 2) : "—"}</b></span><span class="wide-only">Profit or loss at expiration</span></div>
     ${chartSlot("payoff", t)}
-    <p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>`;
+    ${caption ? `<p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>` : ""}`;
 }
 function planTicket(t, { nested = false } = {}) {  // nested: already inside a <details>, so no second one
   return `<div class="two-col">
@@ -223,11 +223,11 @@ function ideaCard(idea, i = 0) {
       <button class="btn-secondary grade ${ch.grade}" data-ticker="${a.symbol}" title="Munger-style checklist score. Open for the full breakdown."
         aria-label="Charlie score ${ch.score} out of 100, grade ${ch.grade}. Open details for ${esc(a.name)}."><span class="gscore">${gradeLabel(ch)}</span><span class="gmore">Details</span></button>
     </div>
-    <div class="chips why-chips">${th.why_you.map((w) => `<span class="chip">✓ ${esc(w)}</span>`).join("")}</div>
+    <div class="why-chips">${th.why_you.map((w) => `<span class="why-line">✓ ${esc(w)}</span>`).join("")}</div>
     ${th.summary.length ? `<p class="thesis">${esc(th.summary[0])}</p>` : ""}
     ${tradeTag(t)}
     ${heroMetrics(t)}
-    ${chartBlock(t)}
+    ${chartBlock(t, { caption: false })}
     ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
     ${tradeActions(id, i === 0 ? "tinted" : "")}
     <details class="more"><summary>Plan, risks and order details</summary>
@@ -288,7 +288,9 @@ function topIdea(idea) {
   el.classList.toggle("hidden", !idea);
   if (!idea) return;
   const t = idea.trade;
-  el.innerHTML = `<span>Top idea today: <b>${esc(idea.analysis.symbol)}</b> · ${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)} <span aria-hidden="true">›</span></span>`;
+  // CHL-DS-R3: the link names the idea in the accent; its numbers sit on their own line in ink.
+  el.innerHTML = `<span class="hti-title">See today's top idea: ${esc(idea.analysis.name)} <span aria-hidden="true">›</span></span>
+    <span class="hti-nums">${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)}</span>`;
 }
 async function loadIdeas(refresh = false) {
   const box = $("#ideas");
@@ -621,6 +623,7 @@ async function loadPaper() {
   // UX23: no stats while there's nothing to measure; the empty state's button sits high instead.
   // UX30: win rate only once a trade has closed (a $0 scratch close counts, and shows "—").
   const closedCount = r.positions.filter((p) => p.status === "closed").length;
+  $("#refresh-paper").classList.toggle("hidden", !r.positions.length); // CHL-DS-R14: nothing to refresh yet
   $("#alert-explainer").hidden = !r.positions.length; // UX42: name the alert chips once there is a trade to flag
   $("#paper-stats").innerHTML = !r.positions.length ? "" : stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), signCls(r.open_pnl)) +
     stat("Realized P&L", money(r.realized_pnl), signCls(r.realized_pnl)) + stat("Most you could lose (open trades)", money(r.capital_at_risk)) + (closedCount ? stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) : "") +
@@ -646,7 +649,7 @@ async function loadPaper() {
       <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}${p.alerts?.length ? `<div class="alert-row">${chips(p)}</div>` : ""}</td>
       <td>${closeBtn(p)}</td></tr>`).join("")}
     </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>${nfa()}`
-    : `<div class="panel state"><div class="icon" aria-hidden="true">$</div><h2>No paper trades yet</h2>
+    : `<div class="panel state"><h2>No paper trades yet</h2>
        <p>Pick an idea on Today and tap Paper trade this to practice with pretend money.</p>
        <button type="button" class="btn-tinted" data-goto="today">See today's ideas</button></div>`;
 }
@@ -691,10 +694,11 @@ function renderLearn() {
 
 // ---------------------------------------------------------------- ticker drawer (UX11: a real modal dialog)
 let drawerOpener = null;
-function openDrawer(title) {
+function openDrawer(title, sub = "") {
   const drawer = $("#drawer");
   if (drawer.classList.contains("hidden")) drawerOpener = document.activeElement;
   $("#drawer-title").innerHTML = title;
+  $("#drawer-sub").innerHTML = sub;
   drawer.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   $(".drawer-inner").scrollTop = 0;
@@ -713,10 +717,13 @@ async function openTicker(sym) {
   try {
     const d = await api(`/api/ticker/${encodeURIComponent(sym)}?risk=${state.risk}`);
     const ch = d.charlie, f = d.fundamentals;
-    $("#drawer-title").innerHTML = `${esc(d.name)} <span class="sym">${esc(d.symbol)} · <span class="num">${money(d.quote.price, 2)}</span> (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span><span class="grade ${ch.grade}">${gradeLabel(ch)}</span>`;
-    const src = d.quote.source === "mock" ? "Sample data, not real market prices" : `Delayed prices from ${esc(d.quote.source)}`;
+    // CHL-DS-R12: name as the title; "SYM · $price (change)" and the score pill on the muted line under it.
+    $("#drawer-title").textContent = d.name;
+    $("#drawer-sub").innerHTML = `<span>${esc(d.symbol)} · <span class="num">${money(d.quote.price, 2)}</span> (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span><span class="grade ${ch.grade}">${gradeLabel(ch)}</span>`;
+    // The head already says "Sample data" in the demo; mock prices aren't named again here.
+    const src = d.quote.source === "mock" ? "" : ` · Delayed prices from ${esc(d.quote.source)}`;
     body.innerHTML = `
-      <p class="src-line">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · ${src}</p>
+      <p class="src-line">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)}${src}</p>
       ${chartSlot("spark", d.history)}
       ${d.history.length ? `<div class="muted small">${esc(fmtDate(d.history[0].date))} to ${esc(fmtDate(d.history[d.history.length - 1].date))}</div>` : ""}
       <div class="chips">${(d.familiarity_why.length ? d.familiarity_why : ["Outside your stated circle"]).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>
@@ -734,7 +741,7 @@ async function openTicker(sym) {
   } catch (e) { body.innerHTML = errorState("Couldn't load this company. Try again.", e, retryButton(() => openTicker(sym))); }
 }
 function openScreenRow(x) {
-  openDrawer(`${esc(x.name)} <span class="sym">${esc(x.symbol)}</span>`);
+  openDrawer(esc(x.name), `<span>${esc(x.symbol)}</span>`);
   $("#drawer-body").innerHTML = `<p><button class="btn-quiet" data-ticker="${esc(x.symbol)}">Full company analysis →</button></p><div class="card">${tradeBlock(x.trade, { main: "primary" })}</div>`;
   drawCharts($("#drawer-body"));
 }
@@ -791,13 +798,23 @@ $("#save-screen").onclick = () => { if (!$("#screen-form").save_name.value.trim(
 $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#chat-input").value; $("#chat-input").value = ""; sendChat(v); });
 $("#refresh-paper").onclick = loadPaper;
 window.addEventListener("resize", () => { if ($("#tab-chat").classList.contains("active")) sizeChat(); });
-$("#delete-profile").onclick = async () => {
-  const where = window.charlieStatic ? "this browser" : "this computer";
-  const what = window.charlieStatic ? "profile, resume, saved screens, paper trades and saved ideas"
-    : "profile, resume, saved screens, paper trades, saved ideas and saved market data";
-  if (!confirm(`Delete all your Charlie data from ${where}? This removes your ${what}. You can't undo this.`)) return;
+// CHL-DS-R2: Delete my data is a quiet button that asks inline first (never window.confirm).
+const deleteWhat = () => (window.charlieStatic ? "profile, resume, saved screens, paper trades and saved ideas"
+  : "profile, resume, saved screens, paper trades, saved ideas and saved market data");
+function showDeleteAsk(on) {
+  $("#delete-profile").hidden = on; $("#delete-profile").setAttribute("aria-expanded", String(on));
+  $("#delete-confirm").hidden = !on;
+}
+$("#delete-profile").onclick = () => {
+  $("#delete-what").textContent = `This deletes your ${deleteWhat()} from ${window.charlieStatic ? "this browser" : "this computer"}.`;
+  showDeleteAsk(true); $("#delete-no").focus();
+};
+$("#delete-no").onclick = () => { showDeleteAsk(false); $("#delete-profile").focus(); };
+$("#delete-yes").onclick = async () => {
+  const what = deleteWhat();
   try {
     await api("/api/profile?all=true", { method: "DELETE" });
+    showDeleteAsk(false);
     $("#profile-form").reset(); await loadProfile(); renderProfile();
     state.loaded.screener && loadSavedScreens();
     toast(`Done. Your ${what} are deleted.`, 4000);
@@ -862,7 +879,7 @@ function closeAck() {
   ackOpener?.focus(); ackOpener = null;
 }
 $("#read-more").onclick = () => openAck(true);
-// Appearance (studio principle 10, CHL-DS-17/18): Auto follows the phone; Light or Dark is kept in
+// Appearance (studio principle 10, CHL-DS-17/18, R9): Match device (stored value "auto") follows the phone; Light or Dark is kept in
 // localStorage "charlie-appearance" (outside the charlie: prefix, so Reset demo keeps it, like charlie-ack)
 // and theme-init.js puts it on <html> before the first paint. Anything else stored means Auto.
 const APPEARANCE_KEY = "charlie-appearance";

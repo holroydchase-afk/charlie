@@ -438,20 +438,38 @@ def _chart_problems(charts):
         unsigned = [y["text"] for y in ys if y["text"] != "$0" and not re.match(r"^[+\-−]\$", y["text"])]
         if unsigned:
             problems.append(f"{name}: P&L labels need a + or − sign: {unsigned}")
-        cap = re.search(r"Shown for ([A-Z.]+) between \$[\d,]+ and \$[\d,]+", c["cardText"])
-        if not cap:
-            problems.append(f"{name}: no caption 'Shown for <SYM> between $X and $Y'")
-        elif c["sym"] and cap.group(1) != c["sym"]:
-            problems.append(f"{name}: caption names {cap.group(1)}, card is {c['sym']}")
     return problems
+
+
+def _caption_problem(where, text, sym):
+    cap = re.search(r"Shown for ([A-Z.]+) between \$[\d,]+ and \$[\d,]+", text)
+    if not cap:
+        return f"{where}: no caption 'Shown for <SYM> between $X and $Y'"
+    if sym and cap.group(1) != sym:
+        return f"{where}: caption names {cap.group(1)}, ticker is {sym}"
+    return None
 
 
 @pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
 def test_UX18_payoff_labels_dont_collide_and_have_a_caption(make_page, site_url, size):
+    # Fix round 1 (Nov 21): CHL-DS-R4 took the caption off Today's cards to keep them short, so the
+    # caption is checked in the ticker drawer opened from each card; labels are still checked on the cards.
     pg = _open(make_page, site_url, size)
     charts = pg.locator("#ideas").evaluate(CHART_LABELS)
     assert charts, "no payoff charts on Today"
-    assert _chart_problems(charts) == []
+    problems = _chart_problems(charts)
+    syms = pg.evaluate("[...document.querySelectorAll('#ideas .card')].map((c) => c.querySelector('[data-ticker]')?.dataset.ticker || '')")
+    assert syms and all(syms), f"every idea card names its ticker: {syms}"
+    for i, sym in enumerate(syms):
+        pg.locator("#ideas .card").nth(i).locator("[data-ticker]").first.click()
+        drawer = pg.locator("#drawer")
+        expect(drawer.locator("svg.payoff").first).to_be_visible(timeout=ENGINE)
+        p = _caption_problem(f"drawer from card {i + 1} ({sym})", drawer.inner_text(), sym)
+        if p:
+            problems.append(p)
+        pg.keyboard.press("Escape")
+        expect(drawer).to_be_hidden()
+    assert problems == []
 
 
 # ---------------------------------------------------------------- CHL-UX19 screener: results first on a phone

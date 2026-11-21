@@ -55,7 +55,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
   font-family: inherit; font-size: var(--fs-body); line-height: var(--lh-body);
 }
 .demo-bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--db-line); pointer-events: none; }
-.demo-bar__row { display: flex; align-items: stretch; padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); }
+.demo-bar__row { display: flex; align-items: stretch; padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); max-width: 1136px; margin: 0 auto; }
 .demo-bar__home { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding-right: var(--s3); border-right: 1px solid var(--db-line); color: inherit; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .demo-bar__home:hover { text-decoration: underline; }
 .demo-bar__toggle { display: flex; align-items: center; gap: var(--s2); flex: 1; min-width: 0; min-height: 48px; margin: 0; padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 var(--s3); border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -66,7 +66,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .demo-bar__more { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: var(--s1); font-weight: 600; }
 .demo-bar__chev { width: 10px; height: 10px; transition: transform .15s; }
 .demo-bar__toggle[aria-expanded="true"] .demo-bar__chev { transform: rotate(180deg); }
-.demo-bar__panel { padding: var(--s1) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s4) max(var(--s4), env(safe-area-inset-left, 0px)); }
+.demo-bar__panel { max-width: 1136px; margin: 0 auto; padding: var(--s1) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s4) max(var(--s4), env(safe-area-inset-left, 0px)); }
 .demo-bar__panel[hidden], .demo-bar__confirm[hidden], .demo-bar__reset[hidden] { display: none; }
 .demo-bar__panel p { margin: 0 0 var(--s3); max-width: 70ch; text-wrap: pretty; }
 .demo-bar__actions { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
@@ -84,10 +84,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 
 /* ---------------------------------------------------------------- header */
 .top {
-  display: flex; align-items: center; gap: var(--s3);
   padding: var(--s2) var(--s5); background: var(--surface); border-bottom: 1px solid var(--line);
   position: sticky; top: 0; z-index: 5; min-height: 48px;
 }
+/* CHL-DS-R13: the header, tab bar and demo bar keep their contents in main's column: main is 1120px
+   with 16px padding, so its content is 1088px wide, centered. */
+.top-inner { display: flex; align-items: center; gap: var(--s3); max-width: 1088px; margin: 0 auto; min-height: 32px; }
 .brand { display: flex; gap: var(--s3); align-items: center; margin-right: auto; min-width: 0; }
 /* The mark is ink, not the accent: the accent means "tap here" (principle 6). */
 .logo { width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--ink); color: var(--bg); display: grid; place-items: center; font-weight: 600; flex: none; }
@@ -97,10 +99,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .badge.mock { border-color: var(--tab-line); color: var(--ink); }
 
 /* Tabs: six at the top for now (Q1, pending Chase). The picked tab is the accent, with a 2px mark. */
-.tabs { display: flex; gap: var(--s1); padding: 0 var(--s4); overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--surface); }
+.tabs { padding: 0 var(--s4); border-bottom: 1px solid var(--line); background: var(--surface); }
+.tabs-inner { display: flex; gap: var(--s1); max-width: 1088px; margin: 0 auto; overflow-x: auto; }
 .tabs button {
   min-height: 48px; min-width: 48px; border: 0; background: none; padding: 0 var(--s3); font: inherit; color: var(--muted); cursor: pointer;
   border-bottom: 2px solid transparent; border-top: 2px solid transparent; white-space: nowrap; border-radius: 0;
+  flex: none;  /* CHL-DS-R1: a tab never shrinks under its word; the bar scrolls instead */
 }
 .tabs button:hover { color: var(--ink); }
 .tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
@@ -143,12 +147,19 @@ button { cursor: pointer; }
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   min-height: 48px; min-width: 48px; margin: 0; padding: 0 var(--s4); border: 0; border-radius: 999px;
   font-weight: 600; text-align: center; white-space: nowrap; text-decoration: none;
+  flex: none;  /* CHL-DS-R1: never squeezed narrower than its words */
 }
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
 .btn-tinted { background: var(--accent-soft); color: var(--accent); }
 .btn-secondary { background: var(--fill); color: var(--ink); }
 .btn-quiet { background: transparent; color: var(--accent); padding: 0 var(--s2); text-decoration: underline; text-underline-offset: 3px; }
 .btn-danger { background: var(--danger); color: var(--on-danger); }
+.btn-quiet.danger-text { color: var(--danger-text); }
+/* CHL-DS-R2: Delete my data sits on its own row under a line, and asks inline before it deletes. */
+.delete-row { margin-top: var(--s4); padding-top: var(--s2); border-top: 1px solid var(--line); }
+.delete-row .btn-quiet { padding: 0; }
+.delete-confirm p { margin: var(--s2) 0; }
+.delete-confirm[hidden], .delete-row [hidden] { display: none; }
 .btn-primary:hover, .btn-tinted:hover, .btn-secondary:hover, .btn-danger:hover { text-decoration: underline; text-underline-offset: 3px; }
 .btn-primary:disabled, .btn-tinted:disabled, .btn-secondary:disabled, .btn-quiet:disabled, .btn-danger:disabled { opacity: .6; cursor: default; text-decoration: none; }
 input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea {
@@ -161,6 +172,8 @@ label.check { display: flex; gap: var(--s3); align-items: center; min-height: 48
 label.check input, .choice input, .chip-check input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
 fieldset { border: 0; padding: 0; margin: 0 0 var(--s3); min-width: 0; }
 legend { font-weight: 600; padding: 0; margin-bottom: var(--s2); }
+.appearance legend { font-size: var(--fs-title); line-height: var(--lh-title); }
+.profile-col { min-width: 0; }
 /* Appearance (principle 10): Auto follows the phone; Light or Dark stays picked. */
 .choices { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s2); }
 .choice { display: inline-flex; align-items: center; gap: var(--s2); min-height: 48px; min-width: 48px; margin: 0; padding: 0 var(--s4); border: 1px solid var(--tab-line); border-radius: 999px; font-weight: 400; cursor: pointer; }
@@ -192,7 +205,10 @@ span.grade { display: inline-block; padding: 0 var(--s2); border: 1px solid var(
 .grade .gmore::after { content: ""; display: inline-block; width: 6px; height: 6px; border-right: 2px solid currentColor; border-top: 2px solid currentColor; transform: rotate(45deg); margin-left: var(--s1); vertical-align: 2px; }
 .strategy-tag { display: block; font-weight: 600; margin-top: var(--s3); }
 .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s3) var(--s4); margin: var(--s3) 0; }
-.metrics.hero-m { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* CHL-DS-R11: three columns; the labels share a row (aligned to its foot) and the values share the next. */
+.metrics.hero-m { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto auto; }
+.hero-m .metric { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; }
+.hero-m .metric .k { align-self: end; }
 .metric { min-width: 0; }
 .metric .k { color: var(--muted); }
 .metric .v { font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -264,6 +280,9 @@ details.more { margin-top: var(--s3); border-top: 1px solid var(--line); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
 .chip { display: inline-flex; align-items: center; gap: var(--s2); min-height: 48px; padding: 0 var(--s4); border: 0; border-radius: 999px; background: var(--fill); color: var(--ink); font-weight: 400; }
 span.chip { min-height: 0; padding: 0 var(--s3); }
+/* CHL-DS-R4: why-you reasons are plain check lines on the card, no fill. */
+.why-chips { display: grid; gap: var(--s2); margin-top: var(--s3); }
+.why-chips .why-line { display: block; }
 .chip-check { cursor: pointer; margin: 0; border: 1px solid var(--tab-line); }
 .chip-check:has(input:checked) { border-color: var(--accent); }
 
@@ -292,11 +311,12 @@ tr.clickable:hover td { background: var(--fill); }
 .row-card .rc-grid b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- chat (UX1) */
+/* CHL-DS-R7: the conversation sits on the page: no card around it, and only your own messages get a bubble. */
 .chat-wrap { display: flex; flex-direction: column; height: 70vh; min-height: 340px; }
 .chat-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--s3); padding-bottom: var(--s3); }
 .msg { max-width: 85%; padding: var(--s2) var(--s3); border-radius: var(--r-md); }
 .msg.user { align-self: flex-end; background: var(--fill); color: var(--ink); }
-.msg.bot { align-self: flex-start; border: 1px solid var(--line); }
+.msg.bot { align-self: flex-start; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .msg.bot p { margin: var(--s1) 0; }
 .msg .mini { margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--line); }
 .chat-form { display: flex; gap: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--line); }
@@ -336,12 +356,14 @@ tr.clickable:hover td { background: var(--fill); }
 .drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s5); background: var(--surface); border-bottom: 1px solid var(--line); min-height: 64px; }
 .drawer-head-text { flex: 1; min-width: 0; }
 .drawer-nfa { margin: 0; color: var(--muted); }
-.drawer-title { min-width: 0; font-weight: 600; }
-.drawer-title .sym { color: var(--muted); font-weight: 400; }
-.drawer-title .grade { margin-left: var(--s2); }
+/* CHL-DS-R12: the company name is the title; symbol, price and score sit on the muted line under it. */
+.drawer-title { min-width: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
+.drawer-sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); color: var(--muted); font-variant-numeric: tabular-nums; }
+.drawer-sub:empty { display: none; }
+.drawer-sub .grade { font-weight: 600; color: var(--ink); }
 #drawer-body { padding: var(--s4) var(--s5) var(--s6); }
 #drawer-body .card { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: var(--s4) 0 0; margin-bottom: var(--s4); }
-.close { flex: none; width: 48px; height: 48px; padding: 0; font-size: var(--fs-display); line-height: var(--lh-display); font-weight: 400; text-decoration: none; }
+.close { height: 48px; }
 .src-line { color: var(--muted); margin: 0 0 var(--s2); }
 
 .modal { position: fixed; inset: 0; background: var(--scrim); z-index: 30; display: grid; place-items: center; padding: var(--s4); }
@@ -373,8 +395,9 @@ tr.clickable:hover td { background: var(--fill); }
   .msg { max-width: 95%; }
   .factor { grid-template-columns: 96px 1fr 32px; }
   /* All six tabs fit at 390px (UX21); the bar still scrolls on narrower screens. */
-  .tabs { padding: 0 var(--s2); gap: 0; scrollbar-width: none; justify-content: space-between; }
-  .tabs::-webkit-scrollbar { display: none; }
+  .tabs { padding: 0 var(--s2); }
+  .tabs-inner { gap: 0; scrollbar-width: none; justify-content: space-between; }
+  .tabs-inner::-webkit-scrollbar { display: none; }
   .tabs button { padding: 0 var(--s1); }
   .drawer-head { padding-left: var(--s4); }
   #drawer-body { padding: var(--s4) var(--s4) var(--s6); }
@@ -394,11 +417,21 @@ tr.clickable:hover td { background: var(--fill); }
   .card .actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .card .actions button { padding-left: var(--s2); padding-right: var(--s2); min-width: 0; white-space: normal; }
   .card-title .sym { display: block; margin-left: 0; }
+  /* CHL-DS-R4: on phones the sector line runs under both the name and the score button. */
+  .card-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s3); }
+  .card { padding: var(--s3) var(--s4); }
+  .card-head > div:first-child { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: subgrid; column-gap: var(--s3); }
+  .card-head .card-title { grid-column: 1; grid-row: 1; }
+  .card-head .grade { grid-column: 2; grid-row: 1; align-self: start; }
+  .card-head .card-sub { grid-column: 1 / -1; grid-row: 2; }
   /* Compact badge on phones ("Score 76 · A", UX34), so the title and sector get the width; aria-label keeps the full words. */
   .card-head .grade .gword, .card-head .grade .gout { display: none; }
   .card-head .grade .gcap { display: inline; }
   .metrics.hero-m { gap: var(--s2); }
   .thesis { margin-top: var(--s2); }
+  /* CHL-DS-R4: phone cards keep their gaps on the 8px step so card 1 stays inside 800px. */
+  .why-chips, .card .strategy-tag, .card .actions, details.more { margin-top: var(--s2); }
+  .metrics.hero-m { margin: var(--s2) 0; }
 }
 .nfa { color: var(--muted); margin: var(--s2) 0 0; }
 
@@ -429,12 +462,15 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 /* UX28: the top idea's numbers in the phone's first screen: a quiet link to card 1. */
 .hero-top-idea { display: none; }
 @media (max-width: 600px) {
-  .hero-top-idea:not(.hidden) { display: flex; align-items: center; min-height: 48px; margin-top: var(--s2); color: var(--accent); font-weight: 600; }
+  .hero-top-idea:not(.hidden) { display: flex; flex-direction: column; justify-content: center; min-height: 48px; margin-top: var(--s2); color: var(--accent); font-weight: 600; }
+  /* CHL-DS-R3: the numbers are information, so they're ink on their own line; only the words are the link color. */
+  .hero-top-idea .hti-nums { color: var(--ink); font-weight: 400; text-decoration: none; display: block; }
 }
 /* UX29: reflow at 320px, no horizontal page scroll */
 @media (max-width: 400px) {
-  .risk-control { width: 100%; gap: var(--s2); }
-  .risk-control input { flex: 1 1 auto; width: auto; min-width: 0; }
+  /* CHL-DS-R6: the control wraps; the slider takes its own full-width row. */
+  .risk-control { width: 100%; flex-wrap: wrap; gap: 0 var(--s2); padding: var(--s1) var(--s4); border-radius: var(--r-md); }
+  .risk-control input { order: 3; flex: 1 1 100%; width: 100%; min-width: 0; }
 }
 /* UX35: on phones the disabled trade types fold into one line */
 .locked-note { display: none; margin: var(--s2) 0 0; }
@@ -479,3 +515,11 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 .alert-chip[data-alert="take_profit"] { background: var(--safe-soft); color: var(--safe); }
 .alert-msgs { margin: var(--s1) 0 0; padding-left: var(--s4); color: var(--muted); }
 .alert-msgs li + li { margin-top: var(--s1); }
+/* CHL-DS-R10: Paper capital and Starting risk level stack on phones, so the select's words fit. */
+@media (max-width: 480px) {
+  .field-pair { flex-direction: column; align-items: stretch; gap: 0; }
+}
+/* CHL-DS-R8: the footer disclaimer fits one row at 320px. */
+@media (max-width: 359px) {
+  .disclaimer { padding: 0 var(--s2); }
+}

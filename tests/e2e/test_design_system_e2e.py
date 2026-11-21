@@ -191,6 +191,12 @@ def _sweep(browser, site_url, size):
             _open_all_details(pg, f"#tab-{tab}")
             pg.evaluate("scrollTo(0, 0)")
             add(_collect(pg, f"tab {tab}"))
+            if tab == "profile":  # fix round 1: the inline delete confirm (CHL-DS-R2) is a screen of its own
+                pg.click("#delete-profile")
+                expect(pg.locator("#delete-confirm")).to_be_visible()
+                add(_collect(pg, "tab profile, delete confirm open"))
+                pg.click("#delete-no")
+                expect(pg.locator("#delete-confirm")).to_be_hidden()
         pg.click("[data-tab=today]")
         bar = pg.get_by_role("region", name="Demo")
         bar.get_by_role("button", name="Demo details").click()
@@ -481,7 +487,7 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
         pg.goto(site_url)
         _ready(pg)
         colors = {k: _color(pg, f"var(--{k})") for k in
-                  ("accent", "accent-ink", "accent-soft", "fill", "ink", "danger", "on-danger")}
+                  ("accent", "accent-ink", "accent-soft", "fill", "ink", "danger", "on-danger", "danger-text")}
     finally:
         ctx.close()
     want = _kind_colors(colors)
@@ -493,6 +499,10 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
             continue
         k = b["kinds"][0]
         bg, fg = want[k]
+        # Fix round 1 (CHL-DS-R2): the one exception. The quiet trigger that opens the inline delete confirm names
+        # a destructive action, so it may use --danger-text; the filled danger is on the confirm (#delete-yes).
+        if k == "btn-quiet" and b["where"].endswith("button#delete-profile.btn-quiet.danger-text"):
+            fg = colors["danger-text"]
         if b["bg"] != bg or b["color"] != fg:
             bad.append(f"{label} {k}: bg {b['bg']} color {b['color']}, want bg {bg} color {fg}")
         if k == "btn-tinted" and b["radius"] < min(999, b["h"] / 2 - 0.5):
@@ -500,6 +510,12 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
         if k in ("btn-primary", "btn-tinted"):
             per_screen.setdefault((b["state"], b["group"], k), set()).add(b["text"])
     many = [f"{s} / {g}: {len(t)} {k} buttons {sorted(t)}" for (s, g, k), t in per_screen.items() if len(t) > 1]
+    confirm = [b for b in sweeps[size]["buttons"] if b["state"] == "tab profile, delete confirm open" and "#delete-yes" in b["where"]]
+    if not (len(confirm) == 1 and confirm[0]["kinds"] == ["btn-danger"] and confirm[0]["text"] == "Delete my data"):
+        bad.append(f"the delete confirm's 'Delete my data' (#delete-yes) must be the one btn-danger, got {confirm}")
+    triggers = [b for b in sweeps[size]["buttons"] if "#delete-profile" in b["where"]]
+    if not triggers or any(b["kinds"] != ["btn-quiet"] for b in triggers):
+        bad.append(f"#delete-profile must be a btn-quiet trigger, got {triggers}")
     assert bad == [] and many == [], {"kinds": bad[:40], "more than one per screen": many}
 
 
@@ -569,9 +585,9 @@ def test_CHL_DS_17_profile_has_an_appearance_choice_auto_by_default(make_page, s
     assert group.evaluate("(g) => g.tagName") == "FIELDSET"
     radios = group.get_by_role("radio")
     expect(radios).to_have_count(3)
-    assert [r.evaluate("(r) => r.labels[0].innerText.trim()") for r in radios.all()] == ["Auto", "Light", "Dark"]
-    expect(group.get_by_role("radio", name="Auto")).to_be_checked()
-    for name in ("Auto", "Light", "Dark"):
+    assert [r.evaluate("(r) => r.labels[0].innerText.trim()") for r in radios.all()] == ["Match device", "Light", "Dark"]
+    expect(group.get_by_role("radio", name="Match device")).to_be_checked()
+    for name in ("Match device", "Light", "Dark"):
         r = group.get_by_role("radio", name=name)
         assert r.evaluate("(r) => r.type") == "radio", "native radios"
         box = r.evaluate("(r) => { const b = r.labels[0].getBoundingClientRect(); return [b.width, b.height]; }")
@@ -605,7 +621,7 @@ def test_CHL_DS_18_light_or_dark_overrides_the_os_and_survives_reload(make_page,
     assert _bg(pg) == _rgb(PAPER[other]["bg"])
     expect(_profile(pg).get_by_role("radio", name=pick)).to_be_checked()
     # Auto removes the attribute and follows the OS again, live.
-    _profile(pg).get_by_role("radio", name="Auto").check()
+    _profile(pg).get_by_role("radio", name="Match device").check()
     expect(pg.locator("html[data-theme]")).to_have_count(0)
     assert _bg(pg) == _rgb(PAPER[os_scheme]["bg"])
     pg.emulate_media(color_scheme=other)
@@ -619,7 +635,7 @@ def test_CHL_DS_18_a_bad_stored_value_means_auto(make_page, site_url):
     _ready(pg)
     expect(pg.locator("html[data-theme]")).to_have_count(0)
     assert _bg(pg) == _rgb(PAPER["dark"]["bg"])
-    expect(_profile(pg).get_by_role("radio", name="Auto")).to_be_checked()
+    expect(_profile(pg).get_by_role("radio", name="Match device")).to_be_checked()
 
 
 def test_CHL_DS_18_reset_demo_keeps_the_appearance_choice(make_page, site_url):
@@ -652,3 +668,299 @@ def test_CHL_DS_19_increased_contrast_gives_the_hc_tokens(browser, site_url, sch
         assert got == want, f"HC {mode} (OS {scheme}, picked {theme}): {got}"
     finally:
         ctx.close()
+
+
+# ================================================================ fix round 1: ux-reviewer's CHL-DS-R1 to R14
+# Written first, red, by qa-tdd on Nov 21 2026 from ux-reviewer's 7/10 restyle review. One test per finding.
+SMALL = (320, 700)
+TABS = ["today", "profile", "screener", "chat", "paper", "learn"]
+MONEY = re.compile(r"\$\d")
+
+
+def _open_tab(pg, tab):
+    pg.click(f"[data-tab={tab}]")
+    _engine_idle(pg)
+    if tab == "screener":
+        expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)
+    pg.evaluate("scrollTo(0, 0)")
+
+
+CLIPPED_BUTTONS = """() => [...document.querySelectorAll('button')].filter((b) => b.checkVisibility() && !b.closest('.sr-only')
+    && b.getBoundingClientRect().width > 0 && b.scrollWidth > b.clientWidth)
+    .map((b) => `${b.id ? '#' + b.id : '.' + [...b.classList].join('.')} '${(b.innerText || '').trim().slice(0, 30)}' scrollWidth ${b.scrollWidth} > clientWidth ${b.clientWidth}`)"""
+TAB_BOXES = """() => [...document.querySelectorAll('nav.tabs [role=tab]')].map((b) => { const r = b.getBoundingClientRect();
+    return {t: b.innerText.trim(), l: r.left, r: r.right, top: r.top, b: r.bottom}; })"""
+
+
+# ---------------------------------------------------------------- CHL-DS-R1 no clipped button text, no overlapping tabs
+@pytest.mark.parametrize("size", [SMALL, PHONE, DESKTOP], ids=["320x700", "390x844", "1280x800"])
+def test_CHL_DS_R1_no_button_clips_its_text_and_no_tabs_overlap_on_any_tab(browser, site_url, size):
+    ctx, pg = _new(browser, site_url, size)
+    try:
+        pg.goto(site_url)
+        _ready(pg)
+        bad = []
+        for tab in TABS:
+            _open_tab(pg, tab)
+            bad += [f"{tab}: {x}" for x in pg.evaluate(CLIPPED_BUTTONS)]
+            boxes = pg.evaluate(TAB_BOXES)
+            for i, a in enumerate(boxes):
+                for b in boxes[i + 1:]:
+                    ox = min(a["r"], b["r"]) - max(a["l"], b["l"])
+                    oy = min(a["b"], b["b"]) - max(a["top"], b["top"])
+                    if ox > 0.5 and oy > 0.5:
+                        bad.append(f"{tab}: tab '{a['t']}' overlaps tab '{b['t']}' by {ox:.1f}px")
+        assert bad == [], f"at {size[0]}px:\n" + "\n".join(sorted(set(bad))[:40])
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-DS-R2 Profile: one filled button, inline delete confirm
+FILLED_BUTTONS = """() => [...document.querySelectorAll('#tab-profile button')].filter((b) => b.checkVisibility()
+    && (b.classList.contains('btn-primary') || b.classList.contains('btn-danger'))).map((b) => b.innerText.trim())"""
+
+
+def test_CHL_DS_R2_profile_has_one_filled_button_and_delete_confirms_inline(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.add_init_script("window.__confirms = 0; window.confirm = () => { window.__confirms += 1; return false; };")
+    pg.goto(site_url)
+    _ready(pg)
+    _open_tab(pg, "profile")
+    tab = pg.locator("#tab-profile")
+    filled = pg.evaluate(FILLED_BUTTONS)
+    assert len(filled) <= 1, f"{len(filled)} filled (primary/danger) buttons on Profile at rest: {filled}"
+    build = tab.get_by_role("button", name="Build my profile")
+    assert "btn-tinted" in build.get_attribute("class").split(), f"Build my profile is {build.get_attribute('class')}"
+    delete = tab.get_by_role("button", name="Delete my data")
+    expect(delete).to_have_count(1)
+    assert "btn-danger" not in delete.get_attribute("class").split(), "Delete my data is filled danger before it's tapped"
+    delete.click()
+    pg.wait_for_timeout(200)
+    assert pg.evaluate("window.__confirms") == 0, "Delete my data called window.confirm (want an inline confirm)"
+    yes = tab.locator("button.btn-danger", has_text=re.compile(r"^\s*Delete my data\s*$"))
+    keep = tab.get_by_role("button", name="Keep my data", exact=True)
+    expect(yes).to_be_visible()
+    expect(keep).to_be_visible()
+    assert len(pg.evaluate(FILLED_BUTTONS)) <= 1, f"filled buttons with the confirm open: {pg.evaluate(FILLED_BUTTONS)}"
+    keep.click()
+    expect(keep).to_be_hidden()
+    assert pg.evaluate("window.__confirms") == 0
+
+
+# ---------------------------------------------------------------- CHL-DS-R3 dollar figures are never accent
+ACCENT_MONEY = r"""(accent) => [...document.querySelectorAll('body *')].filter((el) => {
+    if (!el.checkVisibility() || el.closest('svg, .sr-only')) return false;
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('');
+    return /\$\d/.test(own) && getComputedStyle(el).color === accent;
+}).map((el) => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}.${[...el.classList].join('.')} '${el.textContent.trim().slice(0, 50)}'`)"""
+
+
+@pytest.mark.parametrize("scheme,contrast", [("light", None), ("dark", None), ("light", "more")], ids=["light", "dark", "hc"])
+def test_CHL_DS_R3_no_dollar_figure_is_in_the_accent_and_the_hero_link_names_the_idea(browser, site_url, scheme, contrast):
+    ctx, pg = _new(browser, site_url, PHONE, scheme, contrast)
+    try:
+        pg.goto(site_url)
+        _ready(pg)
+        accent = _color(pg, "var(--accent)")
+        bad = []
+        for tab in TABS:
+            _open_tab(pg, tab)
+            bad += [f"{tab}: {x}" for x in pg.evaluate(ACCENT_MONEY, accent)]
+        pg.click("[data-tab=today]")
+        _engine_idle(pg)
+        pg.locator("#ideas .card [data-ticker]").first.click()
+        expect(pg.locator("#drawer svg.payoff").first).to_be_visible(timeout=ENGINE)
+        bad += [f"drawer: {x}" for x in pg.evaluate(ACCENT_MONEY, accent)]
+        pg.keyboard.press("Escape")
+        pg.evaluate("scrollTo(0, 0)")
+        link = pg.locator("#hero-top-idea")
+        expect(link).to_be_visible()
+        text = link.inner_text().strip()
+        m = re.fullmatch(r"See today's top idea: (.+?) ›", text.split("\n")[0].strip())
+        assert m and m.group(1).strip(), f"hero link reads {text!r}, want \"See today's top idea: <name> ›\""
+        assert link.evaluate("(a) => getComputedStyle(a).color") == accent, "the hero link is in the accent"
+        nums = pg.evaluate(r"""(accent) => { const a = document.querySelector('#hero-top-idea'), top = a.getBoundingClientRect();
+            const title = [...a.querySelectorAll('*'), a].find((e) => /See today's top idea/.test([...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('')));
+            const tb = (title || a).getBoundingClientRect();
+            return [...document.querySelectorAll('.hero-main *')].filter((e) => e.checkVisibility()
+                && /\$\d/.test([...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('')))
+              .map((e) => ({t: e.textContent.trim().slice(0, 60), accent: getComputedStyle(e).color === accent,
+                            below: e.getBoundingClientRect().top >= tb.bottom - 1})); }""", accent)
+        assert nums and all(n["below"] and not n["accent"] for n in nums), \
+            f"the hero's numbers must sit on their own line under the link title, not in the accent: {nums}"
+        assert bad == [], f"dollar figures in the accent ({scheme}{', HC' if contrast else ''}):\n" + "\n".join(sorted(set(bad))[:30])
+    finally:
+        ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-DS-R4 cards stay short; why-reasons have no pill fill
+def test_CHL_DS_R4_idea_cards_stay_under_800px_and_why_reasons_are_unfilled(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.evaluate("document.querySelectorAll('#ideas details').forEach((d) => d.open = false)")
+    cards = pg.locator("#ideas .card")
+    assert cards.count() >= 1
+    tall = [f"card {i + 1}: {cards.nth(i).bounding_box()['height']:.0f}px" for i in range(cards.count())
+            if cards.nth(i).bounding_box()["height"] > 800]
+    filled = pg.evaluate("""() => [...document.querySelectorAll('#ideas .card .why-chips > *')].filter((e) => e.checkVisibility())
+        .map((e) => ({t: e.textContent.trim().slice(0, 40), bg: getComputedStyle(e).backgroundColor}))
+        .filter((x) => x.bg !== 'rgba(0, 0, 0, 0)' && x.bg !== 'transparent')""")
+    assert pg.locator("#ideas .card .why-chips > *").count() >= 1, "no why-reasons on the cards"
+    assert tall == [] and filled == [], {"over 800px at 390": tall, "why-reasons with a fill": filled[:10]}
+
+
+# ---------------------------------------------------------------- CHL-DS-R5 the drawer's Close says Close
+def test_CHL_DS_R5_drawer_close_reads_close_is_48px_and_escape_still_closes(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.locator("#ideas .card [data-ticker]").first.click()
+    drawer = pg.locator("#drawer")
+    expect(drawer.locator("svg.payoff").first).to_be_visible(timeout=ENGINE)
+    close = pg.locator("#drawer-close")
+    got = close.evaluate("(b) => ({t: b.innerText.trim(), h: b.getBoundingClientRect().height, w: b.getBoundingClientRect().width,"
+                         " label: b.getAttribute('aria-label')})")
+    assert got["t"] == "Close", f"#drawer-close shows {got['t']!r}, want the word 'Close'"
+    assert abs(got["h"] - 48) <= 0.5 and got["w"] >= 48, f"#drawer-close is {got['w']:.0f}x{got['h']:.0f} (want 48 tall)"
+    assert got["label"], "#drawer-close lost its aria-label"
+    pg.keyboard.press("Escape")
+    expect(drawer).to_be_hidden()
+
+
+# ---------------------------------------------------------------- CHL-DS-R6 the risk slider is usable at 320
+def test_CHL_DS_R6_risk_slider_is_at_least_240px_wide_at_320(make_page, site_url):
+    pg = make_page(*SMALL)
+    pg.goto(site_url)
+    _ready(pg)
+    w = pg.locator("#risk").bounding_box()["width"]
+    assert w >= 240, f"the risk range input is {w:.0f}px wide at 320px (want >= 240)"
+
+
+# ---------------------------------------------------------------- CHL-DS-R7 chat: no card around the messages
+def test_CHL_DS_R7_chat_welcome_and_panel_have_no_card_border_or_fill(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    _open_tab(pg, "chat")
+    got = pg.evaluate("""() => { const st = (e) => { const s = getComputedStyle(e);
+            return {bw: [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth].map(parseFloat).reduce((a, b) => a + b, 0),
+                    bs: s.borderTopStyle, bg: s.backgroundColor}; };
+        const w = document.querySelector('#chat-log .msg.bot');
+        let p = w.parentElement, pbg = 'rgba(0, 0, 0, 0)';
+        for (; p; p = p.parentElement) { const b = getComputedStyle(p).backgroundColor; if (b !== 'rgba(0, 0, 0, 0)') { pbg = b; break; } }
+        return {welcome: st(w), parentBg: pbg, wrap: st(document.querySelector('.chat-wrap')), log: st(document.querySelector('#chat-log'))}; }""")
+    bad = []
+    w = got["welcome"]
+    if w["bw"] > 0 and w["bs"] != "none":
+        bad.append(f"welcome message has a border ({w['bw']:g}px summed over its sides)")
+    if w["bg"] not in ("rgba(0, 0, 0, 0)", got["parentBg"]):
+        bad.append(f"welcome message background {w['bg']} differs from its parent's {got['parentBg']}")
+    for k in ("wrap", "log"):
+        if got[k]["bw"] > 0 and got[k]["bs"] != "none":
+            bad.append(f"{'.chat-wrap' if k == 'wrap' else '#chat-log'} has a card border ({got[k]['bw']:g}px summed over its sides)")
+    assert bad == [], bad
+
+
+# ---------------------------------------------------------------- CHL-DS-R8 footer disclaimer on one row at 320
+def test_CHL_DS_R8_footer_disclaimer_line_fits_one_row_at_320(make_page, site_url):
+    pg = make_page(*SMALL)
+    pg.goto(site_url)
+    _ready(pg)
+    rows = pg.evaluate("""() => { const t = document.querySelector('#footer-disclaimer .foot-text'); const tops = new Set();
+        const tw = document.createTreeWalker(t, NodeFilter.SHOW_TEXT); let n;
+        while ((n = tw.nextNode())) { if (!n.textContent.trim() || !n.parentElement.checkVisibility()) continue;
+          const r = document.createRange(); r.selectNodeContents(n);
+          [...r.getClientRects()].filter((x) => x.width > 0).forEach((x) => tops.add(Math.round(x.top))); }
+        return {rows: tops.size, text: t.innerText.trim()}; }""")
+    assert rows["rows"] == 1, f"the footer disclaimer '{rows['text']}' wraps onto {rows['rows']} rows at 320px (orphan word)"
+
+
+# ---------------------------------------------------------------- CHL-DS-R9 Appearance above the circle, plain labels
+def test_CHL_DS_R9_appearance_sits_above_the_circle_with_match_device_light_dark(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    _open_tab(pg, "profile")
+    a, v = pg.locator("#appearance").bounding_box(), pg.locator("#profile-view").bounding_box()
+    assert a["y"] < v["y"], f"#appearance top {a['y']:.0f} is below the profile circle view top {v['y']:.0f} at 390"
+    labels = pg.evaluate("[...document.querySelectorAll('#appearance input[type=radio]')].map((r) => [r.labels[0].innerText.trim(), r.value])")
+    assert labels == [["Match device", "auto"], ["Light", "light"], ["Dark", "dark"]], labels
+    legend = pg.locator("#appearance legend").evaluate("(l) => [getComputedStyle(l).fontSize, getComputedStyle(l).lineHeight]")
+    assert legend == ["22px", "28px"], f"Appearance legend is {legend}, want the 22/28 title size"
+    group = pg.get_by_role("group", name="Appearance")
+    group.get_by_role("radio", name="Dark").check()
+    group.get_by_role("radio", name="Match device").check()
+    assert pg.evaluate("localStorage.getItem('charlie-appearance')") in (None, "auto")
+
+
+# ---------------------------------------------------------------- CHL-DS-R10 the Profile risk select isn't clipped
+def test_CHL_DS_R10_profile_risk_select_text_is_not_clipped_at_390(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    _open_tab(pg, "profile")
+    sel = pg.locator("#profile-form select[name=risk_level]")
+    bad = []
+    for v in ["1", "2", "3", "4", "5"]:
+        sel.select_option(v)
+        got = sel.evaluate("""(s) => { const c = getComputedStyle(s), x = document.createElement('canvas').getContext('2d');
+            x.font = `${c.fontWeight} ${c.fontSize} ${c.fontFamily}`;
+            return {t: s.options[s.selectedIndex].text, need: x.measureText(s.options[s.selectedIndex].text).width,
+                    room: s.clientWidth - parseFloat(c.paddingLeft) - parseFloat(c.paddingRight), sw: s.scrollWidth, cw: s.clientWidth}; }""")
+        if got["sw"] > got["cw"] or got["need"] > got["room"] + 0.5:
+            bad.append(f"'{got['t']}' needs {got['need']:.0f}px, has {got['room']:.0f}px (scrollWidth {got['sw']}, clientWidth {got['cw']})")
+    assert bad == [], f"Profile risk select clips its text at 390: {bad}"
+
+
+# ---------------------------------------------------------------- CHL-DS-R11 the hero metric values line up
+def test_CHL_DS_R11_card_one_hero_values_share_a_baseline_at_390(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    tops = pg.evaluate("""() => [...document.querySelector('#ideas .card').querySelectorAll('.hero-m .metric .v')]
+        .map((v) => ({t: v.innerText.trim(), top: v.getBoundingClientRect().top}))""")
+    assert len(tops) == 3, tops
+    spread = max(t["top"] for t in tops) - min(t["top"] for t in tops)
+    assert spread <= 1, f"card 1 hero values start {spread:.0f}px apart at 390 (want within 1px): {tops}"
+
+
+# ---------------------------------------------------------------- CHL-DS-R12 drawer head: 22px name, "Sample data" once
+def test_CHL_DS_R12_drawer_head_name_is_22px_and_says_sample_data_once(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.locator("#ideas .card [data-ticker]").first.click()
+    expect(pg.locator("#drawer svg.payoff").first).to_be_visible(timeout=ENGINE)
+    got = pg.evaluate("""() => { const t = document.querySelector('#drawer-title');
+        const body = document.querySelector('#drawer-body'), first = [...body.children].find((e) => e.checkVisibility() && e.innerText.trim());
+        return {px: getComputedStyle(t).fontSize, head: document.querySelector('.drawer-head').innerText, first: first ? first.innerText : ''}; }""")
+    assert got["px"] == "22px", f"the drawer's company name is {got['px']} (want 22px)"
+    n = (got["head"] + "\n" + got["first"]).count("Sample data")
+    assert n == 1, f"'Sample data' appears {n} times in the drawer head and first body line: {got['head']!r} / {got['first']!r}"
+
+
+# ---------------------------------------------------------------- CHL-DS-R13 one left edge at 1280
+def test_CHL_DS_R13_brand_tabs_and_content_share_a_left_edge_at_1280(make_page, site_url):
+    pg = make_page(*DESKTOP)
+    pg.goto(site_url)
+    _ready(pg)
+    got = pg.evaluate("""() => { const m = document.querySelector('main'), r = m.getBoundingClientRect();
+        return {content: r.left + parseFloat(getComputedStyle(m).paddingLeft),
+                brand: document.querySelector('header .brand').getBoundingClientRect().left,
+                tab: document.querySelector('nav.tabs [role=tab]').getBoundingClientRect().left}; }""")
+    assert abs(got["brand"] - got["content"]) <= 1 and abs(got["tab"] - got["content"]) <= 1, \
+        f"at 1280: brand left {got['brand']:.0f}, first tab left {got['tab']:.0f}, main content left {got['content']:.0f}"
+
+
+# ---------------------------------------------------------------- CHL-DS-R14 empty Portfolio: no icon, no Refresh
+def test_CHL_DS_R14_empty_portfolio_has_no_icon_circle_and_no_refresh(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    _open_tab(pg, "paper")
+    expect(pg.get_by_text("No paper trades yet")).to_be_visible(timeout=ENGINE)
+    icons = pg.evaluate("[...document.querySelectorAll('#tab-paper .icon')].filter((e) => e.checkVisibility()).length")
+    refresh = pg.locator("#tab-paper").get_by_role("button", name="Refresh")
+    vis = refresh.count() and refresh.first.is_visible()
+    assert icons == 0 and not vis, f"empty Portfolio shows {icons} icon circle(s) and Refresh visible={bool(vis)}"
