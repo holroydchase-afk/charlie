@@ -169,6 +169,15 @@ button { cursor: pointer; }
 .delete-confirm[hidden], .delete-row [hidden] { display: none; }
 .btn-primary:hover, .btn-tinted:hover, .btn-secondary:hover, .btn-danger:hover { text-decoration: underline; text-underline-offset: 3px; }
 .btn-primary:disabled, .btn-tinted:disabled, .btn-secondary:disabled, .btn-quiet:disabled, .btn-danger:disabled { opacity: .6; cursor: default; text-decoration: none; }
+/* CHL-DS-R25/R26: the header Profile button reads as a tab: the inactive tab's colour at rest, the active
+   tab's accent and 2px mark while Profile shows. The 2px border is reserved transparently so nothing shifts. */
+.header-profile {
+  color: var(--muted); text-decoration: none; font-weight: 600; border-radius: 0;
+  border-top: 2px solid transparent; border-bottom: 2px solid transparent;
+}
+.header-profile:hover { color: var(--ink); }
+.header-profile:focus-visible { outline-offset: -2px; }
+.header-profile[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
 input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea {
   width: 100%; min-height: 48px; padding: var(--s2) var(--s3); border: 1px solid var(--tab-line); border-radius: var(--r-md); background-color: var(--fill);
 }
