@@ -62,7 +62,8 @@ function md(text) {
 
 // ---------------------------------------------------------------- charts
 // Charts are drawn at their rendered width (UX5): a placeholder <div class="chart"> holds the data, and
-// drawChart() writes an SVG whose viewBox matches the box, so the 12px labels stay 12px on a phone.
+// drawChart() writes an SVG whose viewBox matches the box, so the 17px labels (CHL-DS-7) stay 17px on a phone.
+// Few labels (studio principle 1, Q4): P&L at the top, $0 and the bottom; prices at the two ends.
 const chartData = {};
 function chartSlot(kind, data) {
   const id = `g${Math.random().toString(36).slice(2, 8)}`;
@@ -100,7 +101,7 @@ function payoffAt(trade, px) {
 const signedMoney = (v) => (Math.round(v) === 0 ? "$0" : (v > 0 ? "+" : "−") + money(Math.abs(v)));
 const payoffRange = (t) => [t.spot * 0.7, t.spot * 1.3];
 function payoffSVG(trade, W = 520) {
-  const H = W < 480 ? 112 : 160, padR = 8, top = 14, bottom = 24, gap = 8;
+  const H = W < 480 ? 112 : 168, padR = 8, top = 16, bottom = 32, gap = 8;
   const [lo, hi] = payoffRange(trade), N = 80;
   const pts = [];
   for (let i = 0; i <= N; i++) { const px = lo + (hi - lo) * i / N; pts.push([px, payoffAt(trade, px)]); }
@@ -111,7 +112,7 @@ function payoffSVG(trade, W = 520) {
   const yLabs = [[0, "$0"]];
   if (Math.round(yMax) !== 0) yLabs.push([yMax, signedMoney(yMax)]);
   if (Math.round(yMin) !== 0) yLabs.push([yMin, signedMoney(yMin)]);
-  const padL = gap + 4 + Math.max(...yLabs.map(([, s]) => s.length)) * 7.2;
+  const padL = gap + 4 + Math.max(...yLabs.map(([, s]) => s.length)) * 10.5;  // 17px tabular figures
   const X = (px) => padL + (px - lo) / (hi - lo) * (W - padL - padR);
   const Y = (v) => top + (yMax - v) / (yMax - yMin) * (H - top - bottom);
   const path = pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("");
@@ -121,9 +122,9 @@ function payoffSVG(trade, W = 520) {
   };
   const be = trade.breakeven && trade.breakeven > lo && trade.breakeven < hi
     ? `<circle class="be" cx="${X(trade.breakeven).toFixed(1)}" cy="${Y(0).toFixed(1)}" r="4.5"/>` : "";
-  // Keep the $0 label; drop an extreme label that would sit within 15px of it.
-  const shown = yLabs.filter(([v], i) => i === 0 || Math.abs(Y(v) - Y(0)) >= 15);
-  const yText = shown.map(([v, s]) => `<text class="y-label" x="${(padL - gap).toFixed(1)}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${s}</text>`).join("");
+  // Keep the $0 label; drop an extreme label that would sit within 22px of it (one 17px line).
+  const shown = yLabs.filter(([v], i) => i === 0 || Math.abs(Y(v) - Y(0)) >= 22);
+  const yText = shown.map(([v, s]) => `<text class="y-label" x="${(padL - gap).toFixed(1)}" y="${(Y(v) + 6).toFixed(1)}" text-anchor="end">${s}</text>`).join("");
   return `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Profit and loss at expiration, from ${signedMoney(yMin)} to ${signedMoney(yMax)}, for ${esc(trade.symbol)} prices from ${money(lo)} to ${money(hi)}">
     <path class="gain-area" d="${area((v) => Math.max(v, 0))}"/>
     <path class="loss-area" d="${area((v) => Math.min(v, 0))}"/>
@@ -136,10 +137,10 @@ function payoffSVG(trade, W = 520) {
   </svg>`;
 }
 function sparkSVG(hist, W = 640) {
-  const H = 110, c = hist.map((h) => h.close), lo = Math.min(...c), hi = Math.max(...c);
-  const d = c.map((v, i) => `${i ? "L" : "M"}${(i / (c.length - 1) * W).toFixed(1)},${(H - 20 - (v - lo) / (hi - lo || 1) * (H - 40)).toFixed(1)}`).join("");
+  const H = 128, c = hist.map((h) => h.close), lo = Math.min(...c), hi = Math.max(...c);
+  const d = c.map((v, i) => `${i ? "L" : "M"}${(i / (c.length - 1) * W).toFixed(1)},${(H - 28 - (v - lo) / (hi - lo || 1) * (H - 56)).toFixed(1)}`).join("");
   return `<svg class="payoff" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Price history from ${money(lo)} to ${money(hi)}"><path class="curve" d="${d}"/>
-    <text x="2" y="12">${money(hi)}</text><text x="2" y="${H - 4}">${money(lo)}</text></svg>`;
+    <text x="2" y="16">${money(hi)}</text><text x="2" y="${H - 4}">${money(lo)}</text></svg>`;
 }
 
 // ---------------------------------------------------------------- trade + idea rendering
@@ -165,10 +166,10 @@ function moreMetrics(t) {
   if (t.expected_move) m.push(["Typical move by expiry", money(t.expected_move, 2)]);
   return `<div class="metrics">${m.map(([k, v]) => metric(k, v)).join("")}</div>`;
 }
-function chartBlock(t) {  // the legend keeps "today" and breakeven readable above the chart
+function chartBlock(t, { caption = true } = {}) {  // the legend keeps "today" and breakeven readable above the chart
   return `<div class="chart-legend"><span class="key-spot">Today <b>${money(t.spot, 2)}</b></span><span class="key-be">Breakeven <b>${t.breakeven ? money(t.breakeven, 2) : "—"}</b></span><span class="wide-only">Profit or loss at expiration</span></div>
     ${chartSlot("payoff", t)}
-    <p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>`;
+    ${caption ? `<p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>` : ""}`;
 }
 function planTicket(t, { nested = false, skipExit = false } = {}) {  // nested: already inside a <details>, so no second one
   const plan = skipExit ? t.management.slice(1) : t.management;  // skipExit: the card already shows the exit plan line
@@ -186,14 +187,19 @@ function keepTrade(t) {
   window._trades = window._trades || {}; window._trades[id] = t;
   return id;
 }
-function tradeActions(id) {
+// Button kinds (CHL-DS-15): one main action per screen. main = "primary" (the drawer's first trade: a
+// deliberate moment), "tinted" (card 1 on Today), or "" (every other card: secondary).
+function tradeActions(id, main = "") {
+  const paper = main === "primary" ? `<button class="btn-primary" data-paper="${id}">Paper trade this</button>`
+    : main === "tinted" ? `<button class="btn-tinted" data-paper="${id}">Paper trade this</button>`
+    : `<button class="btn-secondary" data-paper="${id}">Paper trade this</button>`;
   return `<div class="actions">
-      <button class="primary" data-paper="${id}">Paper trade this</button>
-      <button class="ghost" data-copy="${id}">Copy trade details</button>
+      ${paper}
+      <button class="btn-secondary" data-copy="${id}">Copy trade details</button>
     </div>`;
 }
 // The full trade (drawer, screener rows): headline numbers, chart, then every detail.
-function tradeBlock(t, { withActions = true } = {}) {
+function tradeBlock(t, { withActions = true, main = "" } = {}) {
   const id = keepTrade(t);
   return `
     ${tradeTag(t)}
@@ -201,13 +207,13 @@ function tradeBlock(t, { withActions = true } = {}) {
     ${chartBlock(t)}
     <details><summary>More numbers</summary>${moreMetrics(t)}</details>
     ${planTicket(t)}
-    ${withActions ? tradeActions(id) : ""}
+    ${withActions ? tradeActions(id, main) : ""}
     ${nfa()}`;
 }
 // Phone (UX34): "Score 76 · A"; wider screens: "Charlie score 76/100 · A". The aria-label carries the full words.
 function gradeLabel(ch) { return `<span class="gword">Charlie score </span><span class="gcap">Score </span>${ch.score}<span class="gout">/100</span> · ${ch.grade}`; }
 // Idea card (UX4): collapsed by default; plan, risks and order details are one tap away.
-function ideaCard(idea) {
+function ideaCard(idea, i = 0) {
   const a = idea.analysis, t = idea.trade, th = idea.thesis, ch = a.charlie, id = keepTrade(t);
   return `<article class="card">
     <div class="card-head">
@@ -215,16 +221,16 @@ function ideaCard(idea) {
         <div class="card-title"><span class="rank" aria-hidden="true">${idea.rank}</span>${esc(a.name)}<span class="sym">${esc(a.symbol)} · ${money(a.quote.price, 2)}</span></div>
         <div class="card-sub">${esc(a.domain_label || "")} · ${esc(ch.lynch_category)}</div>
       </div>
-      <button class="grade ${ch.grade}" data-ticker="${a.symbol}" title="Munger-style checklist score. Open for the full breakdown."
+      <button class="btn-secondary grade ${ch.grade}" data-ticker="${a.symbol}" title="Munger-style checklist score. Open for the full breakdown."
         aria-label="Charlie score ${ch.score} out of 100, grade ${ch.grade}. Open details for ${esc(a.name)}."><span class="gscore">${gradeLabel(ch)}</span><span class="gmore">Details</span></button>
     </div>
-    <div class="chips why-chips">${th.why_you.map((w) => `<span class="chip">✓ ${esc(w)}</span>`).join("")}</div>
+    <div class="why-chips">${th.why_you.map((w) => `<span class="why-line">✓ ${esc(w)}</span>`).join("")}</div>
     ${th.summary.length ? `<p class="thesis">${esc(th.summary[0])}</p>` : ""}
     ${tradeTag(t)}
     ${heroMetrics(t)}
-    ${chartBlock(t)}
+    ${chartBlock(t, { caption: false })}
     ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
-    ${tradeActions(id)}
+    ${tradeActions(id, i === 0 ? "tinted" : "")}
     <details class="more"><summary>Plan, risks and order details</summary>
       ${moreMetrics(t)}
       ${planTicket(t, { nested: true })}
@@ -252,7 +258,7 @@ function errorState(text, err, retryAttr) {
   // 4xx messages from the handlers are already plain English; anything else stays in "Technical details".
   const plain = err && err.status >= 400 && err.status < 500 && err.message;
   return `<div class="panel state error" role="alert"><div class="icon" aria-hidden="true">!</div>
-    <p>${esc(plain || text)}</p><button type="button" class="primary" ${retryAttr}>Try again</button>
+    <p>${esc(plain || text)}</p><button type="button" class="btn-tinted" ${retryAttr}>Try again</button>
     ${!plain && err && !window.charlieStatic ? `<details><summary>Technical details</summary>${esc(err.message)}</details>` : ""}</div>`;
 }
 const retries = {};
@@ -262,29 +268,57 @@ new MutationObserver(() => $$("[data-bar]").forEach((el) => { el.style.width = `
 function retryButton(fn) { const id = `r${Math.random().toString(36).slice(2, 8)}`; retries[id] = fn; return `data-retry="${id}"`; }
 
 // ---------------------------------------------------------------- tabs
-const RISK_TABS = ["today", "screener", "hunch", "learn"];  // where the risk slider changes what you see
+// CHL-NAV-9: the one risk slider sits directly under the title on Today and Search; Chat, Trades and Learn show none.
+const RISK_TABS = ["today", "screener", "hunch"];
+// Hunches (M3.1, local app only) is a sub-view of Search, not a sixth tab: the Search tab stays selected while it
+// shows, and the Screener/Hunches switch at the top of both views moves between them. The static demo drops it.
+const VIEWS = ["today", "profile", "screener", "hunch", "chat", "paper", "learn"];
+const TAB_OF = { hunch: "screener" };
+let currentView = null, lastTab = "today";
+// CHL-DS-25: Profile is not a tab; the header Profile button opens it (aria-current="page" while it shows).
 function showTab(name) {
-  $$(".tabs button").forEach((b) => {
-    const on = b.dataset.tab === name;
-    b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+  const tab = TAB_OF[name] || name, tabs = $$(".tabs button"), isTab = tabs.some((b) => b.dataset.tab === tab);
+  tabs.forEach((b, i) => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on || (!isTab && i === 0) ? 0 : -1;  // the tablist stays reachable by Tab while Profile shows
   });
-  $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  const pb = $("#profile-btn");
+  if (name === "profile") pb.setAttribute("aria-current", "page"); else pb.removeAttribute("aria-current");
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
-  $("#risk-row").classList.toggle("hidden", !RISK_TABS.includes(name));
-  history.replaceState(null, "", `#${name}`);
+  const risk = $("#risk-row"), onRisk = RISK_TABS.includes(name);
+  risk.classList.toggle("hidden", !onRisk);
+  if (onRisk) $(`#tab-${name} .page-head`).after(risk);
+  if (isTab) lastTab = name;
+  currentView = name;
+  if (name !== "profile" || !history.state?.profile) history.replaceState(null, "", `#${name}`);
   ({ today: loadIdeas, profile: renderProfile, screener: initScreener, paper: loadPaper, learn: renderLearn, chat: openChat }[name] || (() => {}))();
 }
+// CHL-NAV-6 / CHL-DS-R27: Profile opens like a sheet over the last tab. Opening it pushes a history entry, so the
+// phone's Back (and Close, and Escape) return to that tab with focus on the Profile button.
+function openProfile() {
+  if (currentView === "profile") return;
+  history.pushState({ profile: true }, "", "#profile");
+  showTab("profile");
+}
+function closeProfile() {
+  if (currentView !== "profile") return;
+  if (history.state?.profile) return history.back();  // popstate shows the tab and moves focus
+  showTab(lastTab); $("#profile-btn").focus();
+}
+function go(name) { return name === "profile" ? openProfile() : showTab(name); }
+addEventListener("popstate", () => {
+  const was = currentView, t = location.hash.slice(1);
+  showTab(VIEWS.includes(t) ? t : "today");
+  if (was === "profile" && currentView !== "profile") $("#profile-btn").focus();
+});
+
+// CHL-NAV-10 (off by default, pending Chase): .is-typing alone has no effect; adding class nav-hide-on-type to <body> in index.html turns NAV-10 on.
+const TYPING = "textarea, input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset])";
+document.addEventListener("focusin", (e) => document.body.classList.toggle("is-typing", !!e.target.closest?.(TYPING)));
+document.addEventListener("focusout", (e) => { if (!e.relatedTarget?.closest?.(TYPING)) document.body.classList.toggle("is-typing", false); });
 
 // ---------------------------------------------------------------- today
-// UX28: one line in the hero (phones) so the first screen carries a real number; it scrolls to card 1.
-function topIdea(idea) {
-  const el = $("#hero-top-idea");
-  if (!el) return;
-  el.classList.toggle("hidden", !idea);
-  if (!idea) return;
-  const t = idea.trade;
-  el.innerHTML = `Top idea today: <b>${esc(idea.analysis.symbol)}</b> · ${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)} <span aria-hidden="true">›</span>`;
-}
 async function loadIdeas(refresh = false) {
   const box = $("#ideas");
   box.innerHTML = skeletonCards(Number($("#idea-count").value) || 3);
@@ -292,8 +326,7 @@ async function loadIdeas(refresh = false) {
     const r = await api(`/api/ideas?risk=${state.risk}&count=${$("#idea-count").value}${refresh ? "&refresh=true" : ""}`);
     $("#today-sub").innerHTML = `${state.status?.static ? "Sample market day: " : ""}${esc(fmtDate(r.date))} · <b>${esc(r.risk_label)}</b>: ${esc(r.risk_plain || r.risk_blurb)}`;
     setDataBadge(r.data_source);
-    box.innerHTML = r.ideas.length ? r.ideas.map(ideaCard).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
-    topIdea(r.ideas[0]);
+    box.innerHTML = r.ideas.length ? r.ideas.map((idea, i) => ideaCard(idea, i)).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
     drawCharts(box);
     $("#ideas-skipped").innerHTML = r.skipped.length
       ? `<details><summary>Considered ${r.considered} companies. Why some didn't make it</summary><ul class="tight">${r.skipped.map((s) => `<li><b>${esc(s.symbol)}</b>: ${esc(s.reason)}</li>`).join("")}</ul></details>` : "";
@@ -397,7 +430,7 @@ function renderProfile() {
       <div class="chips">${d.evidence.map((e) => `<span class="chip">${esc(e)}</span>`).join("")}</div>
     </div>`).join("")}
     <h3>Companies you're positioned to understand</h3>
-    <div class="chips">${p.tickers.map((t) => `<button class="chip" data-ticker="${t.symbol}" title="${esc(t.why.join("; "))}">${esc(t.symbol)} · ${esc(t.name)}</button>`).join("")}</div>
+    <div class="chips">${p.tickers.map((t) => `<button class="chip btn-secondary" data-ticker="${t.symbol}" title="${esc(t.why.join("; "))}">${esc(t.symbol)} · ${esc(t.name)}</button>`).join("")}</div>
     <p class="muted small">Capital ${money(p.capital)} · Risk level ${p.risk_level} · Holdings ${Object.keys(p.holdings).length ? esc(Object.entries(p.holdings).map(([k, v]) => `${k} ${v}`).join(", ")) : "none"} · Built with ${esc(p.source)}</p>`;
 }
 async function submitProfile(e) {
@@ -413,7 +446,7 @@ async function submitProfile(e) {
   try {
     const r = await api("/api/profile", { method: "POST", body: fd });
     state.profile = r.profile; state.risk = r.profile.risk_level; syncRisk();
-    $("#profile-status").innerHTML = `Done. Your circle is below, and Today now shows ideas for it. <button type="button" class="link-btn" data-goto="today">See today's ideas</button>`;
+    $("#profile-status").innerHTML = `Done. Your circle is below, and Today now shows ideas for it. <button type="button" class="btn-quiet" data-goto="today">See today's ideas</button>`;
     setWhose(true);
     renderProfile(); toast("Profile saved. Today's ideas are updated.");
   } catch (err) { $("#profile-status").textContent = err.message; }
@@ -431,12 +464,12 @@ function syncRisk() {
 async function onRisk() {
   state.risk = Number($("#risk").value); syncRisk();
   try { await postJSON("/api/profile/risk", { risk_level: state.risk }); if (state.profile) state.profile.risk_level = state.risk; } catch (e) { toast(e.message); }
-  const active = $(".tabs button.active").dataset.tab;
+  const active = $(".tabs button.active")?.dataset.tab;
   if (active === "today") loadIdeas();
   if (active === "learn") renderLearn();
-  if (active === "hunch" && $("#hunch-result").children.length) runHunch();
+  if (currentView === "hunch" && $("#hunch-result").children.length) runHunch();
   if (state.loaded.screener) syncStrategyChips();
-  if (active === "screener") runScreen();
+  if (currentView === "screener") runScreen();
 }
 
 // ---------------------------------------------------------------- screener
@@ -541,24 +574,30 @@ async function runScreen(e, save = false) {
 async function loadSavedScreens() {
   const r = await api("/api/screens");
   window._saved = r.screens;
-  $("#saved-screens").innerHTML = r.screens.length ? `<span class="muted small">Saved:</span>` + r.screens.map((s, i) => `<button type="button" class="chip" data-saved="${i}">${esc(s.name)}</button>`).join("") : "";
+  $("#saved-screens").innerHTML = r.screens.length ? `<span class="muted small">Saved:</span>` + r.screens.map((s, i) => `<button type="button" class="chip btn-secondary" data-saved="${i}">${esc(s.name)}</button>`).join("") : "";
 }
 
 // ---------------------------------------------------------------- chat
-// Keep the input above the fixed footer on every screen (UX1): the panel fills what's left of the viewport.
+// Keep the input above the phone's bottom stack (UX1, CHL-NAV-4): the panel fills what's left of the viewport.
+function bottomStack() {
+  const tops = ["nav.tabs", "#disclaimer-line"].map((q) => $(q)).filter((e) => e && getComputedStyle(e).position === "fixed" && e.checkVisibility())
+    .map((e) => e.getBoundingClientRect().top);
+  return tops.length ? innerHeight - Math.min(...tops) : 0;
+}
 function sizeChat() {
   const wrap = $(".chat-wrap"); if (!wrap.offsetParent) return;
-  const top = wrap.getBoundingClientRect().top + scrollY, foot = $("#footer-disclaimer").offsetHeight;
-  wrap.style.height = `${Math.max(340, innerHeight - top - foot - 16)}px`;
+  const top = wrap.getBoundingClientRect().top + scrollY;
+  wrap.style.height = `${Math.max(340, innerHeight - top - bottomStack() - 16)}px`;
 }
-function openChat() { sizeChat(); if (matchMedia("(hover: hover)").matches) $("#chat-input").focus(); }
+// Focus the input only on a laptop: on a phone it would raise the keyboard (and, if NAV-10 is on, hide the tab bar).
+function openChat() { sizeChat(); if (matchMedia("(hover: hover) and (min-width: 760px)").matches) $("#chat-input").focus(); }
 function renderChatMsg(role, text, cards = []) {
   const div = document.createElement("div");
   div.className = `msg ${role === "user" ? "user" : "bot"}`;
   div.innerHTML = role === "user" ? esc(text) : md(text) + cards.map((t) => {
     const id = keepTrade(t);
     return `<div class="mini"><b>${esc(t.symbol)} · ${esc(t.label)}</b>${t.expiry ? ` · expires ${esc(fmtDate(t.expiry))}` : ""}<br>Max loss ${money(t.max_loss)} · Breakeven ${t.breakeven ? money(t.breakeven, 2) : "—"}${t.pop ? ` · ${pct(t.pop)} chance of profit` : ""}
-      <div class="actions"><button class="ghost" data-paper="${id}">Paper trade</button><button class="ghost" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
+      <div class="actions"><button class="btn-secondary" data-paper="${id}">Paper trade</button><button class="btn-secondary" data-ticker="${esc(t.symbol)}">Details</button></div>${nfa()}</div>`;
   }).join("");
   $("#chat-log").appendChild(div); div.scrollIntoView({ behavior: "smooth", block: "end" });
   return div;
@@ -579,7 +618,7 @@ async function sendChat(text) {
   } catch (e) {
     state.chat.pop();
     const plain = e.status >= 400 && e.status < 500 ? e.message : "Charlie couldn't answer just now.";
-    pending.innerHTML = `<p>${esc(plain)}</p><button type="button" class="ghost" ${retryButton(() => { mine.remove(); pending.remove(); sendChat(text); })}>Try again</button>`;
+    pending.innerHTML = `<p>${esc(plain)}</p><button type="button" class="btn-secondary" ${retryButton(() => { mine.remove(); pending.remove(); sendChat(text); })}>Try again</button>`;
   }
 }
 
@@ -617,6 +656,7 @@ async function loadPaper() {
   // UX23: no stats while there's nothing to measure; the empty state's button sits high instead.
   // UX30: win rate only once a trade has closed (a $0 scratch close counts, and shows "—").
   const closedCount = r.positions.filter((p) => p.status === "closed").length;
+  $("#refresh-paper").classList.toggle("hidden", !r.positions.length); // CHL-DS-R14: nothing to refresh yet
   $("#alert-explainer").hidden = !r.positions.length; // UX42: name the alert chips once there is a trade to flag
   $("#paper-stats").innerHTML = !r.positions.length ? "" : stat("Open positions", r.open_count) + stat("Open P&L", money(r.open_pnl), signCls(r.open_pnl)) +
     stat("Realized P&L", money(r.realized_pnl), signCls(r.realized_pnl)) + stat("Most you could lose (open trades)", money(r.capital_at_risk)) + (closedCount ? stat("Win rate (closed)", r.win_rate === null ? "—" : pct(r.win_rate)) : "") +
@@ -629,7 +669,7 @@ async function loadPaper() {
   const ALERT_LABEL = { take_profit: "Take profit?", time: "Near expiry", breakeven: "Below breakeven" };
   const chips = (p, srText = true) => (p.alerts || []).map((a) => `<span class="alert-chip" data-alert="${esc(a.type)}" title="${esc(a.message)}">${esc(ALERT_LABEL[a.type] || a.type)}${srText ? `<span class="sr-only">: ${esc(a.message)}</span>` : ""}</span>`).join("");
   const alertBlock = (p) => (p.alerts?.length ? `<div class="alert-row">${chips(p, false)}</div><ul class="alert-msgs">${p.alerts.map((a) => `<li>${esc(a.message)}</li>`).join("")}</ul>` : "");
-  const closeBtn = (p) => (p.status === "open" ? `<button class="ghost" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
+  const closeBtn = (p) => (p.status === "open" ? `<button class="btn-secondary" data-close="${p.id}" aria-label="Close paper trade ${esc(p.symbol)} ${esc(p.trade.label.toLowerCase())}">Close trade</button>` : "");
   $("#paper-list").innerHTML = r.positions.length ? `
     <div class="pos-cards">${r.positions.map((p) => `<div class="pos-card">
       <div class="rc-top"><span><b>${esc(p.symbol)}</b> <span class="muted small">${esc(p.trade.label)}</span></span><span class="muted small">${esc(p.status)}</span></div>
@@ -642,9 +682,9 @@ async function loadPaper() {
       <td class="num pos-pnl ${signCls(p.pnl)}">${money(p.pnl)}</td><td class="num">${p.pct_of_max_profit === null ? "—" : pct(p.pct_of_max_profit)}</td><td>${esc(p.status)}${p.alerts?.length ? `<div class="alert-row">${chips(p)}</div>` : ""}</td>
       <td>${closeBtn(p)}</td></tr>`).join("")}
     </tbody></table></div><details class="small muted"><summary>How P&L is counted</summary>For a trade you paid for, P&L is what it's worth now minus what you paid. For a credit, it's what you received minus what it costs to close. Covered calls track only the option leg.</details>${nfa()}`
-    : `<div class="panel state"><div class="icon" aria-hidden="true">$</div><h2>No paper trades yet</h2>
+    : `<div class="panel state"><h2>No paper trades yet</h2>
        <p>Pick an idea on Today and tap Paper trade this to practice with pretend money.</p>
-       <button type="button" class="primary" data-goto="today">See today's ideas</button></div>`;
+       <button type="button" class="btn-tinted" data-goto="today">See today's ideas</button></div>`;
 }
 
 // ---------------------------------------------------------------- hunches (M3.1, local app only)
@@ -704,8 +744,8 @@ function hunchNoMap(r) {
   return `<div class="panel state"><h2>No map for this hunch yet</h2><p>${esc(r.message)}</p>
     <p>Charlie has maps for hearing health and AI power demand.</p>
     <div class="hunch-examples">
-      <button type="button" class="ghost" data-hunch-example="hearing">Try the hearing hunch</button>
-      <button type="button" class="ghost" data-hunch-example="ai_power">Try the AI power hunch</button>
+      <button type="button" class="btn-secondary" data-hunch-example="hearing">Try the hearing hunch</button>
+      <button type="button" class="btn-secondary" data-hunch-example="ai_power">Try the AI power hunch</button>
     </div></div>`;
 }
 function unscoredWhy(xs) {  // why Charlie can't score these names: "listed outside the US", "private" or both
@@ -838,10 +878,11 @@ function renderLearn() {
 
 // ---------------------------------------------------------------- ticker drawer (UX11: a real modal dialog)
 let drawerOpener = null;
-function openDrawer(title) {
+function openDrawer(title, sub = "") {
   const drawer = $("#drawer");
   if (drawer.classList.contains("hidden")) drawerOpener = document.activeElement;
   $("#drawer-title").innerHTML = title;
+  $("#drawer-sub").innerHTML = sub;
   drawer.classList.remove("hidden");
   document.body.style.overflow = "hidden";
   $(".drawer-inner").scrollTop = 0;
@@ -860,13 +901,16 @@ async function openTicker(sym) {
   try {
     const d = await api(`/api/ticker/${encodeURIComponent(sym)}?risk=${state.risk}`);
     const ch = d.charlie, f = d.fundamentals;
-    $("#drawer-title").innerHTML = `${esc(d.name)} <span class="sym">${esc(d.symbol)} · <span class="num">${money(d.quote.price, 2)}</span> (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span><span class="grade ${ch.grade}">${gradeLabel(ch)}</span>`;
-    const src = d.quote.source === "mock" ? "Sample data, not real market prices" : `Delayed prices from ${esc(d.quote.source)}`;
+    // CHL-DS-R12: name as the title; "SYM · $price (change)" and the score pill on the muted line under it.
+    $("#drawer-title").textContent = d.name;
+    $("#drawer-sub").innerHTML = `<span>${esc(d.symbol)} · <span class="num">${money(d.quote.price, 2)}</span> (${d.quote.change_pct >= 0 ? "+" : ""}${d.quote.change_pct}%)</span><span class="grade ${ch.grade}">${gradeLabel(ch)}</span>`;
+    // The head already says "Sample data" in the demo; mock prices aren't named again here.
+    const src = d.quote.source === "mock" ? "" : ` · Delayed prices from ${esc(d.quote.source)}`;
     body.innerHTML = `
-      <p class="src-line">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)} · ${src}</p>
+      <p class="src-line">${esc(d.domain_label || "")} · ${esc(ch.lynch_category)}${src}</p>
       ${chartSlot("spark", d.history)}
       ${d.history.length ? `<div class="muted small">${esc(fmtDate(d.history[0].date))} to ${esc(fmtDate(d.history[d.history.length - 1].date))}</div>` : ""}
-      <div class="chips">${(d.familiarity_why.length ? d.familiarity_why : ["Outside your stated circle"]).map((w) => `<span class="chip">${esc(w)}</span>`).join("")}</div>
+      <div class="why-chips">${d.familiarity_why.length ? d.familiarity_why.map((w) => `<span class="why-line">✓ ${esc(w)}</span>`).join("") : `<span class="why-line">Outside your stated circle</span>`}</div>
       <h3>Munger checklist</h3>${factorBars(ch)}
       ${ch.red_flags.length ? `<h3>Red flags (inversion)</h3><ul class="tight flags">${ch.red_flags.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <div class="metrics">
@@ -875,14 +919,14 @@ async function openTicker(sym) {
       <p class="muted small">Financials: ${f.source === "mock" ? "sample numbers, illustrative and not real filings." : esc(f.source)}${f.fiscal_year ? ` (FY${f.fiscal_year})` : ""}</p>
       <h2 class="mt-lg">Ways to express it at your risk level</h2>
       ${nfa()}
-      ${d.trades.map((t) => `<div class="card"><div class="card-title sm">${esc(t.label)}</div>${tradeBlock(t)}</div>`).join("") || "<p>No trade fits your capital and risk level for this stock.</p>"}
+      ${d.trades.map((t, i) => `<div class="card"><div class="card-title sm">${esc(t.label)}</div>${tradeBlock(t, { main: i === 0 ? "primary" : "" })}</div>`).join("") || "<p>No trade fits your capital and risk level for this stock.</p>"}
       ${d.blocked.length ? `<details><summary>Not available (and why)</summary><ul class="tight">${d.blocked.map((b) => `<li><b>${esc(b.label)}</b>: ${esc(b.reason)}</li>`).join("")}</ul></details>` : ""}`;
     drawCharts(body);
   } catch (e) { body.innerHTML = errorState("Couldn't load this company. Try again.", e, retryButton(() => openTicker(sym))); }
 }
 function openScreenRow(x) {
-  openDrawer(`${esc(x.name)} <span class="sym">${esc(x.symbol)}</span>`);
-  $("#drawer-body").innerHTML = `<p><button class="link" data-ticker="${esc(x.symbol)}">Full company analysis →</button></p><div class="card">${tradeBlock(x.trade)}</div>`;
+  openDrawer(esc(x.name), `<span>${esc(x.symbol)}</span>`);
+  $("#drawer-body").innerHTML = `<p><button class="btn-quiet" data-ticker="${esc(x.symbol)}">Full company analysis →</button></p><div class="card">${tradeBlock(x.trade, { main: "primary" })}</div>`;
   drawCharts($("#drawer-body"));
 }
 
@@ -891,7 +935,7 @@ document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-tab],[data-goto],[data-ticker],[data-paper],[data-copy],[data-close],[data-q],[data-row],[data-saved],[data-retry]");
   if (!el) return;
   if (el.dataset.tab) return showTab(el.dataset.tab);
-  if (el.dataset.goto) { e.preventDefault(); return showTab(el.dataset.goto); }
+  if (el.dataset.goto) { e.preventDefault(); return go(el.dataset.goto); }
   if (el.dataset.retry) return retries[el.dataset.retry]?.();
   if (el.dataset.ticker) return openTicker(el.dataset.ticker);
   if (el.dataset.paper) return paperTrade(window._trades[el.dataset.paper], el);
@@ -901,18 +945,16 @@ document.addEventListener("click", (e) => {
   if (el.dataset.row) return openScreenRow(window._screen[Number(el.dataset.row)]);
   if (el.dataset.saved) { writeCriteria(window._saved[Number(el.dataset.saved)].criteria); return runScreen(); }
 });
-$("#hero-top-idea").addEventListener("click", (e) => {
-  e.preventDefault();
-  const card = $("#ideas .card");
-  if (card) { card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.querySelector("[data-ticker]")?.focus({ preventScroll: true }); }
-});
+$("#profile-btn").onclick = openProfile;
+$("#profile-close").onclick = closeProfile;
 $("#drawer-close").onclick = closeDrawer;
 $("#drawer").addEventListener("click", (e) => { if (e.target.id === "drawer") closeDrawer(); });
 document.addEventListener("keydown", (e) => {
   const drawerOpen = !$("#drawer").classList.contains("hidden");
   if (e.key === "Escape") {
     if (drawerOpen) return closeDrawer();
-    if (!$("#ack").classList.contains("hidden") && state.acked) return closeAck();
+    if (!$("#ack").classList.contains("hidden")) { if (state.acked) closeAck(); return; }
+    if (currentView === "profile") return closeProfile();
   }
   if (e.key === "Tab" && drawerOpen) {  // keep focus inside the dialog
     const f = $$('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])', $("#drawer")).filter((x) => !x.disabled && x.offsetParent);
@@ -941,13 +983,23 @@ $("#hunch-form").addEventListener("submit", runHunch);
 $("#hunch-text").addEventListener("input", hunchCount);
 $("#hunch-result").addEventListener("click", hunchResultClick);
 window.addEventListener("resize", () => { if ($("#tab-chat").classList.contains("active")) sizeChat(); });
-$("#delete-profile").onclick = async () => {
-  const where = window.charlieStatic ? "this browser" : "this computer";
-  const what = window.charlieStatic ? "profile, resume, saved screens, paper trades and saved ideas"
-    : "profile, resume, saved screens, paper trades, saved ideas and saved market data";
-  if (!confirm(`Delete all your Charlie data from ${where}? This removes your ${what}. You can't undo this.`)) return;
+// CHL-DS-R2: Delete my data is a quiet button that asks inline first (never window.confirm).
+const deleteWhat = () => (window.charlieStatic ? "profile, resume, saved screens, paper trades and saved ideas"
+  : "profile, resume, saved screens, paper trades, saved ideas and saved market data");
+function showDeleteAsk(on) {
+  $("#delete-profile").hidden = on; $("#delete-profile").setAttribute("aria-expanded", String(on));
+  $("#delete-confirm").hidden = !on;
+}
+$("#delete-profile").onclick = () => {
+  $("#delete-what").textContent = `This deletes your ${deleteWhat()} from ${window.charlieStatic ? "this browser" : "this computer"}.`;
+  showDeleteAsk(true); $("#delete-no").focus();
+};
+$("#delete-no").onclick = () => { showDeleteAsk(false); $("#delete-profile").focus(); };
+$("#delete-yes").onclick = async () => {
+  const what = deleteWhat();
   try {
     await api("/api/profile?all=true", { method: "DELETE" });
+    showDeleteAsk(false);
     $("#profile-form").reset(); await loadProfile(); renderProfile();
     state.loaded.screener && loadSavedScreens();
     toast(`Done. Your ${what} are deleted.`, 4000);
@@ -987,16 +1039,19 @@ $("#use-sample").onclick = async () => {  // demo only: show the fictional resum
   try { wasReset = sessionStorage.getItem(RESET_FLAG) === "1"; sessionStorage.removeItem(RESET_FLAG); } catch (_) {}
   if (wasReset) { const p = panel.querySelector("p"); p.textContent = "Sample data restored. " + p.textContent; setOpen(true); }
 })();
-// Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump.
+// Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump. The laptop sidebar
+// stacks the same tabs, so Up and Down work there too.
+const tabOrient = () => $(".tabs-inner").setAttribute("aria-orientation", matchMedia("(min-width: 760px)").matches ? "vertical" : "horizontal");
+tabOrient(); addEventListener("resize", tabOrient);
 $(".tabs").addEventListener("keydown", (e) => {
   const tabs = $$(".tabs button"), i = tabs.indexOf(document.activeElement);
-  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
   if (i < 0 || next === undefined) return;
   e.preventDefault();
   const t = tabs[(next + tabs.length) % tabs.length];
   t.focus(); showTab(t.dataset.tab);
 });
-// Ack modal (UX8): plain bullets first, the full legal text one tap away. The footer's Read more reopens it.
+// Ack modal (UX8): plain bullets first, the full legal text one tap away. The disclaimer line (#read-more) reopens it.
 let ackOpener = null;
 function openAck(fromFooter) {
   ackOpener = fromFooter ? document.activeElement : null;
@@ -1012,6 +1067,25 @@ function closeAck() {
   ackOpener?.focus(); ackOpener = null;
 }
 $("#read-more").onclick = () => openAck(true);
+// Appearance (studio principle 10, CHL-DS-17/18, R9): Match device (stored value "auto") follows the phone; Light or Dark is kept in
+// localStorage "charlie-appearance" (outside the charlie: prefix, so Reset demo keeps it, like charlie-ack)
+// and theme-init.js puts it on <html> before the first paint. Anything else stored means Auto.
+const APPEARANCE_KEY = "charlie-appearance";
+function setAppearance(v) {
+  const pick = v === "light" || v === "dark" ? v : "auto";
+  if (pick === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", pick);
+  try { if (pick === "auto") localStorage.removeItem(APPEARANCE_KEY); else localStorage.setItem(APPEARANCE_KEY, pick); } catch (_) {}
+}
+(() => {
+  let saved = null;
+  try { saved = localStorage.getItem(APPEARANCE_KEY); } catch (_) {}
+  const now = saved === "light" || saved === "dark" ? saved : "auto";
+  $$("#appearance input[name=appearance]").forEach((r) => {
+    r.checked = r.value === now;
+    r.addEventListener("change", () => { if (r.checked) setAppearance(r.value); });
+  });
+})();
 $("#ack-btn").onclick = closeAck;
 
 async function boot() {
@@ -1026,7 +1100,8 @@ async function boot() {
       : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
     $("#hunch-llm").textContent = HUNCH_LLM_NOTE[status.llm ? "on" : "off"];  // whether a hunch leaves this computer (CHL-PS-H4)
     if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
-      $$('[data-tab="hunch"], #tab-hunch').forEach((el) => el.remove());  // local-only tab: gone, not just hidden
+      $$('#tab-hunch, .search-switch').forEach((el) => el.remove());  // local-only view and its switch: gone, not just hidden
+      VIEWS.splice(VIEWS.indexOf("hunch"), 1);
       $$(".server-only").forEach((el) => el.classList.add("hidden"));
       $$(".static-only").forEach((el) => el.classList.remove("hidden"));
       document.body.classList.add("is-static");
@@ -1034,7 +1109,7 @@ async function boot() {
     await loadProfile();
     renderProfile();
     const tab = location.hash.slice(1);
-    showTab(["today", "profile", "screener", "chat", "paper", "learn", ...(status.static ? [] : ["hunch"])].includes(tab) ? tab : "today");
+    showTab(VIEWS.includes(tab) ? tab : "today");
     // Static demo: the first screen came from prebuilt answers; load the engine once it has painted.
     requestAnimationFrame(() => setTimeout(() => window.charlieStatic?.start(), 50));
   } catch (e) { $("#ideas").innerHTML = errorState("Charlie couldn't start. Check your connection and try again.", e, retryButton(boot)); }

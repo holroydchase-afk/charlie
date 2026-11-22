@@ -125,7 +125,7 @@ def test_app_starts_the_engine_after_first_render_and_shows_waits():
 def test_chat_starter_chips_are_prebuilt_for_every_level(pre):
     import re
     html = (ROOT / "web" / "index.html").read_text()
-    chips = re.findall(r'class="chip" data-q="([^"]+)"', html)
+    chips = re.findall(r'class="[^"]*\bchip\b[^"]*" data-q="([^"]+)"', html)
     assert chips and chips == browser.CHAT_STARTERS
     for lvl, entries in pre["levels"].items():
         assert sorted(entries["chat"]) == sorted(chips), lvl

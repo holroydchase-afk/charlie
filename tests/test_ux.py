@@ -132,6 +132,8 @@ def test_CHL_UX45_drawer_sticky_header_carries_the_disclaimer_and_demo_sample_la
 
 
 def test_CHL_UX46_static_build_footer_links_back_to_chaseholroyd_com(tmp_path):
+    """Superseded by CHL-NAV-14: the demo's way home is the demo bar's "← Portfolio" (at every width, plus the
+    Details drawer link); the nav and the disclaimer line carry no link home, and the line keeps the disclaimer."""
     import sys
     root = _WEB.parent
     sys.path.insert(0, str(root / "tools"))
@@ -140,16 +142,23 @@ def test_CHL_UX46_static_build_footer_links_back_to_chaseholroyd_com(tmp_path):
     finally:
         sys.path.pop(0)
     out = build_demo.build(tmp_path / "site", day="2026-10-22")
-    footer = _html_block((out / "index.html").read_text(), r'<footer[^>]*id="footer-disclaimer"[^>]*>')
-    assert _re.search(r'<a [^>]*href="https://chaseholroyd\.com/"[^>]*>\s*chaseholroyd\.com\s*</a>', footer), \
-        "the demo's fixed footer must link to https://chaseholroyd.com/ with the text 'chaseholroyd.com'"
+    html = (out / "index.html").read_text()
+    bar = _html_block(html, r'<section[^>]*class="demo-bar[^"]*"[^>]*>')
+    assert _re.search(r'<a [^>]*href="https://chaseholroyd\.com/"[^>]*>\s*← Portfolio\s*</a>', bar), \
+        "the demo bar must link to https://chaseholroyd.com/ with the text '← Portfolio'"
+    nav = _html_block(html, r'<nav\b[^>]*>')
+    footer = _html_block(html, r'<(\w+)[^>]*id="disclaimer-line"[^>]*>')
+    assert "chaseholroyd.com" not in nav + footer, "no link home in the nav or the disclaimer line (NAV-14)"
+    assert html.count('href="https://chaseholroyd.com/"') == 2, "exactly the bar's ← Portfolio and the drawer's way back"
     assert _NFA in _text(footer)
 
 
 def test_CHL_UX47_chat_tab_has_a_chat_with_charlie_heading():
+    """Superseded by CHL-NAV-7: the Chat view still opens with one h1; its large title is now "Chat"."""
     html = (_WEB / "index.html").read_text()
     chat = _html_block(html, r'<section id="tab-chat"[^>]*>')
-    assert _re.search(r"<h1[^>]*>\s*Chat with Charlie\s*</h1>", chat), "the Chat tab needs <h1>Chat with Charlie</h1>"
+    assert len(_re.findall(r"<h1\b", chat)) == 1, "the Chat tab needs exactly one h1"
+    assert _re.search(r"<h1[^>]*>\s*Chat\s*</h1>", chat), "the Chat tab needs <h1>Chat</h1> (CHL-NAV-7)"
 
 
 def _fmt_date(*args, tz="America/Los_Angeles"):

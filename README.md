@@ -24,7 +24,7 @@ python -m uvicorn charlie.server:app --host 127.0.0.1 --port 8000
 
 Keep it on `127.0.0.1`. The local app is single-user with no login, so don't expose it on your network. It answers only to `127.0.0.1`, `localhost` or `[::1]` in the Host header, and refuses writes from pages on other sites or other local ports.
 
-Then go to **Profile**, upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas. Your resume stays in the `data/` folder at the repo root, whatever folder you start the server from. The app never sends it back out, and **Delete my data** on Profile removes it, overwrites the freed space in the database and clears the cached market data.
+Then open **Profile** (the button at the top right), upload a resume (PDF/DOCX/TXT) or paste one, add what you read about and the brands you use, and hit **Build my profile**. **Today** now shows your ideas. Your resume stays in the `data/` folder at the repo root, whatever folder you start the server from. The app never sends it back out, and **Delete my data** on Profile removes it, overwrites the freed space in the database and clears the cached market data.
 
 Optional settings (environment variables):
 

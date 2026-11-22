@@ -2,11 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Charlie</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%231f5f4a%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22 font-weight=%22700%22%3EC%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%231E1B17%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22%23F7F7F4%22 font-family=%22sans-serif%22 font-weight=%22600%22%3EC%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/themes.css">
+  <script src="/static/theme-init.js"></script>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
+<!-- CHL-NAV-10 is off by default (pending Chase): adding class="nav-hide-on-type" to <body> turns NAV-10 on
+     (the phone tab bar and disclaimer line hide while a text field has focus). -->
 <body>
   <section class="demo-bar static-only hidden" aria-label="Demo">
     <div class="demo-bar__row">
@@ -20,33 +24,35 @@
     <div class="demo-bar__panel" id="demo-bar-panel" hidden>
       <p>This is the real Charlie, running on made-up sample data. Anything you change is saved only in this browser and is never sent anywhere. Reset demo puts the sample data back.</p>
       <div class="demo-bar__actions">
-        <button type="button" class="demo-bar__reset">Reset demo</button>
+        <button type="button" class="demo-bar__reset btn-secondary">Reset demo</button>
         <span class="demo-bar__confirm" role="group" aria-label="Confirm reset" hidden><span>Put the sample data back? Your changes will be lost.</span>
-          <button type="button" class="demo-bar__yes">Reset</button><button type="button" class="demo-bar__no">Keep</button></span>
+          <button type="button" class="demo-bar__yes btn-danger">Reset</button><button type="button" class="demo-bar__no btn-secondary">Keep</button></span>
         <a class="demo-bar__back" href="https://chaseholroyd.com/">← Back to Chase's portfolio</a>
         <a class="demo-bar__back" href="https://github.com/holroydchase-afk/charlie">Code on GitHub</a>
       </div>
     </div>
   </section>
+  <!-- CHL-NAV: one header. Phones: brand + Profile on a 56px sticky bar; the tab bar and the disclaimer line are
+       fixed to the bottom. Laptops (760px+): the header is the 248px left sidebar holding all of it. -->
   <header class="top">
     <div class="brand">
-      <span class="logo">C</span>
-      <div>
-        <div class="brand-name">Charlie</div>
-        <div class="brand-sub">Invest in what you know. Paper trading only.</div>
-      </div>
+      <span class="logo" aria-hidden="true">C</span>
+      <span class="brand-name">Charlie</span>
     </div>
-    <span id="data-badge" class="badge server-only">Loading…</span>
+    <nav class="tabs" aria-label="Sections">
+      <div class="tabs-inner" role="tablist" aria-orientation="horizontal">
+      <button type="button" data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></span><span class="tab-word">Today</span></button>
+      <button type="button" data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></span><span class="tab-word">Search</span></button>
+      <button type="button" data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.2A2.5 2.5 0 0 1 4 13.5z"/></svg></span><span class="tab-word">Chat</span></button>
+      <button type="button" data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg></span><span class="tab-word">Trades</span></button>
+      <button type="button" data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 4.8 7 4 3.5 4v14c3.5 0 6.5.8 8.5 2.5 2-1.7 5-2.5 8.5-2.5V4C17 4 14 4.8 12 6.5z"/><path d="M12 6.5v14"/></svg></span><span class="tab-word">Learn</span></button>
+      </div>
+    </nav>
+    <button type="button" id="profile-btn" class="btn-quiet header-profile"><svg class="ico" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6.5 8-6.5s7.2 2.5 8 6.5"/></svg><span class="tab-word">Profile</span></button>
+    <div id="disclaimer-line" class="disclaimer-line">
+      <button type="button" id="read-more" class="btn-quiet disc-btn" aria-haspopup="dialog"><span class="disc-text">Not financial advice. Paper trading only.</span> <span class="disc-more">Read more</span></button>
+    </div>
   </header>
-  <nav class="tabs" role="tablist">
-    <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
-    <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
-    <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
-    <button data-tab="hunch" role="tab" id="tabbtn-hunch" aria-controls="tab-hunch" aria-selected="false" tabindex="-1" class="server-only">Hunches</button>
-    <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
-    <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Portfolio</button>
-    <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
-  </nav>
 
   <main>
     <div id="risk-row" class="risk-control" title="Risk slider: controls which trade types Charlie will suggest">
@@ -56,35 +62,29 @@
     </div>
     <!-- TODAY -->
     <section id="tab-today" class="tab active" role="tabpanel" aria-labelledby="tabbtn-today">
-      <div class="hero">
-        <div class="hero-main">
-        <h1>Stock ideas from what you already know</h1>
-        <p class="hero-how">Charlie reads your resume, finds the industries you know, scores companies with a Munger-style checklist, and suggests 1 to 3 paper-trade ideas a day.</p>
-        <a id="hero-top-idea" class="hero-top-idea hidden" href="#today"></a>
-        </div>
-        <div class="hero-side">
-        <p id="profile-nudge" class="hero-whose muted">Showing a starter circle. <a href="#profile" data-goto="profile">Add your resume</a> to make it yours.</p>
-        <ul class="proof" aria-label="What makes Charlie different">
-          <li>Resume to circle of competence</li>
-          <li>Munger checklist score</li>
-          <li>Max loss on every trade</li>
-        </ul>
-        </div>
+      <div class="page-head">
+        <h1>Today</h1>
+        <p class="page-sub">Resume to paper trades, Munger-style</p>
       </div>
-      <div class="section-head">
+      <span id="data-badge" class="badge server-only">Loading…</span>
+      <div id="ideas" class="cards"></div>
+      <div id="ideas-skipped" class="muted small"></div>
+      <!-- CHL-NAV-8: the day's line, whose ideas these are, and the count/refresh controls sit under the cards, so card 1's
+           numbers make the phone's first screen. -->
+      <div class="ideas-meta">
+      <p id="profile-nudge" class="muted">Showing a starter circle. <a href="#profile" data-goto="profile">Add your resume</a> to make it yours.</p>
+      <div class="section-head ideas-head">
         <div>
-          <h2 class="h-section">Today's ideas</h2>
           <p id="today-sub" class="muted">Up to three ideas from inside your circle of competence.</p>
         </div>
         <div class="row gap">
           <select id="idea-count" aria-label="How many ideas">
             <option value="1">1 idea</option><option value="2">2 ideas</option><option value="3" selected>3 ideas</option>
           </select>
-          <button id="refresh-ideas" class="ghost">Refresh</button>
+          <button id="refresh-ideas" type="button" class="btn-secondary">Refresh</button>
         </div>
       </div>
-      <div id="ideas" class="cards"></div>
-      <div id="ideas-skipped" class="muted small"></div>
+      </div>
       <div id="track-record" class="track" aria-labelledby="track-h">
         <div class="section-head">
           <div>
@@ -97,21 +97,22 @@
     </section>
 
     <!-- PROFILE -->
-    <section id="tab-profile" class="tab" role="tabpanel" aria-labelledby="tabbtn-profile">
-      <div class="section-head">
-        <div>
-          <h1>Your circle of competence</h1>
-          <p class="muted">Charlie looks for ideas in the industries you work in, read about, and spend money in.</p>
-        </div>
+    <section id="tab-profile" class="tab" aria-labelledby="profile-title">
+      <div class="page-head sheet-head">
+        <h1 id="profile-title">Profile</h1>
+        <button type="button" id="profile-close" class="btn-quiet sheet-close">Close</button>
       </div>
+      <h2>Your circle of competence</h2>
+      <p class="muted">Charlie looks for ideas in the industries you work in, read about, and spend money in.</p>
       <div class="grid2">
+        <div class="profile-col">
         <form id="profile-form" class="panel">
           <label class="server-only">Resume <span class="muted small">(PDF, DOCX, or TXT)</span>
             <input type="file" name="resume" accept=".pdf,.docx,.txt,.md">
           </label>
           <div class="label-row">
             <label for="resume-text"><span class="server-only">…or paste it</span><span class="static-only hidden">Paste a resume</span></label>
-            <button id="use-sample" type="button" class="link-btn small static-only hidden">or use the sample</button>
+            <button id="use-sample" type="button" class="link-btn btn-quiet static-only hidden">or use the sample</button>
           </div>
           <textarea id="resume-text" name="resume_text" rows="6" placeholder="Paste your resume or LinkedIn summary"></textarea>
           <label>What do you read about or follow closely?
@@ -123,7 +124,7 @@
           <label>Shares you already own <span class="muted small">(unlocks covered calls)</span>
             <input name="holdings" placeholder="e.g. AAPL 100, KO 200">
           </label>
-          <div class="row gap">
+          <div class="row gap field-pair">
             <label class="grow">Paper capital ($)
               <input name="capital" type="number" min="1000" step="500" value="25000">
             </label>
@@ -139,26 +140,45 @@
           </div>
           <label class="check server-only"><input type="checkbox" name="use_ai"> Also let Claude read my resume (sends the text to Anthropic's API; only works when an API key is set)</label>
           <div class="actions">
-            <button type="submit" class="primary">Build my profile</button>
-            <button type="button" class="ghost" id="delete-profile">Delete my data</button>
+            <button type="submit" class="btn-tinted">Build my profile</button>
           </div>
           <p id="profile-status" class="muted small"></p>
+          <div class="delete-row">
+            <button type="button" class="btn-quiet danger-text" id="delete-profile" aria-expanded="false" aria-controls="delete-confirm">Delete my data</button>
+            <div id="delete-confirm" class="delete-confirm" role="group" aria-label="Confirm delete" hidden>
+              <p id="delete-what">This deletes your profile, resume, saved screens, paper trades and saved ideas from this browser.</p>
+              <div class="actions">
+                <button type="button" class="btn-danger" id="delete-yes">Delete my data</button>
+                <button type="button" class="btn-secondary" id="delete-no">Keep my data</button>
+              </div>
+            </div>
+          </div>
         </form>
+        <fieldset id="appearance" class="appearance mt-lg">
+          <legend>Appearance</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="appearance" value="auto" checked> Match device</label>
+            <label class="choice"><input type="radio" name="appearance" value="light"> Light</label>
+            <label class="choice"><input type="radio" name="appearance" value="dark"> Dark</label>
+          </div>
+          <p class="muted">Match device follows your phone or computer's light or dark setting.</p>
+        </fieldset>
+        </div>
         <div id="profile-view" class="panel"></div>
       </div>
     </section>
 
     <!-- SCREENER -->
     <section id="tab-screener" class="tab" role="tabpanel" aria-labelledby="tabbtn-screener">
-      <div class="section-head">
-        <div>
-          <h1>Screener</h1>
-          <p class="muted">Set your own criteria and Charlie finds trades that fit.</p>
-        </div>
+      <!-- M3.1: Search has two views on the local app, Screener and Hunches; the static demo removes the switch. -->
+      <div class="search-switch server-only" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener" aria-current="page">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch">Hunches</button></div>
+      <div class="page-head">
+        <h1>Search trades</h1>
+        <p class="page-sub muted">Set your own criteria and Charlie finds trades that fit.</p>
       </div>
       <div id="screen-summary" class="panel screen-summary">
         <span id="screen-summary-text" class="grow small"></span>
-        <button type="button" id="edit-filters" class="ghost">Edit filters</button>
+        <button type="button" id="edit-filters" class="btn-secondary">Edit filters</button>
       </div>
       <form id="screen-form" class="panel screen-form">
         <div class="screen-main">
@@ -198,10 +218,10 @@
           </div>
         </details>
         <div class="screen-actions">
-          <button type="submit" class="primary">Find trades</button>
+          <button type="submit" class="btn-tinted">Find trades</button>
           <span class="save-group">
             <input name="save_name" placeholder="Name this screen" aria-label="Name this screen">
-            <button type="button" id="save-screen" class="ghost">Save screen</button>
+            <button type="button" id="save-screen" class="btn-secondary">Save screen</button>
           </span>
         </div>
         <div id="saved-screens" class="chips"></div>
@@ -209,20 +229,19 @@
       <div id="screen-results"></div>
     </section>
 
-    <!-- HUNCHES (local app only; the static demo removes this tab) -->
-    <section id="tab-hunch" class="tab server-only" role="tabpanel" aria-labelledby="tabbtn-hunch">
-      <div class="section-head">
-        <div>
-          <h1>Hunches</h1>
-          <p class="muted">Type a hunch about the world. Charlie restates it, checks the premise, maps the companies it touches and ranks the most exposed ones it can score.</p>
-        </div>
+    <!-- HUNCHES (M3.1, local app only): a sub-view of Search; the Search tab stays selected. The static demo removes it. -->
+    <section id="tab-hunch" class="tab server-only" aria-labelledby="hunch-title">
+      <div class="search-switch server-only" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch" aria-current="page">Hunches</button></div>
+      <div class="page-head">
+        <h1 id="hunch-title">Hunches</h1>
+        <p class="page-sub muted">Type a hunch about the world. Charlie restates it, checks the premise, maps the companies it touches and ranks the most exposed ones it can score.</p>
       </div>
       <form id="hunch-form" class="panel hunch-form">
         <label for="hunch-text">Your hunch <span class="hint">Up to 600 characters.</span></label>
         <textarea id="hunch-text" name="text" rows="3" maxlength="600" placeholder="e.g. Everyone wears earbuds all day, so hearing help becomes a huge consumer market."></textarea>
         <div class="hunch-actions">
           <span id="hunch-count" class="muted small num">0 / 600</span>
-          <button type="submit" class="primary">Run hunch</button>
+          <button type="submit" class="btn-tinted">Run hunch</button>
         </div>
         <p id="hunch-llm" class="muted small hunch-llm"></p>
       </form>
@@ -232,28 +251,27 @@
 
     <!-- CHAT -->
     <section id="tab-chat" class="tab" role="tabpanel" aria-labelledby="tabbtn-chat">
-      <div class="section-head">
-        <div>
-          <h1>Chat with Charlie</h1>
-        </div>
+      <div class="page-head">
+        <h1>Chat</h1>
       </div>
-      <div class="chat-wrap panel">
+      <div class="chat-wrap">
         <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Conversation with Charlie">
           <div class="msg bot">Hi, I'm Charlie. Ask me about today's ideas, any company in your circle, or how a strategy works.
             <div class="chips suggestions">
-              <button class="chip" data-q="What are today's ideas?">Today's ideas</button>
-              <button class="chip" data-q="Explain a cash-secured put like I'm new">Explain a cash-secured put</button>
-              <button class="chip" data-q="How does the risk slider work?">The risk slider</button>
-              <button class="chip" data-q="Find trades under $100">Trades under $100</button>
+              <button class="chip btn-secondary" data-q="What are today's ideas?">Today's ideas</button>
+              <button class="chip btn-secondary" data-q="Explain a cash-secured put like I'm new">Explain a cash-secured put</button>
+              <button class="chip btn-secondary" data-q="How does the risk slider work?">The risk slider</button>
+              <button class="chip btn-secondary" data-q="Find trades under $100">Trades under $100</button>
             </div>
           </div>
         </div>
         <form id="chat-form" class="chat-form">
           <input id="chat-input" autocomplete="off" placeholder="Ask Charlie…" aria-label="Ask Charlie">
-          <button class="primary">Send</button>
+          <button class="btn-tinted">Send</button>
         </form>
         <div id="chat-mode" class="muted small"></div>
         <p class="nfa">Not financial advice. Paper trading only.</p>
+        <!-- CHL-NAV-13 is "no" by default (pending Chase): Chat keeps this page-level paragraph. -->
       </div>
     </section>
 
@@ -261,11 +279,11 @@
     <section id="tab-paper" class="tab" role="tabpanel" aria-labelledby="tabbtn-paper">
       <div class="section-head">
         <div>
-          <h1>Paper portfolio</h1>
+          <h1>Paper trades</h1>
           <p class="muted">Practice with pretend money first. Positions use the latest delayed or sample prices.</p>
           <p class="muted" id="alert-explainer" hidden>When a trade's exit plan says to act, Charlie flags it with a chip: “Take profit?”, “Near expiry” or “Below breakeven”.</p>
         </div>
-        <button id="refresh-paper" class="ghost">Refresh</button>
+        <button id="refresh-paper" type="button" class="btn-secondary">Refresh</button>
       </div>
       <div id="paper-stats" class="stats"></div>
       <div id="paper-list"></div>
@@ -273,11 +291,9 @@
 
     <!-- LEARN -->
     <section id="tab-learn" class="tab" role="tabpanel" aria-labelledby="tabbtn-learn">
-      <div class="section-head">
-        <div>
-          <h1>Learn</h1>
-          <p class="muted">How Charlie thinks, and what each strategy on the slider actually does.</p>
-        </div>
+      <div class="page-head">
+        <h1>Learn</h1>
+        <p class="page-sub muted">How Charlie thinks, and what each strategy on the slider actually does.</p>
       </div>
       <div id="learn"></div>
     </section>
@@ -288,9 +304,10 @@
       <div class="drawer-head">
         <div class="drawer-head-text">
           <div id="drawer-title" class="drawer-title">Company details</div>
+          <div id="drawer-sub" class="drawer-sub"></div>
           <p class="drawer-nfa"><span class="static-only hidden">Sample data · </span>Not financial advice. Paper trading only.</p>
         </div>
-        <button class="close" id="drawer-close" type="button" aria-label="Close details">×</button>
+        <button class="close btn-quiet" id="drawer-close" type="button" aria-label="Close details">Close</button>
       </div>
       <div id="drawer-body"></div>
     </div>
@@ -305,11 +322,10 @@
         <li id="ack-data">Prices may be delayed or simulated.</li>
       </ul>
       <details id="ack-details"><summary>Full disclaimer</summary><p id="ack-text" class="small"></p></details>
-      <button id="ack-btn" class="primary" type="button">Got it, show me ideas</button>
+      <button id="ack-btn" class="btn-primary" type="button">Got it, show me ideas</button>
     </div>
   </div>
 
-  <footer class="disclaimer" id="footer-disclaimer"><span class="wide-only">For learning only. </span>Not financial advice. Paper trading only. <button id="read-more" type="button" class="link-btn" aria-label="Read more: the full disclaimer">Read more</button><span class="static-only site-link hidden"><span class="sep"> · </span><a href="https://chaseholroyd.com/">chaseholroyd.com</a></span></footer>
   <div id="toast" class="toast hidden"></div>
   <div id="engine-status" class="engine-status hidden" role="status" aria-live="polite">Loading Charlie's engine…</div>
   <script src="/static/app.js"></script>

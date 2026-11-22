@@ -1,0 +1,43 @@
+/* Charlie's theme: the studio design core's Paper theme (hearth main 711fdb8, docs/design/tokens.json).
+   Base and fixed colors are copied from tokens.json byte for byte; accentSoft, safeSoft and tabLine are
+   tokens.json's derived values; the high-contrast sets are computed with Hearth's own algorithm
+   (app/src/ui/theme.ts highContrast). tests/test_design_system.py recomputes all of them.
+   Modes: light (:root), dark (the phone's setting, unless the in-app choice is Light, or the in-app
+   choice Dark), and each again under "increase contrast" (prefers-contrast: more). theme-init.js sets
+   data-theme before first paint from localStorage "charlie-appearance". No other colors live in web/. */
+
+@font-face { font-family: "Atkinson Hyperlegible Next"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/atkinson-hyperlegible-next-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible Next"; font-weight: 500; font-style: normal; font-display: swap; src: url("fonts/atkinson-hyperlegible-next-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible Next"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/atkinson-hyperlegible-next-latin-600-normal.woff2") format("woff2"); }
+
+:root {
+  --bg: #F7F7F4; --surface: #FFFFFF; --ink: #1E1B17; --muted: #5C564E; --line: #E3DED4; --fill: #EFECE5;
+  --accent: #AD371D; --accent-ink: #FFFFFF; --accent-soft: #F2EAE5; --safe: #1C6E31; --safe-soft: #E8EDE6;
+  --danger: #B3261E; --danger-text: #B3261E; --on-danger: #FFFFFF; --tab-line: #928E87; --scrim: rgba(0,0,0,0.4);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) {
+    --bg: #131210; --surface: #1C1A17; --ink: #F1EEE8; --muted: #B2ACA2; --line: #2E2B27; --fill: #24221E;
+    --accent: #FF8A65; --accent-ink: #000000; --accent-soft: #3D281F; --safe: #7DD394; --safe-soft: #263528;
+    --danger: #F2B8B5; --danger-text: #FF453A; --on-danger: #601410; --tab-line: #696661; --scrim: rgba(0,0,0,0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme=dark] {
+  --bg: #131210; --surface: #1C1A17; --ink: #F1EEE8; --muted: #B2ACA2; --line: #2E2B27; --fill: #24221E;
+  --accent: #FF8A65; --accent-ink: #000000; --accent-soft: #3D281F; --safe: #7DD394; --safe-soft: #263528;
+  --danger: #F2B8B5; --danger-text: #FF453A; --on-danger: #601410; --tab-line: #696661; --scrim: rgba(0,0,0,0.6);
+  color-scheme: dark;
+}
+
+/* Increased contrast (Hearth's highContrast): muted to 7:1, line to 4.5:1, accent toward ink until accentInk is 7:1. */
+@media (prefers-contrast: more) {
+  :root { --muted: #59534B; --line: #77736C; --tab-line: #77736C; --accent: #822F1B; --accent-soft: #EFE9E5; }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) { --muted: #B2ACA2; --line: #86837E; --tab-line: #86837E; --accent: #FBA88C; --accent-soft: #3D2D26; }
+}
+@media (prefers-contrast: more) {
+  :root[data-theme=dark] { --muted: #B2ACA2; --line: #86837E; --tab-line: #86837E; --accent: #FBA88C; --accent-soft: #3D2D26; }
+}

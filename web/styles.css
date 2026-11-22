@@ -1,54 +1,40 @@
+/* Charlie on the studio design core (hearth docs/design/STUDIO-CORE.md, CHL-DS). Colors come only from
+   themes.css (Paper). Type: 17/22 body, 22/28 title, 28/34 display, 34 large title, in rem so text grows
+   with the browser's text size; weights 400/500/600. Space: 4/8/12/16/24/32. Corners: 4, 12, pill.
+   Tap targets 48px. No shadows, no card inside a card, the accent only on things you can tap. */
 :root {
-  --bg: #f7f6f2;
-  --panel: #ffffff;
-  --sunken: #f1efe9;
-  --ink: #1d232a;
-  --muted: #5f6973;
-  --line: #e3e1da;
-  --line-strong: #d3d0c6;
-  --accent: #1f5f4a;
-  --accent-ink: #ffffff;
-  --accent-soft: #e3efe9;
-  --warn: #8a5100;
-  --warn-soft: #fbf0dc;
-  --bad: #a3312b;
-  --bad-soft: #f8e4e2;
-  --good: #1f7a4d;
-  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.04);
-  --shadow-hover: 0 2px 4px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.06);
-  --radius: 12px;
-  --radius-sm: 8px;
-  /* Type scale (UX12): every size in the app comes from here. */
-  --fs-xs: 12px; --fs-sm: 14px; --fs-md: 16px; --fs-lg: 20px; --fs-xl: 28px;
+  --fs-body: 1.0625rem; --lh-body: 1.375rem;
+  --fs-title: 1.375rem; --lh-title: 1.75rem;
+  --fs-display: 1.75rem; --lh-display: 2.125rem;
+  --fs-large: 2.125rem; --lh-large: 2.125rem;
   /* Spacing scale */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --footer-h: 40px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #111417; --panel: #191e22; --sunken: #14181b; --ink: #e8eaec; --muted: #a0aab3;
-    --line: #2b3238; --line-strong: #3a434a;
-    --accent: #6cc4a1; --accent-ink: #0d1a15; --accent-soft: #1b2e27; --warn: #e3a64a; --warn-soft: #33281a;
-    --bad: #ef7d74; --bad-soft: #3a2220; --good: #6cc4a1;
-    --shadow: none; --shadow-hover: 0 0 0 1px var(--line-strong); color-scheme: dark;
-  }
+  --r-sm: 4px; --r-md: 12px; --r-pill: 999px;
+  --target: 48px;
+  --bar-h: 64px;      /* CHL-NAV-1: the phone tab bar, before the safe area */
+  --line-h: 48px;     /* CHL-NAV-3: the disclaimer line above it, one 48px target (principle 2) */
+  --side-w: 248px;    /* CHL-NAV-11: the laptop sidebar */
+  --stack-h: calc(var(--bar-h) + var(--line-h) + env(safe-area-inset-bottom, 0px));  /* the phone's bottom stack */
 }
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
-  font: var(--fs-md)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
-  padding-bottom: calc(var(--footer-h) + var(--s6));
+  font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400;
+  padding-bottom: var(--s6);
   -webkit-font-smoothing: antialiased;
 }
-h1 { font-size: var(--fs-xl); line-height: 1.2; margin: 0 0 var(--s2); letter-spacing: -.02em; }
-h2 { font-size: var(--fs-lg); line-height: 1.3; margin: 0 0 var(--s2); letter-spacing: -.01em; }
-h3 { font-size: var(--fs-md); margin: var(--s4) 0 var(--s1); }
-a { color: var(--accent); }
+h1 { font-size: var(--fs-large); line-height: var(--lh-large); font-weight: 600; margin: 0 0 var(--s2); }
+h2 { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; margin: 0 0 var(--s2); }
+h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: var(--s4) 0 var(--s1); }
+b, strong, th { font-weight: 600; }
+i, em { font-style: normal; }
+code, kbd, samp, pre { font-family: inherit; font-size: inherit; }
+a { color: var(--accent); text-underline-offset: 3px; }
 p { margin: 0 0 var(--s2); }
 .muted { color: var(--muted); }
-.small { font-size: var(--fs-sm); }
-.hint { display: block; font-size: var(--fs-xs); font-weight: 400; color: var(--muted); }
+.hint { display: block; font-weight: 400; color: var(--muted); }
 .hidden { display: none !important; }
 .row { display: flex; align-items: center; }
 .gap { gap: var(--s2); }
@@ -57,332 +43,402 @@ p { margin: 0 0 var(--s2); }
 .num, .money { font-variant-numeric: tabular-nums; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
-/* Focus (UX15): one visible ring, keyboard only. */
+/* Focus (UX15, CHL-DS-16): a 2px accent edge that follows the corner; clear at rest, so nothing moves. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs button:focus-visible, .demo-bar__toggle:focus-visible, .demo-bar__home:focus-visible { outline-offset: -2px; }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 
 /* CHL-DEMO-BAR: the studio demo bar (pm-tools docs/DEMO-BANNER.md). Static demo only. A push-down
-   disclosure in the page flow, drawn in Charlie's own tokens; never the accent or warn colors. */
+   disclosure in the page flow, drawn in the studio tokens; never the accent. 48px tall: the divider is
+   drawn inside the bar (::after), not as an outer border. */
 .demo-bar {
-  --db-bg: var(--demo-bg, var(--panel)); --db-fg: var(--demo-fg, var(--ink)); --db-muted: var(--demo-muted, var(--muted));
+  --db-bg: var(--demo-bg, var(--surface)); --db-fg: var(--demo-fg, var(--ink)); --db-muted: var(--demo-muted, var(--muted));
   --db-line: var(--demo-line, var(--line));
-  position: relative; background: var(--db-bg); color: var(--db-fg); border-bottom: 1px solid var(--db-line);
-  font-family: inherit; font-size: var(--fs-sm); line-height: 1.4;
+  position: relative; background: var(--db-bg); color: var(--db-fg);
+  font-family: inherit; font-size: var(--fs-body); line-height: var(--lh-body);
 }
-.demo-bar__row { display: flex; align-items: stretch; padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); }
-.demo-bar__home { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding-right: var(--s3); border-right: 1px solid var(--db-line); color: inherit; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.demo-bar__home:hover { text-decoration: underline; text-underline-offset: 3px; }
-.demo-bar__toggle { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; min-height: 44px; margin: 0; padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 var(--s3); border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.demo-bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--db-line); pointer-events: none; }
+.demo-bar__row { display: flex; align-items: stretch; padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); max-width: 1136px; margin: 0 auto; }
+.demo-bar__home { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding-right: var(--s3); border-right: 1px solid var(--db-line); color: inherit; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.demo-bar__home:hover { text-decoration: underline; }
+.demo-bar__toggle { display: flex; align-items: center; gap: var(--s2); flex: 1; min-width: 0; min-height: 48px; margin: 0; padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 var(--s3); border: 0; border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .demo-bar__toggle:hover .demo-bar__more { text-decoration: underline; }
-.demo-bar__toggle:focus-visible, .demo-bar__home:focus-visible, .demo-bar__panel a:focus-visible, .demo-bar__panel button:focus-visible { outline: 2px solid var(--db-fg); outline-offset: -4px; }
-.demo-bar__badge { flex: none; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--db-fg); background: transparent; color: var(--db-fg); font-size: var(--fs-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.demo-bar__badge { flex: none; padding: 0 var(--s2); border-radius: 999px; border: 1px solid var(--db-fg); background: transparent; color: var(--db-fg); font-weight: 600; }
 .demo-bar__sum { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--db-muted); }
 .demo-bar__long { display: none; }
-.demo-bar__more { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.demo-bar__more { flex: none; margin-left: auto; display: inline-flex; align-items: center; gap: var(--s1); font-weight: 600; }
 .demo-bar__chev { width: 10px; height: 10px; transition: transform .15s; }
 .demo-bar__toggle[aria-expanded="true"] .demo-bar__chev { transform: rotate(180deg); }
-.demo-bar__panel { padding: var(--s1) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s4) max(var(--s4), env(safe-area-inset-left, 0px)); }
+.demo-bar__panel { max-width: 1136px; margin: 0 auto; padding: var(--s1) max(var(--s4), env(safe-area-inset-right, 0px)) var(--s4) max(var(--s4), env(safe-area-inset-left, 0px)); }
 .demo-bar__panel[hidden], .demo-bar__confirm[hidden], .demo-bar__reset[hidden] { display: none; }
-.demo-bar__panel p { margin: 0 0 var(--s3); max-width: 70ch; font-size: var(--fs-md); line-height: 1.5; text-wrap: pretty; }
+.demo-bar__panel p { margin: 0 0 var(--s3); max-width: 70ch; text-wrap: pretty; }
 .demo-bar__actions { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); align-items: center; }
 .demo-bar__confirm { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
-.demo-bar__reset, .demo-bar__yes, .demo-bar__no { min-height: 44px; padding: 0 var(--s4); border: 1px solid var(--db-line); border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
-.demo-bar__back { display: inline-flex; align-items: center; min-height: 44px; color: inherit; font-weight: 600; text-underline-offset: 3px; }
+.demo-bar__back { display: inline-flex; align-items: center; min-height: 48px; color: inherit; font-weight: 600; }
 @media (min-width: 600px) { .demo-bar__long { display: inline; } }
-/* CHL-DEMO-R2: line the bar up with the header, which pads var(--s5) above its 760px breakpoint. */
+/* CHL-DEMO-R2 (CHL-NAV-11 update): from 761px the header is the sidebar and the bar sits over the main column,
+   so it pads like main (var(--s4)) and the back link and drawer copy start on main's content edge. */
 @media (min-width: 761px) {
-  .demo-bar__row { padding-left: max(var(--s5), env(safe-area-inset-left, 0px)); }
-  .demo-bar__toggle { padding-right: max(var(--s5), env(safe-area-inset-right, 0px)); }
-  .demo-bar__panel { padding-left: max(var(--s5), env(safe-area-inset-left, 0px)); padding-right: max(var(--s5), env(safe-area-inset-right, 0px)); }
+  .demo-bar__row { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); }
+  .demo-bar__toggle { padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
+  .demo-bar__panel { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
 }
 @media (max-width: 359px) { .demo-bar__sum { display: none; } }
 @media (prefers-reduced-motion: reduce) { .demo-bar__chev { transition: none; } }
 
-/* ---------------------------------------------------------------- header */
+/* ---------------------------------------------------------------- header, tab bar, disclaimer line (CHL-NAV)
+   One <header> holds the brand, the one nav.tabs, the Profile button and #disclaimer-line. Phones (under 760px):
+   a 56px sticky bar with the brand left and Profile right; the tab bar and the 48px disclaimer line are fixed to
+   the bottom. Laptops: the header is a 248px sidebar (see the min-width: 760px block below). */
 .top {
-  display: flex; align-items: center; gap: var(--s3);
-  padding: var(--s2) var(--s5); background: var(--panel); border-bottom: 1px solid var(--line);
-  position: sticky; top: 0; z-index: 5; min-height: 52px;
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: var(--s3);
+  height: 56px; padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 max(var(--s4), env(safe-area-inset-left, 0px));
+  background: var(--surface); border-bottom: 1px solid var(--line);
 }
-.brand { display: flex; gap: 10px; align-items: center; margin-right: auto; min-width: 0; }
-.logo {
-  width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: var(--accent-ink);
-  display: grid; place-items: center; font-weight: 700; font-size: var(--fs-md); flex: none;
+.brand { display: flex; gap: var(--s3); align-items: center; margin-right: auto; min-width: 0; }
+/* The mark is ink, not the accent: the accent means "tap here" (principle 6). */
+.logo { width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--ink); color: var(--bg); display: grid; place-items: center; font-weight: 600; flex: none; }
+.brand-name { font-weight: 600; }
+.badge { padding: 0 var(--s2); border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; }
+.badge.mock { border-color: var(--tab-line); color: var(--ink); }
+.top .header-profile { text-decoration: none; padding: 0 var(--s2); margin-right: calc(-1 * var(--s2)); }
+.top .header-profile .ico { width: 24px; height: 24px; flex: none; }
+
+/* The tab bar: icon over word; the picked tab is the accent, 600, with an accent-soft pill behind its icon. */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; box-sizing: border-box;
+  height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+  padding: var(--s1) max(var(--s1), env(safe-area-inset-right, 0px)) calc(var(--s1) + env(safe-area-inset-bottom, 0px)) max(var(--s1), env(safe-area-inset-left, 0px));
+  background: var(--surface); border-top: 1px solid var(--line);
 }
-.brand-name { font-weight: 700; line-height: 1.2; }
-.brand-sub { font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; }
-.badge { font-size: var(--fs-xs); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
-.badge.mock { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
-
-.link-btn { background: none; border: 0; padding: 0; color: inherit; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
-
-.tabs { display: flex; gap: 2px; padding: 2px var(--s4) 0; overflow-x: auto; border-bottom: 1px solid var(--line); background: var(--panel); }
+nav.tabs::after { content: none; }  /* CHL-DS-R18: the bar never scrolls, so there is never a fade */
+.tabs-inner { display: flex; height: 100%; overflow: hidden; }
 .tabs button {
-  border: 0; background: none; padding: 9px 12px; font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer;
-  border-bottom: 2px solid transparent; white-space: nowrap; border-radius: 6px 6px 0 0;
+  flex: 1 1 0; min-width: 48px; min-height: 48px; margin: 0; padding: 0; border: 0; border-radius: var(--r-md); background: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  font: inherit; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap;
 }
-.tabs button:hover { color: var(--ink); background: var(--sunken); }
-.tabs button.active { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+.tabs button:hover { color: var(--ink); }
+.tab-ico { display: inline-flex; padding: var(--s1) var(--s4); border-radius: var(--r-pill); }
+.tab-ico .ico { width: 26px; height: 26px; display: block; }
+.tab-word { font-size: var(--fs-body); line-height: var(--lh-body); }
+.tabs button.active { color: var(--accent); font-weight: 600; }
+.tabs button.active .tab-ico { background: var(--accent-soft); }
+
+/* CHL-NAV-3: one 48px disclaimer line, directly above the bar; tapping it opens the full disclaimer. */
+.disclaimer-line {
+  position: fixed; left: 0; right: 0; z-index: 6; box-sizing: border-box; height: var(--line-h);
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+}
+.disclaimer-line::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
+.disclaimer-line .disc-btn {
+  display: flex; min-height: 0; min-width: 0; font-weight: 400; text-decoration: none; gap: var(--s1); align-items: center; justify-content: center; width: 100%; height: var(--line-h); margin: 0;
+  padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 max(var(--s4), env(safe-area-inset-left, 0px));
+  border: 0; border-radius: 0; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; cursor: pointer;
+}
+.disclaimer-line .disc-btn:focus-visible { outline-offset: -2px; }
+.disc-more { display: none; }
+/* CHL-NAV-10 (off by default, pending Chase; body.nav-hide-on-type is the switch, not set in index.html): while a text field has focus on a phone, the
+   bar and the line step aside for the keyboard. Every trade surface keeps its own disclaimer. */
+@media (max-width: 759.98px) {
+  /* Room under the last content for the fixed bottom stack (CHL-NAV-4). */
+  body::after { content: ""; display: block; height: var(--stack-h); }
+  body.nav-hide-on-type.is-typing nav.tabs, body.nav-hide-on-type.is-typing .disclaimer-line { display: none; }
+}
+@media (max-width: 359px) { .disclaimer-line .disc-btn { padding: 0 var(--s2); } }
 
 main { max-width: 1120px; margin: 0 auto; padding: var(--s5) var(--s4); }
 .tab { display: none; }
 .tab.active { display: block; }
 .section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s3); margin-bottom: var(--s3); flex-wrap: wrap; }
 .section-head p { margin: 0; }
+/* CHL-NAV-7: every view opens with a 34px large title and at most one subtitle line. */
+.page-head { margin-bottom: var(--s3); }
+.page-head h1 { margin: 0; }
+.page-head p { margin: var(--s1) 0 0; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.sheet-head .sheet-close { text-decoration: none; }
+#tab-today #data-badge { display: inline-block; margin-bottom: var(--s3); }
+#profile-nudge { margin-bottom: var(--s2); }
+.ideas-meta { margin-top: var(--s4); }
+.ideas-meta .section-head { align-items: center; }
 
 /* Risk control: a slim bar at the top of Today, Screener and Learn. */
-.risk-control { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); padding: 6px var(--s3); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; width: fit-content; max-width: 100%; }
-.risk-control label { font-weight: 600; font-size: var(--fs-sm); line-height: 1; margin: 0; white-space: nowrap; }
-.risk-control input { width: 140px; accent-color: var(--accent); margin: 0; padding: 0; border: 0; background: none; height: 28px; }
-.pill { padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; line-height: 1.3; }
-.pill.l4, .pill.l5 { background: var(--warn-soft); color: var(--warn); }
+.risk-control { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); padding: 0 var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; width: fit-content; max-width: 100%; }
+.risk-control label { font-weight: 600; margin: 0; white-space: nowrap; }
+.risk-control input { width: 160px; height: 48px; min-height: 48px; accent-color: var(--accent); margin: 0; padding: 0; border: 0; background: none; }
+/* The risk level in words: ink, no fill (it's information, not a tap). */
+.pill { padding: 0 var(--s3); border-radius: 999px; border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
 
-/* ---------------------------------------------------------------- hero (UX2) */
-.hero { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s5); margin-bottom: var(--s5); box-shadow: var(--shadow);
-  background-image: radial-gradient(120% 140% at 100% 0%, var(--accent-soft) 0%, transparent 55%); }
-.hero h1 { max-width: 22ch; }
-.hero-how { font-size: var(--fs-md); max-width: 62ch; margin-bottom: var(--s2); }
-.hero-whose { font-size: var(--fs-sm); margin-bottom: var(--s3); }
-.proof { display: flex; flex-wrap: wrap; gap: var(--s2); list-style: none; margin: 0; padding: 0; }
-.proof li { font-size: var(--fs-xs); font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 4px 12px 4px 26px; position: relative; }
-.proof li::before { content: ""; position: absolute; left: 11px; top: 50%; width: 8px; height: 4px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-70%) rotate(-45deg); }
 
 /* ---------------------------------------------------------------- controls */
 button, select, input, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
-.primary { background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); padding: 9px 16px; border-radius: var(--radius-sm); font-weight: 600; white-space: nowrap; transition: filter .12s, transform .06s; }
-.primary:hover { filter: brightness(1.08); }
-.primary:active { transform: translateY(1px); }
-.primary:disabled { opacity: .6; cursor: default; filter: none; transform: none; }
-.ghost { background: transparent; border: 1px solid var(--line-strong); padding: 8px 14px; border-radius: var(--radius-sm); white-space: nowrap; transition: background .12s, border-color .12s; }
-.ghost:hover { background: var(--accent-soft); border-color: var(--accent); }
-.ghost:disabled { opacity: .6; cursor: default; background: transparent; }
-.link { background: none; border: 0; color: var(--accent); padding: 0; text-decoration: underline; font-weight: 600; }
-input, select, textarea {
-  width: 100%; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--panel);
+/* Chromium ignores line-height on a native menulist, so selects draw their own chevron (in theme colors). */
+select {
+  appearance: none; line-height: var(--lh-body);
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%), linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position: right 18px center, right 12px center; background-size: 6px 6px; background-repeat: no-repeat;
 }
-label, .label-like { display: block; font-size: var(--fs-sm); font-weight: 600; margin-bottom: var(--s3); }
+button { cursor: pointer; }
+/* Buttons (STUDIO-CORE section 6): primary filled accent for deliberate moments only; tinted (accent on
+   accentSoft capsule) for a screen's main action; secondary ink on fill; quiet accent text; danger filled
+   red for cannot-undo. All 48px. */
+.btn-primary, .btn-tinted, .btn-secondary, .btn-quiet, .btn-danger {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  min-height: 48px; min-width: 48px; margin: 0; padding: 0 var(--s4); border: 0; border-radius: 999px;
+  font-weight: 600; text-align: center; white-space: nowrap; text-decoration: none;
+  flex: none;  /* CHL-DS-R1: never squeezed narrower than its words */
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-tinted { background: var(--accent-soft); color: var(--accent); }
+.btn-secondary { background: var(--fill); color: var(--ink); }
+.btn-quiet { background: transparent; color: var(--accent); padding: 0 var(--s2); text-decoration: underline; text-underline-offset: 3px; }
+.btn-danger { background: var(--danger); color: var(--on-danger); }
+.btn-quiet.danger-text { color: var(--danger-text); }
+/* CHL-DS-R2: Delete my data sits on its own row under a line, and asks inline before it deletes. */
+.delete-row { margin-top: var(--s4); padding-top: var(--s2); border-top: 1px solid var(--line); }
+.delete-row .btn-quiet { padding: 0; }
+.delete-confirm p { margin: var(--s2) 0; }
+.delete-confirm[hidden], .delete-row [hidden] { display: none; }
+.btn-primary:hover, .btn-tinted:hover, .btn-secondary:hover, .btn-danger:hover { text-decoration: underline; text-underline-offset: 3px; }
+.btn-primary:disabled, .btn-tinted:disabled, .btn-secondary:disabled, .btn-quiet:disabled, .btn-danger:disabled { opacity: .6; cursor: default; text-decoration: none; }
+/* CHL-DS-R25/R26: the header Profile button reads as a tab: the inactive tab's colour at rest, the active
+   tab's accent and 2px mark while Profile shows. The 2px border is reserved transparently so nothing shifts. */
+.header-profile {
+  color: var(--muted); text-decoration: none; font-weight: 600; border-radius: 0;
+  border-top: 2px solid transparent; border-bottom: 2px solid transparent;
+}
+.header-profile:hover { color: var(--ink); }
+.header-profile:focus-visible { outline-offset: -2px; }
+.header-profile[aria-current="page"] { color: var(--accent); border-bottom-color: var(--accent); }
+input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea {
+  width: 100%; min-height: 48px; padding: var(--s2) var(--s3); border: 1px solid var(--tab-line); border-radius: var(--r-md); background-color: var(--fill);
+}
+select { padding-right: var(--s6); }
+label, .label-like { display: block; font-weight: 600; margin-bottom: var(--s3); }
 label input, label select, label textarea, .label-like .row { margin-top: var(--s1); font-weight: 400; }
-label.check { display: flex; gap: var(--s2); align-items: center; font-weight: 400; }
-label.check input { width: auto; margin: 0; }
+label.check { display: flex; gap: var(--s3); align-items: center; min-height: 48px; font-weight: 400; }
+label.check input, .choice input, .chip-check input { width: 20px; height: 20px; margin: 0; flex: none; accent-color: var(--accent); }
 fieldset { border: 0; padding: 0; margin: 0 0 var(--s3); min-width: 0; }
-legend { font-size: var(--fs-sm); font-weight: 600; padding: 0; margin-bottom: var(--s1); }
+legend { font-weight: 600; padding: 0; margin-bottom: var(--s2); }
+.appearance legend { font-size: var(--fs-title); line-height: var(--lh-title); }
+.profile-col { min-width: 0; }
+/* Appearance (principle 10): Auto follows the phone; Light or Dark stays picked. */
+.choices { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s2); }
+.choice { display: inline-flex; align-items: center; gap: var(--s2); min-height: 48px; min-width: 48px; margin: 0; padding: 0 var(--s4); border: 1px solid var(--tab-line); border-radius: 999px; font-weight: 400; cursor: pointer; }
+.choice:has(input:checked) { border-color: var(--accent); font-weight: 600; }
 
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s4); }
 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4); align-items: start; }
-.callout { background: var(--warn-soft); color: var(--ink); border: 1px solid var(--warn); border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; }
+/* Cautions keep their words, in ink, on the page (no amber: the studio has no warning color). */
+.callout { color: var(--ink); border-left: 2px solid var(--tab-line); padding: 0 0 0 var(--s3); margin-bottom: var(--s3); }
 
 /* ---------------------------------------------------------------- idea cards (UX3/UX4) */
 .cards { display: grid; gap: var(--s4); }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s5); min-width: 0; }
 .card-head { display: flex; justify-content: space-between; gap: var(--s3); align-items: flex-start; }
 .card-head > div:first-child { min-width: 0; }
-.card-title { font-size: var(--fs-lg); font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
-.card-title.sm { font-size: var(--fs-md); }
-.card-title .sym { color: var(--muted); font-weight: 500; font-size: var(--fs-sm); margin-left: 6px; white-space: nowrap; letter-spacing: 0; }
-.card-sub { font-size: var(--fs-sm); color: var(--muted); margin-top: 2px; }
-.rank { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px; background: var(--sunken); border: 1px solid var(--line); font-size: var(--fs-xs); font-weight: 700; margin-right: 8px; vertical-align: 2px; }
+/* CHL-DS-R16: jumping to card 1 clears the sticky header (60px) plus 16px. */
+#ideas .card { scroll-margin-top: calc(var(--s6) * 2 + var(--s3)); }
+.card-title { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
+.card-title.sm { font-size: var(--fs-body); line-height: var(--lh-body); }
+.card-title .sym { color: var(--muted); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-body); margin-left: var(--s2); white-space: nowrap; }
+.card-sub { color: var(--muted); }
+.rank { display: inline-flex; justify-content: center; min-width: 32px; padding: 0 var(--s2); margin-right: var(--s2); border: 1px solid var(--line); border-radius: 999px; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; vertical-align: 2px; }
 .thesis { margin: var(--s3) 0 0; }
-/* Grade badge (UX13) */
-.grade { font-weight: 700; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); white-space: nowrap; border: 1px solid transparent; font-size: var(--fs-sm); line-height: 1.25; text-align: right; flex: none; }
+/* Grade badge (UX13): a secondary button on cards; ink words, never a status color. */
+.grade { white-space: nowrap; text-align: right; flex: none; font-weight: 600; }
+button.grade { flex-direction: column; align-items: flex-end; padding: var(--s1) var(--s3); border-radius: var(--r-md); }
+span.grade { display: inline-block; padding: 0 var(--s2); border: 1px solid var(--line); border-radius: 999px; }
 .grade .gscore { display: block; }
 .grade .gcap { display: none; }
-.grade .gmore { display: block; font-weight: 500; font-size: var(--fs-xs); }
-.grade .gmore::after { content: ""; display: inline-block; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-top: 1.5px solid currentColor; transform: rotate(45deg); margin-left: 5px; vertical-align: 1px; }
-button.grade:hover { border-color: currentColor; }
-.grade.C, .grade.D { background: var(--warn-soft); color: var(--warn); }
-.grade.F { background: var(--bad-soft); color: var(--bad); }
-.strategy-tag { display: inline-block; font-size: var(--fs-sm); font-weight: 600; padding: 3px 9px; border-radius: 6px; background: var(--sunken); border: 1px solid var(--line); margin-top: var(--s2); }
-.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: var(--s3) 0; }
-.metrics.hero-m { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.metric { background: var(--sunken); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; min-width: 0; }
-.metric .k { font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; }
-.metric .v { font-weight: 700; font-variant-numeric: tabular-nums; }
-.hero-m .metric .v { font-size: var(--fs-lg); line-height: 1.3; letter-spacing: -.01em; }
-.metric .h { font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; }
-.metric.loss .k::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); margin-right: 5px; vertical-align: 1px; }
-.metric.gain .k::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin-right: 5px; vertical-align: 1px; }
-.metric.up .v { color: var(--good); }
-.metric.down .v { color: var(--bad); }
+.grade .gmore { display: block; font-weight: 400; }
+.grade .gmore::after { content: ""; display: inline-block; width: 6px; height: 6px; border-right: 2px solid currentColor; border-top: 2px solid currentColor; transform: rotate(45deg); margin-left: var(--s1); vertical-align: 2px; }
+.strategy-tag { display: block; font-weight: 600; margin-top: var(--s3); }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--s3) var(--s4); margin: var(--s3) 0; }
+/* CHL-DS-R11: three columns; the labels share a row (aligned to its foot) and the values share the next. */
+.metrics.hero-m { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto auto; }
+.hero-m .metric { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; }
+.hero-m .metric .k { align-self: end; }
+.metric { min-width: 0; }
+.metric .k { color: var(--muted); }
+.metric .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.hero-m .metric .v { font-size: var(--fs-title); line-height: var(--lh-title); }
+.metric .h { color: var(--muted); }
+.metric.loss .k::before, .metric.gain .k::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 999px; margin-right: var(--s1); vertical-align: 2px; }
+.metric.loss .k::before { background: var(--danger); }
+.metric.gain .k::before { background: var(--safe); }
+.metric.up .v { color: var(--safe); }
+.metric.down .v { color: var(--danger-text); }
 .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s4); }
-ul.tight { margin: var(--s1) 0; padding-left: 18px; }
-ul.tight li { margin: 2px 0; }
-.ticket { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs); background: var(--sunken); border: 1px dashed var(--line-strong); border-radius: var(--radius-sm); padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+ul.tight { margin: var(--s1) 0; padding-left: var(--s5); }
+ul.tight li { margin: 0; }
+.ticket { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s3); white-space: pre-wrap; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .actions { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s3); }
-.exit-line { font-size: var(--fs-sm); margin: var(--s2) 0 0; }
-.factors { display: grid; gap: 6px; margin: var(--s2) 0; }
-.factor { display: grid; grid-template-columns: 110px 1fr 34px; gap: var(--s2); align-items: center; font-size: var(--fs-sm); }
-.bar { height: 8px; background: var(--sunken); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.bar > span { display: block; height: 100%; background: var(--accent); }
-.factor .why { grid-column: 1 / -1; color: var(--muted); font-size: var(--fs-xs); margin: -2px 0 4px; }
-.flags li { color: var(--bad); }
-.edu { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 10px 12px; font-size: var(--fs-sm); }
-details summary { cursor: pointer; font-weight: 600; margin: var(--s2) 0; }
+.exit-line { margin: var(--s2) 0 0; }
+.factors { display: grid; gap: var(--s2); margin: var(--s2) 0; }
+.factor { display: grid; grid-template-columns: 120px 1fr 40px; gap: 0 var(--s2); align-items: center; }
+/* Score bars are data, not a tap: ink on a fill track. */
+.bar { height: 8px; background: var(--fill); border-radius: 999px; overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--ink); border-radius: 999px; }
+.factor .why { grid-column: 1 / -1; color: var(--muted); margin: 0 0 var(--s1); }
+.edu { border-left: 2px solid var(--line); padding-left: var(--s3); }
+details > summary {
+  display: flex; align-items: center; gap: var(--s2); min-height: 48px; margin: 0; cursor: pointer;
+  color: var(--accent); font-weight: 600; list-style: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: ""; flex: none; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin: 0 var(--s1); }
+details[open] > summary::before { transform: rotate(45deg); }
 details.more { margin-top: var(--s3); border-top: 1px solid var(--line); }
-details.more > summary { padding: var(--s3) 0 var(--s1); margin: 0; color: var(--accent); list-style: none; display: flex; align-items: center; gap: var(--s2); }
-details.more > summary::-webkit-details-marker { display: none; }
-details.more > summary::before { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform .15s; margin: 0 2px; }
-details.more[open] > summary::before { transform: rotate(45deg); }
-.quote { font-style: italic; color: var(--muted); font-size: var(--fs-sm); }
+.quote { color: var(--muted); }
 
-/* Payoff chart (UX5): drawn at its rendered width, so the labels are real 12px text. */
-.chart-legend { display: flex; flex-wrap: wrap; gap: 2px var(--s3); font-size: var(--fs-sm); color: var(--muted); margin-top: var(--s2); font-variant-numeric: tabular-nums; }
+/* Payoff chart (UX5): drawn at its rendered width, so the labels are real 17px text. The curve is ink
+   (data, not a tap); gain and loss shading are the status colors. */
+.chart-legend { display: flex; flex-wrap: wrap; gap: 0 var(--s3); color: var(--muted); margin-top: var(--s2); font-variant-numeric: tabular-nums; }
 .chart-legend b { color: var(--ink); font-weight: 600; }
-.chart-legend .key-spot::before { content: ""; display: inline-block; width: 12px; border-top: 2px dashed var(--muted); margin-right: 5px; vertical-align: 3px; }
-.chart-legend .key-be::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 5px; vertical-align: 0; }
-.chart { width: 100%; min-height: 60px; margin-top: var(--s1); }
+.chart-legend .key-spot::before { content: ""; display: inline-block; width: 12px; border-top: 2px dashed var(--muted); margin-right: var(--s1); vertical-align: 4px; }
+.chart-legend .key-be::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: var(--ink); margin-right: var(--s1); vertical-align: 1px; }
+.chart { width: 100%; min-height: 64px; margin-top: var(--s1); }
 .payoff { width: 100%; height: auto; display: block; overflow: visible; }
-.payoff .zero { stroke: var(--line-strong); }
-.payoff .curve { fill: none; stroke: var(--accent); stroke-width: 2; }
+.payoff .zero { stroke: var(--tab-line); }
+.payoff .axis { stroke: var(--line); }
+.payoff .curve { fill: none; stroke: var(--ink); stroke-width: 2; }
 .payoff .spot { stroke: var(--muted); stroke-dasharray: 3 3; }
-.payoff .be { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
-.payoff text { fill: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.payoff .gain-area { fill: var(--good); opacity: .14; }
-.payoff .loss-area { fill: var(--bad); opacity: .14; }
+.payoff .be { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.payoff text { fill: var(--muted); font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.payoff .gain-area { fill: var(--safe); opacity: .14; }
+.payoff .loss-area { fill: var(--danger); opacity: .14; }
+.chart-cap { color: var(--muted); margin: var(--s1) 0 0; }
 
 /* Skeleton loading (UX14) */
 .skeleton { pointer-events: none; }
-.skeleton .sk { background: var(--sunken); border-radius: 6px; animation: pulse 1.3s ease-in-out infinite; }
+.skeleton .sk { background: var(--fill); border-radius: var(--r-sm); animation: pulse 1.3s ease-in-out infinite; }
 .sk.t1 { height: 22px; width: 55%; }
-.sk.t2 { height: 14px; width: 35%; margin-top: 8px; }
+.sk.t2 { height: 16px; width: 35%; margin-top: 8px; }
 .sk.blk { height: 64px; margin-top: 16px; }
 .sk.chart-sk { height: 120px; margin-top: 12px; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .skeleton .sk, .typing span { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .skeleton .sk, .typing span { animation: none; } details > summary::before { transition: none; } }
 .state { text-align: center; padding: var(--s6) var(--s4); }
-.state .icon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin: 0 auto var(--s3); font-size: var(--fs-lg); font-weight: 700; }
-.state h2 { font-size: var(--fs-lg); }
+.state .icon { width: 48px; height: 48px; border-radius: 999px; background: var(--fill); color: var(--ink); display: grid; place-items: center; margin: 0 auto var(--s3); font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
 .state p { color: var(--muted); max-width: 46ch; margin: 0 auto var(--s4); }
-.state.error .icon { background: var(--bad-soft); color: var(--bad); }
-.state details { text-align: left; max-width: 520px; margin: var(--s3) auto 0; font-size: var(--fs-xs); color: var(--muted); }
+.state.error .icon { color: var(--danger-text); }
+.state details { text-align: left; max-width: 520px; margin: var(--s3) auto 0; color: var(--muted); }
 
-.domain { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.domain { padding: var(--s3) 0; border-bottom: 1px solid var(--line); }
 .domain:last-child { border-bottom: 0; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--s2); }
-.chip { border: 1px solid var(--line); background: var(--sunken); border-radius: 999px; padding: 4px 11px; font-size: var(--fs-sm); min-height: 32px; display: inline-flex; align-items: center; gap: 6px; line-height: 1.3; }
-span.chip { min-height: 28px; }
-button.chip { transition: border-color .12s, background .12s; }
-button.chip:hover { border-color: var(--accent); background: var(--accent-soft); }
-.why-chips .chip { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
-.chip-check { cursor: pointer; font-weight: 500; margin: 0; }
-.chip-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
-.chip-check:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
-.chip-check:hover { border-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+.chip { display: inline-flex; align-items: center; gap: var(--s2); min-height: 48px; padding: 0 var(--s4); border: 0; border-radius: 999px; background: var(--fill); color: var(--ink); font-weight: 400; }
+span.chip { min-height: 0; padding: 0 var(--s3); }
+/* CHL-DS-R4: why-you reasons are plain check lines on the card, no fill. */
+.why-chips { display: grid; gap: var(--s2); margin-top: var(--s3); }
+.why-chips .why-line { display: block; }
+.chip-check { cursor: pointer; margin: 0; border: 1px solid var(--tab-line); }
+.chip-check:has(input:checked) { border-color: var(--accent); }
 
 /* ---------------------------------------------------------------- screener (UX9) */
 .screen-form { margin-bottom: var(--s4); }
 .screen-main { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0 var(--s4); }
 .screen-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0 var(--s4); margin-top: var(--s2); }
 .filters { border-top: 1px solid var(--line); margin: var(--s1) 0 var(--s3); }
-.filters > summary { color: var(--accent); }
 .screen-actions { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .save-group { display: flex; gap: var(--s2); flex: 1 1 280px; justify-content: flex-end; }
 .save-group input { max-width: 240px; }
 .results-line { margin-bottom: var(--s3); }
-table { width: 100%; border-collapse: collapse; background: var(--panel); font-size: var(--fs-sm); }
-th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); }
+th, td { text-align: left; padding: var(--s3); border-bottom: 1px solid var(--line); vertical-align: top; }
 tbody tr:last-child td { border-bottom: 0; }
-th { font-size: var(--fs-xs); color: var(--muted); font-weight: 600; background: var(--sunken); }
+th { color: var(--muted); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 tr.clickable { cursor: pointer; }
-tr.clickable:hover td { background: var(--accent-soft); }
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+tr.clickable:hover td { background: var(--fill); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
 .row-cards { display: none; gap: var(--s2); }
-.row-card { display: block; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s3) var(--s4); box-shadow: var(--shadow); }
-button.row-card:hover { border-color: var(--accent); }
+.row-card { display: block; width: 100%; text-align: left; background: var(--surface); color: var(--ink); border: 1px solid var(--tab-line); border-radius: var(--r-md); padding: var(--s3) var(--s4); }
 .row-card .rc-top { display: flex; justify-content: space-between; gap: var(--s2); align-items: baseline; }
-.row-card .rc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin-top: var(--s2); font-size: var(--fs-sm); }
-.row-card .rc-grid span { display: block; color: var(--muted); font-size: var(--fs-xs); }
-.row-card .rc-grid b { font-variant-numeric: tabular-nums; }
+.row-card .rc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin-top: var(--s2); }
+.row-card .rc-grid span { display: block; color: var(--muted); }
+.row-card .rc-grid b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- chat (UX1) */
+/* CHL-DS-R7: the conversation sits on the page: no card around it, and only your own messages get a bubble. */
 .chat-wrap { display: flex; flex-direction: column; height: 70vh; min-height: 340px; }
-.chat-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 10px; }
-.msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; }
-.msg.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
-.msg.bot { align-self: flex-start; background: var(--sunken); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
-.msg.bot p { margin: 4px 0; }
-.msg code { font-size: var(--fs-xs); }
-.msg .mini { margin-top: var(--s2); padding: 10px; border-radius: var(--radius-sm); background: var(--panel); border: 1px solid var(--line); font-size: var(--fs-sm); }
-.chat-form { display: flex; gap: var(--s2); padding-top: 10px; border-top: 1px solid var(--line); }
-.typing { display: inline-flex; gap: 4px; align-items: center; height: 20px; }
-.typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
+.chat-log { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--s3); padding-bottom: var(--s3); }
+.msg { max-width: 85%; padding: var(--s2) var(--s3); border-radius: var(--r-md); }
+.msg.user { align-self: flex-end; background: var(--fill); color: var(--ink); }
+.msg.bot { align-self: flex-start; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.msg.bot p { margin: var(--s1) 0; }
+.msg .mini { margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--line); }
+.chat-form { display: flex; gap: var(--s2); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.typing { display: inline-flex; gap: var(--s1); align-items: center; height: 22px; }
+.typing span { width: 8px; height: 8px; border-radius: 999px; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .15s; }
 .typing span:nth-child(3) { animation-delay: .3s; }
 @keyframes blink { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
 
-/* ---------------------------------------------------------------- paper (UX10) */
+/* ---------------------------------------------------------------- paper (UX10): stats are outlined tiles on the page */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--s3); margin-bottom: var(--s4); }
-.stats .metric { background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 12px 14px; }
-.stats .metric .v { font-size: var(--fs-lg); }
-.pos-pnl.up { color: var(--good); font-weight: 700; }
-.pos-pnl.down { color: var(--bad); font-weight: 700; }
+.stats .metric { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); }
+.stats .metric .v { font-size: var(--fs-title); line-height: var(--lh-title); }
+.pos-pnl.up { color: var(--safe); font-weight: 600; }
+.pos-pnl.down { color: var(--danger-text); font-weight: 600; }
 .pos-cards { display: none; gap: var(--s2); }
-.pos-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--s3) var(--s4); box-shadow: var(--shadow); }
+.pos-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s3) var(--s4); }
 .pos-card .rc-top { display: flex; justify-content: space-between; gap: var(--s2); align-items: baseline; }
-.pos-card .rc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin-top: var(--s2); font-size: var(--fs-sm); }
-.pos-card .rc-grid span { display: block; color: var(--muted); font-size: var(--fs-xs); }
+.pos-card .rc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin-top: var(--s2); }
+.pos-card .rc-grid span { display: block; color: var(--muted); }
+.pos-card .rc-grid b { color: var(--ink); }
+.pos-card .rc-grid b.up { color: var(--safe); }
+.pos-card .rc-grid b.down { color: var(--danger-text); }
 .pos-card .actions { margin-top: var(--s2); }
+.pos-card .rc-money { margin-top: var(--s1); }
 
 /* ---------------------------------------------------------------- learn */
-.ladder { display: grid; gap: 10px; }
-.rung { display: grid; grid-template-columns: 44px 1fr; gap: var(--s3); align-items: start; }
-.rung .n { width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center; font-weight: 700; background: var(--accent-soft); color: var(--accent); }
-.rung.l4 .n, .rung.l5 .n { background: var(--warn-soft); color: var(--warn); }
-.rung.current { outline: 2px solid var(--accent); border-radius: var(--radius); padding: 6px; }
+.ladder { display: grid; gap: var(--s3); }
+.rung { display: grid; grid-template-columns: 48px 1fr; gap: var(--s3); align-items: start; border-radius: var(--r-md); }
+.rung .n { width: 48px; height: 48px; border-radius: var(--r-md); display: grid; place-items: center; font-weight: 600; border: 1px solid var(--line); color: var(--ink); }
+.rung.current { outline: 2px solid var(--ink); padding: var(--s2); }
 .learn-cards .card p { margin: var(--s2) 0; }
 
-/* ---------------------------------------------------------------- drawer (UX11) */
-.drawer { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 20; display: flex; justify-content: flex-end; }
-.drawer-inner { width: min(760px, 100%); height: 100%; overflow-y: auto; background: var(--bg); position: relative; box-shadow: -8px 0 32px rgba(0,0,0,.15); }
-.drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s5); background: var(--panel); border-bottom: 1px solid var(--line); min-height: 60px; }
+/* ---------------------------------------------------------------- drawer (UX11): a sheet; its trades sit on it, not in cards */
+.drawer { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; justify-content: flex-end; }
+.drawer-inner { width: min(760px, 100%); height: 100%; overflow-y: auto; background: var(--bg); position: relative; }
+.drawer-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s5); background: var(--surface); border-bottom: 1px solid var(--line); min-height: 64px; }
 .drawer-head-text { flex: 1; min-width: 0; }
-.drawer-nfa { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; }
-.drawer-title { min-width: 0; font-weight: 700; font-size: var(--fs-md); line-height: 1.3; }
-.drawer-title .sym { color: var(--muted); font-weight: 500; font-size: var(--fs-sm); }
-.drawer-title .grade { margin-left: var(--s2); font-size: var(--fs-xs); padding: 2px 8px; vertical-align: 1px; }
+.drawer-nfa { margin: 0; color: var(--muted); }
+/* CHL-DS-R12: the company name is the title; symbol, price and score sit on the muted line under it. */
+.drawer-title { min-width: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; }
+.drawer-sub { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s2); color: var(--muted); font-variant-numeric: tabular-nums; }
+.drawer-sub:empty { display: none; }
+.drawer-sub .grade { font-weight: 600; color: var(--ink); }
 #drawer-body { padding: var(--s4) var(--s5) var(--s6); }
-#drawer-body .card { margin-bottom: var(--s3); }
-.close { flex: none; width: 44px; height: 44px; border-radius: var(--radius-sm); border: 0; background: none; font-size: var(--fs-xl); line-height: 1; color: var(--muted); display: grid; place-items: center; }
-.close:hover { background: var(--sunken); color: var(--ink); }
-.src-line { font-size: var(--fs-sm); color: var(--muted); margin: 0 0 var(--s2); }
+#drawer-body .card { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: var(--s4) 0 0; margin-bottom: var(--s4); }
+.close { height: 48px; }
+.src-line { color: var(--muted); margin: 0 0 var(--s2); }
 
-.modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 30; display: grid; place-items: center; padding: var(--s4); }
-.modal-inner { max-width: 480px; width: 100%; max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: var(--s5); box-shadow: 0 16px 48px rgba(0,0,0,.25); }
-.ack-list { margin: var(--s3) 0; padding-left: 20px; }
-.ack-list li { margin: 6px 0; }
-#ack-details { font-size: var(--fs-sm); color: var(--muted); margin-bottom: var(--s4); }
+.modal { position: fixed; inset: 0; background: var(--scrim); z-index: 30; display: grid; place-items: center; padding: var(--s4); }
+.modal-inner { max-width: 480px; width: 100%; max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s5); }
+.ack-list { margin: var(--s3) 0; padding-left: var(--s5); }
+.ack-list li { margin: var(--s1) 0; }
+#ack-details { color: var(--muted); margin-bottom: var(--s4); }
 #ack-details p { margin: 0; }
-#ack-btn { width: 100%; padding: 12px 16px; }
+#ack-btn { width: 100%; }
 
-.engine-status { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 999px; font-size: var(--fs-sm); z-index: 45; }
-.toast { position: fixed; bottom: calc(var(--footer-h) + 16px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: var(--radius-sm); z-index: 40; font-size: var(--fs-sm); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
-/* Footer (UX7): one line, full text one tap away. */
-.disclaimer {
-  position: fixed; bottom: 0; left: 0; right: 0; height: var(--footer-h); background: var(--panel); border-top: 1px solid var(--line);
-  font-size: var(--fs-xs); color: var(--muted); padding: 0 var(--s4); line-height: 1.4; z-index: 4;
-  display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; overflow: hidden;
-}
-.disclaimer .link-btn { color: var(--accent); margin-left: 4px; padding: 6px 2px; }
-.disclaimer a { color: var(--accent); }
+.engine-status { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: var(--s2) var(--s4); border-radius: 999px; z-index: 45; }
+.toast { position: fixed; bottom: calc(var(--stack-h) + var(--s4)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: var(--s3) var(--s4); border-radius: var(--r-md); z-index: 40; }
 
 @media (max-width: 760px) {
   .grid2, .two-col { grid-template-columns: 1fr; }
-  .top { padding: var(--s2) var(--s4); min-height: 48px; }
-  .brand-sub { display: none; }
-  main { padding: var(--s4) var(--s4); }
-  .hero { padding: 18px; }
+  main { padding: var(--s3) var(--s4) var(--s4); }
+  /* CHL-NAV-8: a tight title block, so card 1's first number is in the phone's first screen. */
+  .page-head { margin-bottom: var(--s2); }
+  .risk-control { margin-bottom: var(--s3); }
   .card { padding: var(--s4); }
-  .risk-control input { width: 110px; }
+  .risk-control input { width: 120px; }
   .msg { max-width: 95%; }
-  .factor { grid-template-columns: 90px 1fr 30px; }
-  /* All six tabs fit at 390px (UX21); the bar still scrolls on narrower screens. */
-  .tabs { padding: 0 var(--s2); scrollbar-width: none; justify-content: space-between; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tabs button { padding: 9px 8px; }
-  .chip { min-height: 44px; }
-  span.chip { min-height: 28px; }
+  .factor { grid-template-columns: 96px 1fr 32px; }
   .drawer-head { padding-left: var(--s4); }
   #drawer-body { padding: var(--s4) var(--s4) var(--s6); }
   .save-group { justify-content: flex-start; }
@@ -392,39 +448,40 @@ button.row-card:hover { border-color: var(--accent); }
   .table-wrap.has-cards { display: none; }
   .row-cards, .pos-cards { display: grid; }
   .wide-only { display: none; }
-  /* UX46: on phones the demo's footer takes two lines, the portfolio link on the second. */
-  body.is-static { --footer-h: 52px; }
-  body.is-static .disclaimer { flex-wrap: wrap; align-content: center; row-gap: 0; }
-  body.is-static .disclaimer .site-link { flex-basis: 100%; text-align: center; }
-  body.is-static .disclaimer .site-link .sep { display: none; }
-  .metric { padding: 8px 10px; }
-  .card .actions { display: grid; grid-template-columns: 1fr 1fr; }
-  .card .actions button { padding-left: 8px; padding-right: 8px; }
-  .strategy-tag { font-size: var(--fs-xs); }
+  .card .actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .card .actions button { padding-left: var(--s2); padding-right: var(--s2); min-width: 0; white-space: normal; }
   .card-title .sym { display: block; margin-left: 0; }
-  .rank { vertical-align: 1px; }
+  /* CHL-DS-R4: on phones the sector line runs under both the name and the score button. */
+  .card-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 var(--s3); }
+  .card { padding: var(--s3) var(--s4); }
+  /* CHL-DS-R15: the title's wrapper is a subgrid in both directions, so row 1 is as tall as the taller of the
+     title and the score button, and the sector line takes row 2 under both. (display: contents would also do it,
+     but leaves the wrapper with no box, which focus checks read as layout moving.) */
+  .card-head > div:first-child:not(.card-title) { grid-column: 1 / -1; grid-row: 1 / span 2; display: grid; grid-template-columns: subgrid; grid-template-rows: subgrid; column-gap: var(--s3); row-gap: 0; }
+  .card-head .card-title { grid-column: 1; grid-row: 1; }
+  /* The 4px sits under the score button, not on the sector line: when a two-line name is the taller cell,
+     card 1 keeps its 800px budget at 390. */
+  .card-head .grade { grid-column: 2; grid-row: 1; align-self: start; margin-bottom: var(--s1); }
+  .card-head .card-sub { grid-column: 1 / -1; grid-row: 2; }
+  /* CHL-DS-R16: jumping to card 1 clears the 56px sticky header plus 8px. */
+  #ideas .card { scroll-margin-top: calc(var(--s6) * 2); }
   /* Compact badge on phones ("Score 76 · A", UX34), so the title and sector get the width; aria-label keeps the full words. */
   .card-head .grade .gword, .card-head .grade .gout { display: none; }
   .card-head .grade .gcap { display: inline; }
   .metrics.hero-m { gap: var(--s2); }
-  .hero-m .metric { padding: 8px; }
-  .why-chips .chip { font-size: var(--fs-xs); }
-  .rank { width: 22px; height: 22px; margin-right: 6px; }
-  .card-head .grade { padding: 6px 8px; }
   .thesis { margin-top: var(--s2); }
-  details.more > summary { padding-top: var(--s2); }
+  /* CHL-DS-R4: phone cards keep their gaps on the 8px step so card 1 stays inside 800px. */
+  .why-chips, .card .strategy-tag, .card .actions, details.more { margin-top: var(--s2); }
+  .metrics.hero-m { margin: var(--s2) 0; }
 }
-.nfa { font-size: var(--fs-xs); color: var(--muted); margin: var(--s2) 0 0; }
+.nfa { color: var(--muted); margin: var(--s2) 0 0; }
 
-/* UX18: chart labels and caption */
-.payoff .axis { stroke: var(--line); }
-.chart-cap { font-size: var(--fs-xs); color: var(--muted); margin: var(--s1) 0 0; }
 /* UX19: disabled trade types, and the folded screener form on phones */
-.chip-check.disabled { opacity: .55; cursor: not-allowed; }
+.chip-check.disabled { opacity: .6; cursor: not-allowed; }
 .chip-check.disabled input { cursor: not-allowed; }
 .screen-summary { display: none; align-items: center; gap: var(--s3); margin-bottom: var(--s3); padding: var(--s3) var(--s4); }
 /* UX25: "Paste a resume · or use the sample" on one row */
-.label-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); }
+.label-row { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); }
 .label-row label { margin-bottom: 0; }
 #resume-text { margin: var(--s1) 0 var(--s3); }
 /* UX26: screener table rows stay one line */
@@ -436,28 +493,11 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .stats { grid-template-columns: 1fr 1fr; }
   .stats .metric:last-child:nth-child(odd) { grid-column: 1 / -1; }
 }
-/* UX20: on a laptop the hero is two columns, so card 1's numbers make the first screen. */
-@media (min-width: 900px) {
-  .hero { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s5); align-items: center; padding: 20px var(--s5); margin-bottom: var(--s4); }
-  .hero h1 { max-width: none; }
-  .hero-how { margin-bottom: 0; }
-  .hero-side .proof { flex-direction: column; align-items: flex-start; }
-}
-/* UX28: the top idea's numbers in the phone's first screen */
-.hero-top-idea { display: none; }
-@media (max-width: 600px) {
-  .hero-top-idea:not(.hidden) { display: block; margin-top: var(--s3); padding: 10px var(--s3); min-height: 44px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent); font-size: var(--fs-sm); text-decoration: none; }
-}
-/* UX30: entry and now in words on the phone position card */
-.pos-card .rc-money { margin-top: var(--s1); }
 /* UX29: reflow at 320px, no horizontal page scroll */
-@media (max-width: 600px) {
-  .card .actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .card .actions button { min-width: 0; white-space: normal; }
-}
 @media (max-width: 400px) {
-  .risk-control { width: 100%; gap: var(--s2); }
-  .risk-control input { flex: 1 1 auto; width: auto; min-width: 0; }
+  /* CHL-DS-R6: the control wraps; the slider takes its own full-width row. */
+  .risk-control { width: 100%; flex-wrap: wrap; gap: 0 var(--s2); padding: var(--s1) var(--s4); border-radius: var(--r-md); }
+  .risk-control input { order: 3; flex: 1 1 100%; width: 100%; min-width: 0; }
 }
 /* UX35: on phones the disabled trade types fold into one line */
 .locked-note { display: none; margin: var(--s2) 0 0; }
@@ -467,22 +507,22 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 }
 /* M1.13: how past ideas are doing (Today, below the ideas) */
 .track { margin-top: var(--s6); }
-.track h2 .badge { vertical-align: 3px; margin-left: var(--s1); font-weight: 600; letter-spacing: 0; }
+.track h2 .badge { vertical-align: 3px; margin-left: var(--s1); }
 .track-panel { padding: var(--s4) var(--s5); }
-.track-sum { font-size: var(--fs-sm); margin-bottom: var(--s3); }
+.track-sum { margin-bottom: var(--s3); }
 .track-list { list-style: none; margin: 0; padding: 0; }
-.track-item { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) 12rem; gap: var(--s2) var(--s4); align-items: center; padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.track-item { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) 15rem; gap: var(--s2) var(--s4); align-items: center; padding: var(--s3) 0; border-top: 1px solid var(--line); }
 .track-item .ti-head { min-width: 0; }
 .track-item .ti-date { display: block; white-space: nowrap; }
-.ti-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s2); font-size: var(--fs-sm); }
-.ti-grid > span > span { display: block; color: var(--muted); font-size: var(--fs-xs); }
-.ti-grid b.up { color: var(--good); }
-.ti-grid b.down { color: var(--bad); }
-.be-chip { justify-self: end; font-size: var(--fs-xs); font-weight: 600; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
-.be-chip.above { background: var(--accent-soft); color: var(--accent); }
-.be-chip.below { background: var(--warn-soft); color: var(--warn); }
-.track-older > summary { font-size: var(--fs-sm); color: var(--accent); cursor: pointer; padding: var(--s2) 0; border-top: 1px solid var(--line); min-height: 24px; }
-.track-older[open] > summary { border-bottom: 0; }
+.ti-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s2); }
+.ti-grid > span > span { display: block; color: var(--muted); }
+.ti-grid b.up { color: var(--safe); }
+.ti-grid b.down { color: var(--danger-text); }
+/* Breakeven chips are gain or loss status: green above, red words below. */
+.be-chip { justify-self: end; font-weight: 600; border-radius: 999px; padding: 0 var(--s3); border: 1px solid currentColor; white-space: nowrap; }
+.be-chip.above { background: var(--safe-soft); color: var(--safe); }
+.be-chip.below { color: var(--danger-text); }
+.track-older > summary { border-top: 1px solid var(--line); }
 .track-note { margin: var(--s3) 0 0; }
 .track-empty p { margin-bottom: var(--s1); }
 @media (max-width: 600px) {
@@ -495,53 +535,85 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .ti-grid b { white-space: nowrap; }
   .track-item .be-chip { justify-self: start; }
 }
-/* M1.13: exit-plan alerts on paper positions */
+/* M1.13: exit-plan alerts on paper positions: words in ink on a fill capsule; take profit is a gain. */
 .alert-row { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
-.alert-chip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 600; line-height: 1.3; border-radius: 999px; padding: 3px 10px; background: var(--warn-soft); color: var(--warn); border: 1px solid transparent; white-space: nowrap; }
-.alert-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
-.alert-chip[data-alert="take_profit"] { background: var(--accent-soft); color: var(--accent); }
-.alert-msgs { margin: var(--s1) 0 0; padding-left: var(--s4); font-size: var(--fs-xs); color: var(--muted); }
-.alert-msgs li + li { margin-top: 2px; }
-/* M3.1: Hunches (local app only) */
+.alert-chip { display: inline-flex; align-items: center; gap: var(--s2); font-weight: 600; border-radius: 999px; padding: 0 var(--s3); background: var(--fill); color: var(--ink); white-space: nowrap; }
+.alert-chip::before { content: ""; width: 8px; height: 8px; border-radius: 999px; background: currentColor; flex: none; }
+.alert-chip[data-alert="take_profit"] { background: var(--safe-soft); color: var(--safe); }
+.alert-msgs { margin: var(--s1) 0 0; padding-left: var(--s4); color: var(--muted); }
+.alert-msgs li + li { margin-top: var(--s1); }
+/* CHL-DS-R10: Paper capital and Starting risk level stack on phones, so the select's words fit. */
+@media (max-width: 480px) {
+  .field-pair { flex-direction: column; align-items: stretch; gap: 0; }
+  /* CHL-DS-R17: on phones the Appearance options are a list: full-width 48px rows, 8px apart. */
+  .appearance .choices { flex-direction: column; align-items: stretch; }
+  .appearance .choice { display: flex; width: 100%; border-radius: var(--r-md); }
+}
+/* ---------------------------------------------------------------- CHL-NAV-11 laptop: the header is a 248px sidebar
+   (brand at the top, the five rows, then Profile and the disclaimer line with Read more at its bottom). */
+@media (min-width: 760px) {
+  /* The sidebar is fixed; everything else in the page flow takes the second column. */
+  body { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); align-content: start; }
+  body > * { grid-column: 2; }
+  .top {
+    position: fixed; top: 0; bottom: 0; left: 0; width: var(--side-w); height: auto; z-index: 5;
+    flex-direction: column; align-items: stretch; gap: 0; overflow-y: auto;
+    padding: var(--s4) 0; border-bottom: 0; border-right: 1px solid var(--line);
+  }
+  .brand { margin: 0 0 var(--s4); padding: 0 var(--s5); min-height: 48px; flex: none; }
+  nav.tabs { position: static; height: auto; padding: 0 var(--s3); border: 0; background: none; z-index: auto; }
+  .tabs-inner { flex-direction: column; gap: var(--s1); height: auto; }
+  .tabs button { flex: none; flex-direction: row; justify-content: flex-start; gap: var(--s3); height: 48px; padding: 0 var(--s3); border-radius: var(--r-pill); }
+  .tab-ico { padding: 0; background: none !important; }
+  .tabs button.active { background: var(--accent-soft); }
+  .top .header-profile {
+    margin: auto var(--s3) 0; justify-content: flex-start; gap: var(--s3); height: 48px; padding: 0 var(--s3);
+    border-radius: 0;
+  }
+  /* Profile is showing: the accent and the straight 2px accent mark from the base rule (CHL-DS-R25), no underline.
+     DS-15 keeps its background clear, so it can't wear the sidebar tab's accent-soft pill. */
+  .disclaimer-line { position: relative; bottom: auto; height: auto; margin: var(--s2) var(--s3) 0; padding-top: var(--s2); background: none; }
+  .disclaimer-line .disc-btn { display: block; height: auto; min-height: 48px; padding: var(--s2) var(--s3); text-align: left; white-space: normal; border-radius: var(--r-md); }
+  .disc-more { display: inline; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .toast { bottom: var(--s4); }
+}
+/* M3.1: Hunches, a sub-view of Search on the local app only (the static demo removes it and its switch). */
+/* The Screener/Hunches switch: two segments on a fill track; the one showing is the raised surface. */
+.search-switch { display: inline-flex; gap: var(--s1); padding: var(--s1); margin-bottom: var(--s3); background: var(--fill); border-radius: var(--r-pill); }
+.search-switch .seg { background: transparent; color: var(--muted); font-weight: 500; }
+.search-switch .seg:hover { color: var(--ink); }
+.search-switch .seg[aria-current="page"] { background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; }
 .hunch-form textarea { resize: vertical; min-height: 88px; }
 .hunch-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
-.hunch-actions .primary { min-height: 44px; }
+.hunch-llm { margin: var(--s2) 0 0; }
 #hunch-result { margin-top: var(--s4); }
 .hunch-block { margin-bottom: var(--s4); overflow-wrap: anywhere; }
-.hunch-block h2 .pill { vertical-align: 3px; margin-left: var(--s1); }
+.hunch-block h2 .pill { margin-left: var(--s1); }
 .hunch-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s4); }
 .hunch-groups h3 { margin-top: 0; }
 .hunch-players { list-style: none; margin: 0; padding: 0; }
 .hp { padding: var(--s2) 0; border-top: 1px solid var(--line); min-width: 0; }
 .hp-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s2); }
 /* Exposure is plain words, not a badge (UX-H6): a small slice is muted, a pure play reads in full ink. */
-.hp-exp { margin-left: auto; font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; }
+.hp-exp { margin-left: auto; color: var(--muted); white-space: nowrap; }
 .hp-exp[data-exp="pure_play"] { color: var(--ink); font-weight: 600; }
 .hp .nowrap { white-space: nowrap; }
 .hunch-rest { margin-top: var(--s2); border-top: 1px solid var(--line); }
-.rank-list { margin: var(--s1) 0 0; padding-left: 22px; }
+.rank-list { margin: var(--s1) 0 0; padding-left: var(--s5); }
 .rank-list li { margin: var(--s1) 0; }
 .hunch-lead { overflow-wrap: anywhere; }
 .hunch-lead .metric .v { overflow-wrap: normal; }  /* "Unlimited" never breaks mid-word (UX-H3) */
-.hunch-llm { margin: var(--s2) 0 0; }
-#tab-hunch summary { min-height: 44px; display: flex; align-items: center; margin: 0; }  /* 44px targets (UX-H9) */
-#tab-hunch details:not(.more) > summary { list-style: none; color: var(--accent); }
-#tab-hunch details:not(.more) > summary::-webkit-details-marker { display: none; }
+/* UX-H13: a trail link lands with the company name below the phone's sticky 56px header. */
+.hunch-lead .card-title { scroll-margin-top: calc(56px + var(--s4)); }
 .hunch-trail dl { margin: 0 0 var(--s2); }
 .trail-row { display: grid; grid-template-columns: 8.5em 1fr; gap: var(--s1) var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--line); }
 .trail-row:first-child { border-top: 0; }
-.trail-row dt { font-weight: 700; }
+.trail-row dt { font-weight: 600; }
 .trail-row dd { margin: 0; min-width: 0; }
-.trail-row a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; font-weight: 600; }
+.trail-row a { display: inline-flex; align-items: center; min-height: var(--target); min-width: var(--target); font-weight: 600; }
 .hunch-examples { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
-.hunch-examples .ghost { min-height: 44px; }
-@media (max-width: 480px) { .trail-row { grid-template-columns: 1fr; gap: 0; } }
-/* UX-H12: "Unlimited" fits its tile on a 360px phone (16px there, the usual 20px from about 435px up). */
-.hunch-lead .hero-m .metric .v { font-size: clamp(var(--fs-md), 4.4vw, var(--fs-lg)); }
-/* UX-H13: a trail link lands with the company name below the sticky header (52px plus room to breathe). */
-.hunch-lead .card-title { scroll-margin-top: 72px; }
-/* QA-R1: three research leads fit a phone's height budget at every risk level. Tighter spacing on the
-   Hunches tab only (Today's cards keep theirs), and the trail's labels run in ("Claim: ...") on phones. */
+/* QA-R1: three research leads fit a phone's height budget. Tighter spacing on Hunches only (Today's cards keep
+   theirs), and the trail's labels run in ("Claim: ...") on phones. */
 @media (max-width: 600px) {
   #tab-hunch .hunch-block { padding: var(--s3); margin-bottom: var(--s3); }
   #tab-hunch .hunch-lead { padding: var(--s3); }
