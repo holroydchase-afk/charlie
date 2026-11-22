@@ -78,9 +78,20 @@ def _open(browser, url, width=1280, height=800, scheme="light"):
     return ctx, pg
 
 
+def _hunches_view(pg):
+    """The Hunches view: a named region inside Search (it is no longer a tab panel of its own)."""
+    return pg.get_by_role("region", name="Hunches", exact=True)
+
+
 def _hunch_panel(pg):
-    pg.get_by_role("tab", name="Hunches").click()
-    panel = pg.get_by_role("tabpanel", name="Hunches")
+    """Reach Hunches the way a person does since the app-style nav: Search, then Hunches in the switch.
+    (Before the nav it was its own tab, get_by_role("tab", name="Hunches").) Already there: stay put."""
+    panel = _hunches_view(pg)
+    if not panel.is_visible():
+        pg.get_by_role("tab", name="Search", exact=True).click()
+        switch = pg.get_by_role("group", name="Search by")
+        expect(switch).to_have_count(1)
+        switch.get_by_role("button", name="Hunches", exact=True).click()
     expect(panel).to_be_visible()
     return panel
 
@@ -88,26 +99,259 @@ def _hunch_panel(pg):
 def _run_hearing(pg):
     panel = _hunch_panel(pg)
     panel.get_by_role("textbox", name=re.compile("hunch", re.I)).fill(HEARING)
-    panel.get_by_role("button", name=re.compile("hunch", re.I)).click()
+    # Exact name: since the nav change the view also holds the switch's "Hunches" button, which a /hunch/i
+    # pattern would match too.
+    panel.get_by_role("button", name="Run hunch", exact=True).click()
     expect(panel.get_by_role("article").first).to_be_visible(timeout=60_000)
     return panel
 
 
 # ============================================================ CHL-HUNCH-15 tab: local yes, static no
 
-def test_CHL_HUNCH_15_local_app_shows_the_hunches_tab(browser, local_app):
-    ctx, pg = _open(browser, local_app)
+# Placement since the app-style nav (CHL-NAV-1): Hunches is a sub-view of Search behind a server-only
+# "Search by" switch (Screener / Hunches), the Search tab stays selected while it shows, #hunch deep-links,
+# and the phone bar keeps exactly five tabs. The static demo has neither the switch nor the view.
+
+TABS = ["Today", "Search", "Chat", "Trades", "Learn"]
+SIZES = [(390, 844), (1280, 800)]
+SIZE_IDS = ["390x844", "1280x800"]
+
+
+def _tab_names(pg):
+    return [t.text_content().strip() for t in pg.get_by_role("tab").all()]
+
+
+def _switch_buttons(pg):
+    """The visible switch's two buttons (each view has its own copy; hidden views drop out of the a11y tree)."""
+    sw = pg.get_by_role("group", name="Search by")
+    expect(sw).to_have_count(1)
+    return sw.get_by_role("button", name="Screener", exact=True), sw.get_by_role("button", name="Hunches", exact=True)
+
+
+def _expect_on(pg, view):
+    """Search stays the selected tab either way; the switch marks the view showing, and only that one."""
+    expect(pg.get_by_role("tab", name="Search", exact=True)).to_have_attribute("aria-selected", "true")
+    for name in TABS:
+        if name != "Search":
+            expect(pg.get_by_role("tab", name=name, exact=True)).to_have_attribute("aria-selected", "false")
+    screener, hunches = _switch_buttons(pg)
+    on, off = (hunches, screener) if view == "hunch" else (screener, hunches)
+    expect(on).to_have_attribute("aria-current", "page")
+    expect(off).not_to_have_attribute("aria-current", re.compile(".*"))
+    expect(pg).to_have_url(re.compile(rf"#{view}$"))
+    if view == "hunch":
+        expect(_hunches_view(pg)).to_be_visible()
+        expect(pg.locator("#tab-screener")).to_be_hidden()
+    else:
+        expect(pg.locator("#tab-screener")).to_be_visible()
+        expect(_hunches_view(pg)).to_be_hidden()
+
+
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_15_local_app_reaches_hunches_from_search(browser, local_app, width, height):
+    ctx, pg = _open(browser, local_app, width, height)
     try:
-        expect(pg.get_by_role("tab", name="Hunches")).to_be_visible()
+        assert _tab_names(pg) == TABS, "the tab bar must stay at exactly five tabs (CHL-NAV-1)"
+        expect(pg.get_by_role("tab", name="Hunches")).to_have_count(0)
+        pg.get_by_role("tab", name="Search", exact=True).click()
+        _expect_on(pg, "screener")
+        screener, hunches = _switch_buttons(pg)
+        expect(hunches).to_be_in_viewport()
+        box = hunches.bounding_box()
+        assert box["height"] >= 44 and box["width"] >= 44, f"Hunches button is {box['width']:.0f}x{box['height']:.0f}"
+        hunches.click()
+        _expect_on(pg, "hunch")
+        _switch_buttons(pg)[0].click()
+        _expect_on(pg, "screener")
+        assert _tab_names(pg) == TABS
         assert pg.errors == []
     finally:
         ctx.close()
 
 
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_15_hunch_address_deep_links_to_search_hunches(browser, local_app, width, height):
+    ctx = browser.new_context(viewport={"width": width, "height": height})
+    pg = ctx.new_page()
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    try:
+        pg.goto(local_app + "#hunch")
+        expect(_hunches_view(pg)).to_be_visible(timeout=60_000)
+        if pg.locator("#ack-btn").is_visible():
+            pg.click("#ack-btn")
+        _expect_on(pg, "hunch")
+        pg.reload()
+        expect(_hunches_view(pg)).to_be_visible(timeout=60_000)
+        _expect_on(pg, "hunch")
+        assert errors == []
+    finally:
+        ctx.close()
+
+
 def test_CHL_HUNCH_15_static_demo_hides_the_hunches_tab(page):
-    # Both directions: the local app shows it (above); the public demo never does.
+    # Both directions: the local app reaches Hunches through Search (above); the public demo never does.
     expect(page.get_by_role("tab", name="Hunches")).to_have_count(0)
-    expect(page.locator("[data-tab=hunch]:visible, #tab-hunch:visible")).to_have_count(0)
+    assert _tab_names(page) == TABS
+    page.get_by_role("tab", name="Search", exact=True).click()
+    expect(page.locator("#tab-screener")).to_be_visible()
+    expect(page.get_by_role("group", name="Search by")).to_have_count(0)
+    expect(page.get_by_role("button", name="Hunches")).to_have_count(0)
+    # Gone from the page, not just hidden.
+    expect(page.locator(".search-switch, #tab-hunch, [data-goto=hunch], [data-tab=hunch]")).to_have_count(0)
+
+
+def test_CHL_HUNCH_15_static_demo_hunch_address_falls_back_to_today(make_page, site_url):
+    pg = make_page(390, 844)
+    pg.goto(site_url + "#hunch")
+    pg.click("#ack-btn")
+    expect(pg.get_by_role("tab", name="Today", exact=True)).to_have_attribute("aria-selected", "true")
+    expect(pg.locator("#tab-today")).to_be_visible()
+    expect(pg.locator(".search-switch, #tab-hunch")).to_have_count(0)
+
+
+# ============================================================ CHL-HUNCH-SW the Screener / Hunches switch (local app)
+
+def _focused(loc):
+    return loc.evaluate("(el) => el === document.activeElement")
+
+
+def _tab_to(pg, loc, presses=40):
+    for _ in range(presses):
+        if _focused(loc):
+            return True
+        pg.keyboard.press("Tab")
+    return _focused(loc)
+
+
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_SW_1_switch_is_reachable_and_works_from_the_keyboard(browser, local_app, width, height):
+    ctx, pg = _open(browser, local_app, width, height)
+    try:
+        pg.get_by_role("tab", name="Search", exact=True).focus()
+        pg.keyboard.press("Enter")
+        _expect_on(pg, "screener")
+        hunches = _switch_buttons(pg)[1]
+        assert _tab_to(pg, hunches), "Tab never reaches the Hunches button"
+        pg.keyboard.press("Enter")
+        _expect_on(pg, "hunch")
+        screener = _switch_buttons(pg)[0]
+        assert _tab_to(pg, screener), "Tab never reaches the Screener button from Hunches"
+        pg.keyboard.press("Space")
+        _expect_on(pg, "screener")
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_SW_1_keyboard_focus_stays_on_the_switch_after_switching(browser, local_app, width, height):
+    # Activating a switch button swaps the whole view; focus must land on the new view's switch, not fall back to
+    # the top of the page (WCAG 2.4.3 focus order), so a keyboard user can switch straight back.
+    ctx, pg = _open(browser, local_app, width, height)
+    try:
+        pg.get_by_role("tab", name="Search", exact=True).click()
+        _switch_buttons(pg)[1].focus()
+        pg.keyboard.press("Enter")
+        _expect_on(pg, "hunch")
+        where = pg.evaluate("""() => { const a = document.activeElement;
+            return a && a.closest('.search-switch') && a.offsetParent ? a.textContent.trim() : (a ? a.tagName : 'none'); }""")
+        assert where == "Hunches", f"after switching to Hunches, focus is on {where!r}"
+        _switch_buttons(pg)[0].focus()
+        pg.keyboard.press("Enter")
+        _expect_on(pg, "screener")
+        where = pg.evaluate("""() => { const a = document.activeElement;
+            return a && a.closest('.search-switch') && a.offsetParent ? a.textContent.trim() : (a ? a.tagName : 'none'); }""")
+        assert where == "Screener", f"after switching to Screener, focus is on {where!r}"
+    finally:
+        ctx.close()
+
+
+def test_CHL_HUNCH_SW_2_aria_current_moves_with_the_view(browser, local_app):
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        pg.get_by_role("tab", name="Search", exact=True).click()
+        for view in ("hunch", "screener", "hunch"):
+            screener, hunches = _switch_buttons(pg)
+            (hunches if view == "hunch" else screener).click()
+            _expect_on(pg, view)
+            # Exactly one switch button on the page claims to be the current view.
+            current = pg.locator(".search-switch [aria-current=page]:visible")
+            expect(current).to_have_count(1)
+            expect(current).to_have_text("Hunches" if view == "hunch" else "Screener")
+        # Leaving Search and coming back keeps the switch honest.
+        pg.get_by_role("tab", name="Today", exact=True).click()
+        expect(pg.get_by_role("group", name="Search by")).to_have_count(0)
+        pg.get_by_role("tab", name="Search", exact=True).click()
+        _expect_on(pg, "screener")
+    finally:
+        ctx.close()
+
+
+@pytest.mark.parametrize("view", ["hunch", "screener"])
+def test_CHL_HUNCH_SW_3_risk_slider_reruns_only_the_view_showing(browser, local_app, restore_risk, view):
+    # Both directions: on Hunches the slider re-runs the hunch, not the screener; on Screener, the reverse.
+    _set_risk(local_app, 2)
+    ctx, pg = _open(browser, local_app, 390, 844)
+    try:
+        if view == "hunch":
+            _run(pg, HEARING)
+        else:
+            with pg.expect_response(lambda r: r.url.endswith("/api/screen")):
+                pg.get_by_role("tab", name="Search", exact=True).click()
+            _run(pg, HEARING)  # a hunch result exists, so a wrong re-run would show
+            _switch_buttons(pg)[0].click()
+            _expect_on(pg, "screener")
+        seen = []
+        pg.on("request", lambda r: seen.append((r.url.rsplit("/", 1)[-1], r.post_data_json))
+              if r.method == "POST" and r.url.endswith(("/api/hunch", "/api/screen")) else None)
+        want = "hunch" if view == "hunch" else "screen"
+        slider = pg.get_by_role("slider", name="Risk level")
+        expect(slider).to_be_visible()
+        with pg.expect_response(lambda r: r.url.endswith(f"/api/{want}") and r.request.method == "POST"):
+            slider.fill("3")
+        pg.wait_for_load_state("networkidle")
+        assert [u for u, _ in seen] == [want], f"the slider on {view} sent {seen}"
+        assert seen[0][1]["risk"] == 3, seen
+        _expect_on(pg, view)
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_SW_4_search_screener_and_search_hunches_pass_axe(browser, local_app, axe_source, scheme, width, height):
+    ctx = browser.new_context(viewport={"width": width, "height": height}, color_scheme=scheme)
+    pg = ctx.new_page()
+    errors = []
+    pg.on("pageerror", lambda e: errors.append(str(e)))
+    axe_url = local_app + "__axe.min.js"
+    pg.route(axe_url, lambda route: route.fulfill(body=axe_source, content_type="text/javascript"))
+    try:
+        pg.goto(local_app)
+        expect(pg.locator("#ideas .card").first).to_be_visible(timeout=60_000)
+        if pg.locator("#ack-btn").is_visible():
+            pg.click("#ack-btn")
+        problems = []
+        for view in ("screener", "hunch"):
+            if view == "screener":
+                with pg.expect_response(lambda r: r.url.endswith("/api/screen")):
+                    pg.get_by_role("tab", name="Search", exact=True).click()
+            else:
+                _switch_buttons(pg)[1].click()
+            _expect_on(pg, view)
+            if pg.evaluate("document.documentElement.scrollWidth > innerWidth"):
+                problems.append(f"{view}: horizontal overflow")
+            pg.add_script_tag(url=axe_url)
+            found = pg.evaluate(
+                "(tags) => axe.run(document, {runOnly: tags}).then((r) => r.violations.map((v) => "
+                "v.id + ' ' + v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(', ')))", AXE_TAGS)
+            problems += [f"{view}: {v}" for v in found]
+        assert problems == []
+        assert errors == []
+    finally:
+        ctx.close()
 
 
 # ============================================================ CHL-HUNCH-10 NFA on the panel and each trade card

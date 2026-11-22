@@ -707,14 +707,42 @@ def test_CHL_HUNCH_15_static_mode_never_imports_anthropic(hunch):
     assert res == {"status": 404, "anthropic": False}
 
 
+def _section(html: str, sid: str) -> str:
+    """The markup of <section id=sid> up to its closing tag (sections don't nest in index.html)."""
+    m = re.search(rf'<section[^>]*\bid="{sid}"[^>]*>.*?</section>', html, re.S)
+    assert m, f"no #{sid} section"
+    return m.group(0)
+
+
+def _switch(section: str):
+    m = re.search(r'<div[^>]*class="[^"]*\bsearch-switch\b[^"]*"[^>]*>(.*?)</div>', section, re.S)
+    assert m, "no .search-switch in this view"
+    buttons = re.findall(r'<button[^>]*>.*?</button>', m.group(1), re.S)
+    return m.group(0), {re.search(r'data-goto="(\w+)"', b).group(1): b for b in buttons if "data-goto" in b}
+
+
 def test_CHL_HUNCH_15_hunches_tab_exists_and_is_server_only():
+    # Placement after the app-style nav (CHL-NAV-1, decision logged in HANDOFF): Hunches is a sub-view of
+    # Search behind a server-only Screener / Hunches switch, not a sixth tab. Browser half: test_hunch_e2e.py.
     html = (WEB / "index.html").read_text()
-    btn = re.search(r'<button[^>]*data-tab="hunch"[^>]*>(.*?)</button>', html, re.S)
-    assert btn, "no Hunches tab button"
-    assert re.search(r'role="tab"', btn.group(0)) and btn.group(1).strip() == "Hunches"
-    assert "server-only" in btn.group(0)
-    panel = re.search(r'<section[^>]*id="tab-hunch"[^>]*>', html)
-    assert panel and "server-only" in panel.group(0) and 'role="tabpanel"' in panel.group(0)
+    tabs = re.findall(r'<button[^>]*role="tab"[^>]*>', html)
+    assert len(tabs) == 5, f"the tab bar has {len(tabs)} tabs, CHL-NAV-1 wants exactly 5"
+    assert not re.search(r'data-tab="hunch"', html), "Hunches is still a tab of its own"
+    for view, here in (("tab-screener", "screener"), ("tab-hunch", "hunch")):
+        wrap, buttons = _switch(_section(html, view))
+        assert "server-only" in wrap and 'role="group"' in wrap and re.search(r'aria-label="[^"]+"', wrap), wrap
+        assert set(buttons) == {"screener", "hunch"}, buttons
+        assert re.sub(r"<[^>]+>", "", buttons["screener"]).strip() == "Screener"
+        assert re.sub(r"<[^>]+>", "", buttons["hunch"]).strip() == "Hunches"
+        # The view showing is marked in both directions: it has aria-current="page", the other doesn't.
+        assert 'aria-current="page"' in buttons[here], f"{view}: its own button lacks aria-current"
+        other = "hunch" if here == "screener" else "screener"
+        assert "aria-current" not in buttons[other], f"{view}: the other button claims aria-current"
+    panel = re.search(r'<section[^>]*id="tab-hunch"[^>]*>', html).group(0)
+    assert "server-only" in panel, panel
+    assert re.search(r'aria-labelledby="([^"]+)"', panel), "the Hunches view has no accessible name"
+    label_id = re.search(r'aria-labelledby="([^"]+)"', panel).group(1)
+    assert re.search(rf'id="{label_id}"[^>]*>\s*Hunches\s*<', html), "the Hunches view isn't named 'Hunches'"
 
 
 # ============================================================ CHL-HUNCH-16 words
