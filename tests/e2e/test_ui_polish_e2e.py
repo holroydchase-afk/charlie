@@ -21,6 +21,14 @@ DESKTOP = (1280, 800)
 ENGINE = 120_000  # ms: the first Pyodide start in a cold browser
 
 
+def _stack_top(pg):
+    """CHL-NAV-3/4: top of the phone's bottom stack (#disclaimer-line over nav.tabs); fails if either is missing."""
+    s = pg.evaluate("""() => ['#disclaimer-line', 'nav.tabs'].map((q) => { const e = document.querySelector(q);
+        return e && e.checkVisibility() ? e.getBoundingClientRect().top : null; })""")
+    assert None not in s, f"bottom stack missing: #disclaimer-line top {s[0]}, nav.tabs top {s[1]}"
+    return min(s)
+
+
 def _open(make_page, site_url, size=PHONE, ack=True, check=True):
     pg = make_page(*size, check=check)
     pg.goto(site_url)
@@ -33,13 +41,19 @@ def _open(make_page, site_url, size=PHONE, ack=True, check=True):
 # ---------------------------------------------------------------- CHL-UX1 chat input above the footer
 @pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
 def test_UX1_chat_input_is_not_covered_by_the_footer(make_page, site_url, size):
+    """Superseded by CHL-NAV-4: phone, 8px above the bottom stack (line + bar); laptop, inside the viewport."""
     pg = _open(make_page, site_url, size)
     pg.click("[data-tab=chat]")
     form = pg.locator("#chat-form")
     form.scroll_into_view_if_needed()
-    f, foot = form.bounding_box(), pg.locator("#footer-disclaimer").bounding_box()
-    assert f["y"] + f["height"] <= foot["y"] - 8, (
-        f"#chat-form bottom {f['y'] + f['height']:.0f}px must sit at least 8px above the footer top {foot['y']:.0f}px")
+    pg.evaluate("document.activeElement && document.activeElement.blur()")
+    f = form.bounding_box()
+    if size == PHONE:
+        top = _stack_top(pg)
+        assert f["y"] + f["height"] <= top - 8, (
+            f"#chat-form bottom {f['y'] + f['height']:.0f}px must sit at least 8px above the bottom stack top {top:.0f}px")
+    else:
+        assert f["y"] >= 0 and f["y"] + f["height"] <= size[1], f"#chat-form spans {f['y']:.0f}-{f['y'] + f['height']:.0f}px at 1280x800"
 
 
 # ---------------------------------------------------------------- CHL-UX2 hero says what Charlie is
@@ -133,7 +147,7 @@ def test_UX5_payoff_and_sparkline_text_is_at_least_17px(make_page, site_url):
 
 # ---------------------------------------------------------------- CHL-UX6 phone chrome
 STICKY_TOP = """() => Math.max(0, ...[...document.body.querySelectorAll('*')].filter((el) => {
-    if (['engine-status', 'toast', 'drawer', 'ack', 'footer-disclaimer'].includes(el.id)) return false;
+    if (['engine-status', 'toast', 'drawer', 'ack', 'footer-disclaimer', 'disclaimer-line'].includes(el.id) || el.closest('nav.tabs')) return false;
     const p = getComputedStyle(el).position;
     if (p !== 'sticky' && p !== 'fixed') return false;
     const r = el.getBoundingClientRect();
@@ -142,32 +156,53 @@ STICKY_TOP = """() => Math.max(0, ...[...document.body.querySelectorAll('*')].fi
 
 
 def test_UX6_phone_chrome_above_the_content_is_at_most_160px(make_page, site_url):
+    """Superseded by CHL-NAV-5 (stricter): demo bar + 56px header <= 112px at rest; sticky top <= 56px scrolled.
+    The bottom bar and disclaimer line are held by CHL-NAV-4, so they're left out of the top count."""
     pg = _open(make_page, site_url, PHONE)
     pg.evaluate("scrollTo(0, 0)")
     top = pg.locator("main").bounding_box()["y"]
-    assert top <= 160, f"header + banner + tabs take {top:.0f}px above the content at 390x844 (max 160)"
+    assert top <= 112, f"demo bar + header take {top:.0f}px above the content at 390x844 (max 112)"
     pg.evaluate("scrollTo(0, 900)")
     pg.wait_for_timeout(100)
     stuck = pg.evaluate(STICKY_TOP)
-    assert stuck <= 160, f"sticky chrome covers {stuck:.0f}px of the screen while scrolling (max 160)"
+    assert stuck <= 56, f"sticky chrome covers {stuck:.0f}px of the screen while scrolling (max 56)"
 
 
 # ---------------------------------------------------------------- CHL-UX7 footer is one clean line
-@pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
+@pytest.mark.parametrize("size", [(320, 700), PHONE, DESKTOP], ids=["320x700", "390x844", "1280x800"])
 def test_UX7_footer_fits_without_a_clipped_line(make_page, site_url, size):
+    """Superseded by CHL-NAV-3 / NAV-11: phones, the line above the bar is exactly 48px (a full tap target; chief of
+    staff, Nov 22: design system principle 2 wins over the spec's 40px) and one row, unclipped; laptop, the same
+    line sits in the sidebar (left of main), unclipped, with Read more."""
     pg = _open(make_page, site_url, size)
-    foot = pg.locator("#footer-disclaimer")
-    sh, ch = foot.evaluate("(f) => [f.scrollHeight, f.clientHeight]")
-    assert sh <= ch, f"footer clips its text: scrollHeight {sh} > clientHeight {ch}"
-    # One line (~40px); up to 600px wide the demo footer wraps chaseholroyd.com onto a second line (CHL-UX46).
-    limit = 56 if size[0] <= 600 else 48
-    assert ch <= limit, f"footer is {ch}px tall (limit {limit}px)"
+    foot = pg.locator("#disclaimer-line")
+    expect(foot).to_be_visible()
+    sh, ch, sw, cw = foot.evaluate("(f) => [f.scrollHeight, f.clientHeight, f.scrollWidth, f.clientWidth]")
+    assert sh <= ch and sw <= cw, f"the line clips its text: scroll {sw}x{sh} > client {cw}x{ch}"
+    rows = foot.evaluate("""(f) => { const tops = new Set(); const tw = document.createTreeWalker(f, NodeFilter.SHOW_TEXT); let n;
+        while ((n = tw.nextNode())) { if (!n.textContent.trim() || !n.parentElement.checkVisibility()) continue;
+          const r = document.createRange(); r.selectNodeContents(n);
+          [...r.getClientRects()].filter((x) => x.width > 0).forEach((x) => tops.add(Math.round(x.top))); }
+        return tops.size; }""")
+    if size[0] < 760:
+        b = foot.bounding_box()
+        assert abs(b["height"] - 48) <= 0.5 and rows == 1, f"line is {b['height']:.1f}px tall over {rows} rows (want 48px, 1 row)"
+    else:
+        b, main = foot.bounding_box(), pg.locator("main").bounding_box()
+        assert b["x"] + b["width"] <= main["x"] + 0.5, f"line spans {b['x']:.0f}-{b['x'] + b['width']:.0f}, not in the sidebar left of main ({main['x']:.0f})"
+        expect(foot.get_by_role("button", name=re.compile("read more", re.I))).to_be_visible()
     expect(foot).to_contain_text("Not financial advice")
 
 
-def test_UX7_footer_read_more_opens_the_full_disclaimer(make_page, site_url):
-    pg = _open(make_page, site_url, PHONE)
-    pg.locator("#footer-disclaimer").get_by_role("button", name=re.compile("read more", re.I)).click()
+@pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
+def test_UX7_footer_read_more_opens_the_full_disclaimer(make_page, site_url, size):
+    """Superseded by CHL-NAV-3 / NAV-11: tapping the phone line opens the full text; on a laptop, the sidebar's Read more."""
+    pg = _open(make_page, site_url, size)
+    line = pg.locator("#disclaimer-line")
+    if size[0] < 760:
+        line.get_by_role("button").filter(visible=True).first.click()
+    else:
+        line.get_by_role("button", name=re.compile("read more", re.I)).click()
     expect(pg.get_by_text("Options involve significant risk", exact=False).first).to_be_visible()
 
 
@@ -524,31 +559,40 @@ def test_UX19_strategy_chips_above_the_level_are_disabled_and_allowed_ones_ticke
 
 # ---------------------------------------------------------------- CHL-UX20 a number above the fold on a laptop
 def test_UX20_first_card_hero_metrics_are_in_the_first_laptop_screen(make_page, site_url):
+    """Superseded by CHL-NAV-11: limit 800px (no footer bar), with the sidebar present (tabs stacked, left of main)."""
     pg = _open(make_page, site_url, DESKTOP)
     pg.evaluate("scrollTo(0, 0)")
     boxes = pg.locator("#ideas .card").first.locator(".hero-m .metric").evaluate_all(
         "(ms) => ms.map((m) => { const r = m.getBoundingClientRect(); return {k: m.querySelector('.k').textContent, t: r.top, b: r.bottom}; })")
     assert len(boxes) == 3
-    foot = pg.locator("#footer-disclaimer").bounding_box()
-    limit = min(800, foot["y"]) if foot else 800
+    side = pg.evaluate("""() => { const ts = [...document.querySelectorAll('nav.tabs [role=tab]')].map((t) => t.getBoundingClientRect());
+        return {stacked: ts.length === 5 && ts.every((r, i) => i === 0 || r.top >= ts[i - 1].bottom - 0.5),
+                right: Math.max(...ts.map((r) => r.right)), main: document.querySelector('main').getBoundingClientRect().left}; }""")
+    assert side["stacked"] and side["right"] <= side["main"] + 0.5, f"no sidebar at 1280x800: {side}"
+    limit = 800
     out = [f"{b['k']}: {b['t']:.0f}-{b['b']:.0f}px" for b in boxes if b["t"] < 0 or b["b"] > limit]
     assert out == [], f"card 1 hero metrics not fully visible above {limit:.0f}px at 1280x800: {out}"
 
 
 # ---------------------------------------------------------------- CHL-UX21 all five tabs fit at 390 (six before CHL-DS-25)
-def test_UX21_all_five_tabs_fit_at_390_and_portfolio_sits_before_learn(make_page, site_url):
-    pg = _open(make_page, site_url, PHONE)
+@pytest.mark.parametrize("size", [(320, 700), PHONE], ids=["320x700", "390x844"])
+def test_UX21_all_five_tabs_fit_at_390_and_portfolio_sits_before_learn(make_page, site_url, size):
+    """Superseded by CHL-NAV-1/7: the words are Today, Search, Chat, Trades, Learn (Trades before Learn), and all
+    five fit with no scroll at 320 as well as 390."""
+    pg = _open(make_page, site_url, size)
     tabs = pg.locator("[role=tab]")
     expect(tabs).to_have_count(5)
-    expect(tabs).to_have_text(["Today", "Screener", "Chat", "Portfolio", "Learn"])
-    expect(pg.locator("#tabbtn-paper")).to_have_text("Portfolio")
-    boxes = tabs.evaluate_all("""(ts) => ts.map((t) => { const r = t.getBoundingClientRect(), bar = t.parentElement.getBoundingClientRect();
+    expect(tabs).to_have_text(["Today", "Search", "Chat", "Trades", "Learn"])
+    expect(pg.locator("#tabbtn-paper")).to_have_text("Trades")
+    boxes = tabs.evaluate_all("""(ts) => ts.map((t) => { const r = t.getBoundingClientRect(), bar = t.closest('[role=tablist]').getBoundingClientRect();
         return {name: t.textContent.trim(), l: r.left, r: r.right, barL: bar.left, barR: bar.right}; })""")
     clipped = [f"{b['name']} {b['l']:.0f}-{b['r']:.0f}" for b in boxes
-               if b["l"] < max(0, b["barL"]) - 0.5 or b["r"] > min(390, b["barR"]) + 0.5]
-    assert clipped == [], f"tabs clipped at 390px: {clipped}"
+               if b["l"] < max(0, b["barL"]) - 0.5 or b["r"] > min(size[0], b["barR"]) + 0.5]
+    assert clipped == [], f"tabs clipped at {size[0]}px: {clipped}"
+    sw, cw = pg.locator("nav.tabs [role=tablist]").evaluate("(s) => [s.scrollWidth, s.clientWidth]")
+    assert sw <= cw, f"the tab bar scrolls at {size[0]}px: scrollWidth {sw} > clientWidth {cw}"
     pg.click("[data-tab=paper]")
-    expect(pg.locator("#tab-paper h1")).to_have_text("Paper portfolio")
+    expect(pg.locator("#tab-paper h1")).to_have_text("Paper trades")
 
 
 # ---------------------------------------------------------------- CHL-UX22 plain drawer labels
@@ -644,20 +688,17 @@ def test_UX27_explainer_headings_come_from_the_strategy_not_the_label(make_page,
 
 # ---------------------------------------------------------------- CHL-UX28 an idea number in the phone's first screen
 def test_UX28_phone_first_screen_shows_a_top_idea_number(make_page, site_url):
+    """Superseded by CHL-NAV-8 (stricter): the limit is the bottom stack's top, card 1's first hero metric must show
+    (the top-idea link path is gone), and card 1 starts by 500px."""
     pg = _open(make_page, site_url, PHONE)
     pg.evaluate("scrollTo(0, 0)")
-    foot = pg.locator("#footer-disclaimer").bounding_box()
-    limit = min(844, foot["y"]) if foot else 844
+    limit = _stack_top(pg)
+    card = pg.locator("#ideas .card").first.bounding_box()
     m = pg.locator("#ideas .card").first.locator(".hero-m .metric").first.bounding_box()
     metric_ok = m is not None and m["y"] >= 0 and m["y"] + m["height"] <= limit
-    link = pg.locator(".hero-top-idea")
-    link_ok = False
-    if link.count() and link.first.is_visible():
-        b = link.first.bounding_box()
-        link_ok = b["y"] >= 0 and b["y"] + b["height"] <= limit and bool(re.search(r"\d", link.first.inner_text()))
-    assert metric_ok or link_ok, (
-        f"no idea number above {limit:.0f}px at 390x844: card 1 first metric bottom "
-        f"{(m['y'] + m['height']) if m else None}, .hero-top-idea visible={link_ok}")
+    assert metric_ok and card["y"] <= 500, (
+        f"at 390x844: card 1 top {card['y']:.0f}px (max 500), first metric bottom "
+        f"{(m['y'] + m['height']) if m else None} (limit {limit:.0f}px)")
 
 
 # ---------------------------------------------------------------- CHL-UX29 reflow at 320px

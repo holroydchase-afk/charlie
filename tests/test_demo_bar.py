@@ -117,12 +117,26 @@ def test_CHL_DEMO_R1_header_data_badge_is_hidden_in_the_static_demo_only():
 
 
 def test_CHL_DEMO_R2_bar_content_uses_the_headers_left_padding_where_the_header_does():
+    """CHL-NAV-11 update: under 760px the 56px header pads max(var(--s4), safe-area-left) and the bar follows it.
+    From 760px the header is a fixed sidebar and the bar sits over the main column, so the bar's row and drawer
+    pad by main's own left padding there (tests/e2e/test_demo_bar_e2e.py checks the rendered edge)."""
     css = (WEB / "styles.css").read_text()
-    # The header pads var(--s5) by default and var(--s4) up to 760px; the bar must follow the same edge.
-    assert re.search(r"\.top\s*\{[^}]*padding:\s*var\(--s2\)\s+var\(--s5\)", css)
-    m = re.search(r"@media \(min-width: 761px\)\s*\{(.*?)\n\}", css, re.S)
-    assert m, "a min-width: 761px block (the header's own breakpoint) moves the bar to var(--s5)"
-    block = m.group(1)
+    phone = r"max\(var\(--s4\),\s*env\(safe-area-inset-left,\s*0px\)\)"
+    top = re.search(r"(?m)^\.top\s*\{([^}]*)\}", css)
+    assert top and re.search(r"padding:[^;]*" + phone, top.group(1)), "the phone header pads max(var(--s4), safe-area-left)"
+    row = re.search(r"(?m)^\.demo-bar__row\s*\{([^}]*)\}", css)
+    assert row and re.search(r"padding-left:\s*" + phone, row.group(1)), "the phone bar pads like the header"
+    # main's left padding from 760px up: its own rule in the 760px block, else the base rule.
+    block = "".join(m.group(1) for m in re.finditer(r"@media \(min-width: 76[01]px\)\s*\{(.*?)\n\}", css, re.S))
+    main = re.search(r"(?m)^\s*main\s*\{([^}]*)\}", block) or re.search(r"(?m)^main\s*\{([^}]*)\}", css)
+    left = re.search(r"padding-left:\s*([^;]+)", main.group(1))
+    if left:
+        want = left.group(1)
+    else:
+        pads = re.search(r"padding:\s*([^;]+)", main.group(1)).group(1).split()
+        want = pads[{1: 0, 2: 1, 3: 1, 4: 3}[len(pads)]]
+    want_var = re.search(r"var\(--s\d\)", want).group(0)
     for sel in (".demo-bar__row", ".demo-bar__panel"):
-        rule = re.search(re.escape(sel) + r"[^{]*\{([^}]*)\}", block)
-        assert rule and "var(--s5)" in rule.group(1), f"{sel} pads var(--s5) from 761px up"
+        rules = [r.group(1) for r in re.finditer(re.escape(sel) + r"\s*\{([^}]*)\}", block)]
+        assert rules and any(re.search(r"padding-left:[^;]*" + re.escape(want_var), r) for r in rules), \
+            f"{sel} pads {want_var} (main's left padding) from 760px up"

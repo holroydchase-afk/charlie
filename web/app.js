@@ -267,7 +267,10 @@ new MutationObserver(() => $$("[data-bar]").forEach((el) => { el.style.width = `
 function retryButton(fn) { const id = `r${Math.random().toString(36).slice(2, 8)}`; retries[id] = fn; return `data-retry="${id}"`; }
 
 // ---------------------------------------------------------------- tabs
-const RISK_TABS = ["today", "screener", "learn"];  // where the risk slider changes what you see
+// CHL-NAV-9: the one risk slider sits directly under the title on Today and Search; Chat, Trades and Learn show none.
+const RISK_TABS = ["today", "screener"];
+const VIEWS = ["today", "profile", "screener", "chat", "paper", "learn"];
+let currentView = null, lastTab = "today";
 // CHL-DS-25: Profile is not a tab; the header Profile button opens it (aria-current="page" while it shows).
 function showTab(name) {
   const tabs = $$(".tabs button"), isTab = tabs.some((b) => b.dataset.tab === name);
@@ -278,36 +281,40 @@ function showTab(name) {
   });
   const pb = $("#profile-btn");
   if (name === "profile") pb.setAttribute("aria-current", "page"); else pb.removeAttribute("aria-current");
-  $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
-  $("#risk-row").classList.toggle("hidden", !RISK_TABS.includes(name));
-  history.replaceState(null, "", `#${name}`);
+  const risk = $("#risk-row"), onRisk = RISK_TABS.includes(name);
+  risk.classList.toggle("hidden", !onRisk);
+  if (onRisk) $(`#tab-${name} .page-head`).after(risk);
+  if (isTab) lastTab = name;
+  currentView = name;
+  if (name !== "profile" || !history.state?.profile) history.replaceState(null, "", `#${name}`);
   ({ today: loadIdeas, profile: renderProfile, screener: initScreener, paper: loadPaper, learn: renderLearn, chat: openChat }[name] || (() => {}))();
 }
-
-// CHL-DS-R18: while more tabs sit past the right edge, nav.tabs.has-more draws a fade there.
-const tabScroller = $("nav.tabs .tabs-inner");
-function updateTabFade() {
-  const s = tabScroller;
-  $("nav.tabs").classList.toggle("has-more", s.scrollLeft + s.clientWidth < s.scrollWidth - 1);
+// CHL-NAV-6 / CHL-DS-R27: Profile opens like a sheet over the last tab. Opening it pushes a history entry, so the
+// phone's Back (and Close, and Escape) return to that tab with focus on the Profile button.
+function openProfile() {
+  if (currentView === "profile") return;
+  history.pushState({ profile: true }, "", "#profile");
+  showTab("profile");
 }
-tabScroller.addEventListener("scroll", updateTabFade, { passive: true });
-addEventListener("resize", updateTabFade);
-updateTabFade();
-document.fonts?.ready.then(updateTabFade);
+function closeProfile() {
+  if (currentView !== "profile") return;
+  if (history.state?.profile) return history.back();  // popstate shows the tab and moves focus
+  showTab(lastTab); $("#profile-btn").focus();
+}
+function go(name) { return name === "profile" ? openProfile() : showTab(name); }
+addEventListener("popstate", () => {
+  const was = currentView, t = location.hash.slice(1);
+  showTab(VIEWS.includes(t) ? t : "today");
+  if (was === "profile" && currentView !== "profile") $("#profile-btn").focus();
+});
+
+// CHL-NAV-10 (pending Chase): body.nav-hide-on-type is the switch; .is-typing is set while a text field has focus.
+const TYPING = "textarea, input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset])";
+document.addEventListener("focusin", (e) => document.body.classList.toggle("is-typing", !!e.target.closest?.(TYPING)));
+document.addEventListener("focusout", (e) => { if (!e.relatedTarget?.closest?.(TYPING)) document.body.classList.toggle("is-typing", false); });
 
 // ---------------------------------------------------------------- today
-// UX28: one line in the hero (phones) so the first screen carries a real number; it scrolls to card 1.
-function topIdea(idea) {
-  const el = $("#hero-top-idea");
-  if (!el) return;
-  el.classList.toggle("hidden", !idea);
-  if (!idea) return;
-  const t = idea.trade;
-  // CHL-DS-R3: the link names the idea in the accent; its numbers sit on their own line in ink.
-  el.innerHTML = `<span class="hti-title">See today's top idea: ${esc(idea.analysis.name)} <span aria-hidden="true">›</span></span>
-    <span class="hti-nums">${t.pop ? `${pct(t.pop)} chance of profit` : `${money(t.capital_required)} tied up`} · max loss ${money(t.max_loss)}</span>`;
-}
 async function loadIdeas(refresh = false) {
   const box = $("#ideas");
   box.innerHTML = skeletonCards(Number($("#idea-count").value) || 3);
@@ -316,7 +323,6 @@ async function loadIdeas(refresh = false) {
     $("#today-sub").innerHTML = `${state.status?.static ? "Sample market day: " : ""}${esc(fmtDate(r.date))} · <b>${esc(r.risk_label)}</b>: ${esc(r.risk_plain || r.risk_blurb)}`;
     setDataBadge(r.data_source);
     box.innerHTML = r.ideas.length ? r.ideas.map((idea, i) => ideaCard(idea, i)).join("") : `<div class="panel state"><p>${esc(r.note)}</p></div>`;
-    topIdea(r.ideas[0]);
     drawCharts(box);
     $("#ideas-skipped").innerHTML = r.skipped.length
       ? `<details><summary>Considered ${r.considered} companies. Why some didn't make it</summary><ul class="tight">${r.skipped.map((s) => `<li><b>${esc(s.symbol)}</b>: ${esc(s.reason)}</li>`).join("")}</ul></details>` : "";
@@ -567,13 +573,19 @@ async function loadSavedScreens() {
 }
 
 // ---------------------------------------------------------------- chat
-// Keep the input above the fixed footer on every screen (UX1): the panel fills what's left of the viewport.
+// Keep the input above the phone's bottom stack (UX1, CHL-NAV-4): the panel fills what's left of the viewport.
+function bottomStack() {
+  const tops = ["nav.tabs", "#disclaimer-line"].map((q) => $(q)).filter((e) => e && getComputedStyle(e).position === "fixed" && e.checkVisibility())
+    .map((e) => e.getBoundingClientRect().top);
+  return tops.length ? innerHeight - Math.min(...tops) : 0;
+}
 function sizeChat() {
   const wrap = $(".chat-wrap"); if (!wrap.offsetParent) return;
-  const top = wrap.getBoundingClientRect().top + scrollY, foot = $("#footer-disclaimer").offsetHeight;
-  wrap.style.height = `${Math.max(340, innerHeight - top - foot - 16)}px`;
+  const top = wrap.getBoundingClientRect().top + scrollY;
+  wrap.style.height = `${Math.max(340, innerHeight - top - bottomStack() - 16)}px`;
 }
-function openChat() { sizeChat(); if (matchMedia("(hover: hover)").matches) $("#chat-input").focus(); }
+// Focus the input only on a laptop: on a phone it would raise the keyboard (and, NAV-10, hide the tab bar).
+function openChat() { sizeChat(); if (matchMedia("(hover: hover) and (min-width: 760px)").matches) $("#chat-input").focus(); }
 function renderChatMsg(role, text, cards = []) {
   const div = document.createElement("div");
   div.className = `msg ${role === "user" ? "user" : "bot"}`;
@@ -767,7 +779,7 @@ document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-tab],[data-goto],[data-ticker],[data-paper],[data-copy],[data-close],[data-q],[data-row],[data-saved],[data-retry]");
   if (!el) return;
   if (el.dataset.tab) return showTab(el.dataset.tab);
-  if (el.dataset.goto) { e.preventDefault(); return showTab(el.dataset.goto); }
+  if (el.dataset.goto) { e.preventDefault(); return go(el.dataset.goto); }
   if (el.dataset.retry) return retries[el.dataset.retry]?.();
   if (el.dataset.ticker) return openTicker(el.dataset.ticker);
   if (el.dataset.paper) return paperTrade(window._trades[el.dataset.paper], el);
@@ -777,18 +789,16 @@ document.addEventListener("click", (e) => {
   if (el.dataset.row) return openScreenRow(window._screen[Number(el.dataset.row)]);
   if (el.dataset.saved) { writeCriteria(window._saved[Number(el.dataset.saved)].criteria); return runScreen(); }
 });
-$("#hero-top-idea").addEventListener("click", (e) => {
-  e.preventDefault();
-  const card = $("#ideas .card");
-  if (card) { card.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); card.querySelector("[data-ticker]")?.focus({ preventScroll: true }); }
-});
+$("#profile-btn").onclick = openProfile;
+$("#profile-close").onclick = closeProfile;
 $("#drawer-close").onclick = closeDrawer;
 $("#drawer").addEventListener("click", (e) => { if (e.target.id === "drawer") closeDrawer(); });
 document.addEventListener("keydown", (e) => {
   const drawerOpen = !$("#drawer").classList.contains("hidden");
   if (e.key === "Escape") {
     if (drawerOpen) return closeDrawer();
-    if (!$("#ack").classList.contains("hidden") && state.acked) return closeAck();
+    if (!$("#ack").classList.contains("hidden")) { if (state.acked) closeAck(); return; }
+    if (currentView === "profile") return closeProfile();
   }
   if (e.key === "Tab" && drawerOpen) {  // keep focus inside the dialog
     const f = $$('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])', $("#drawer")).filter((x) => !x.disabled && x.offsetParent);
@@ -870,16 +880,19 @@ $("#use-sample").onclick = async () => {  // demo only: show the fictional resum
   try { wasReset = sessionStorage.getItem(RESET_FLAG) === "1"; sessionStorage.removeItem(RESET_FLAG); } catch (_) {}
   if (wasReset) { const p = panel.querySelector("p"); p.textContent = "Sample data restored. " + p.textContent; setOpen(true); }
 })();
-// Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump.
+// Tab bar keyboard support (ARIA tabs pattern): arrows move between tabs, Home/End jump. The laptop sidebar
+// stacks the same tabs, so Up and Down work there too.
+const tabOrient = () => $(".tabs-inner").setAttribute("aria-orientation", matchMedia("(min-width: 760px)").matches ? "vertical" : "horizontal");
+tabOrient(); addEventListener("resize", tabOrient);
 $(".tabs").addEventListener("keydown", (e) => {
   const tabs = $$(".tabs button"), i = tabs.indexOf(document.activeElement);
-  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
   if (i < 0 || next === undefined) return;
   e.preventDefault();
   const t = tabs[(next + tabs.length) % tabs.length];
   t.focus(); showTab(t.dataset.tab);
 });
-// Ack modal (UX8): plain bullets first, the full legal text one tap away. The footer's Read more reopens it.
+// Ack modal (UX8): plain bullets first, the full legal text one tap away. The disclaimer line (#read-more) reopens it.
 let ackOpener = null;
 function openAck(fromFooter) {
   ackOpener = fromFooter ? document.activeElement : null;
@@ -934,7 +947,7 @@ async function boot() {
     await loadProfile();
     renderProfile();
     const tab = location.hash.slice(1);
-    showTab(["today", "profile", "screener", "chat", "paper", "learn"].includes(tab) ? tab : "today");
+    showTab(VIEWS.includes(tab) ? tab : "today");
     // Static demo: the first screen came from prebuilt answers; load the engine once it has painted.
     requestAnimationFrame(() => setTimeout(() => window.charlieStatic?.start(), 50));
   } catch (e) { $("#ideas").innerHTML = errorState("Charlie couldn't start. Check your connection and try again.", e, retryButton(boot)); }
