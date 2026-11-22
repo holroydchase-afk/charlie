@@ -396,14 +396,14 @@ tr.clickable:hover td { background: var(--fill); }
 
 @media (max-width: 760px) {
   .grid2, .two-col { grid-template-columns: 1fr; }
-  .top { padding: var(--s2) var(--s4); min-height: 48px; }
+  .top { padding: 0 var(--s4); min-height: 48px; }  /* CHL-DS-25: the 48px Profile button sets the height */
   .brand-sub { display: none; }
   main { padding: var(--s4) var(--s4); }
   .card { padding: var(--s4); }
   .risk-control input { width: 120px; }
   .msg { max-width: 95%; }
   .factor { grid-template-columns: 96px 1fr 32px; }
-  /* All six tabs fit at 390px (UX21); the bar still scrolls on narrower screens. */
+  /* All five tabs fit at 390px (UX21) and 320px (CHL-DS-25); the bar would scroll only if a word grew. */
   .tabs { padding: 0 var(--s2); }
   .tabs-inner { gap: 0; scrollbar-width: none; justify-content: space-between; }
   .tabs-inner::-webkit-scrollbar { display: none; }

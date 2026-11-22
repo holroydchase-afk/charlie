@@ -3,8 +3,8 @@
 Spec: the CHL-DS acceptance criteria (Paper theme from hearth main 711fdb8). Written first, red, by qa-tdd on
 Nov 21 2026. Fixtures: conftest.py. Runs only with CHARLIE_E2E=1. The unit half is tests/test_design_system.py.
 
-One "sweep" per width (390x844 and 1280x800) walks every place a visitor reads or taps: the ack modal, all six
-tabs (with every <details> opened, a paper trade open and a chat reply), the demo bar open and closed (with the
+One "sweep" per width (390x844 and 1280x800) walks every place a visitor reads or taps: the ack modal, all five
+tabs and the Profile view (CHL-DS-25: Profile left the tab bar for a header button) (with every <details> opened, a paper trade open and a chat reply), the demo bar open and closed (with the
 reset question), the Read more dialog and the ticker drawer. DS-7, DS-8, DS-14 and DS-15 read that sweep.
 """
 import os
@@ -38,6 +38,25 @@ KINDS = ["btn-primary", "btn-tinted", "btn-secondary", "btn-quiet", "btn-danger"
 PROSE_LINKS = ["#profile-nudge a"]
 # DS-15: tabs (the tab bar component) and whole-row targets (section 6 rows) aren't buttons with a kind.
 NOT_BUTTON_KINDS = "[role=tab], .row-card, .demo-bar__toggle"
+
+
+# CHL-DS-25 (Chase, Nov 22): five tabs, in this order; Profile opens from a header button, not a tab.
+TAB_NAMES = ["Today", "Screener", "Chat", "Portfolio", "Learn"]
+VIEWS = ["today", "profile", "screener", "chat", "paper", "learn"]  # every view a visitor can open
+
+
+def _profile_button(pg):
+    """CHL-DS-25: the header button whose visible word is Profile."""
+    return pg.locator("header").get_by_role("button", name=re.compile(r"\bProfile\b"))
+
+
+def _go(pg, view):
+    """Open a view the way a visitor does: a tab, or the header Profile button for Profile."""
+    if view == "profile":
+        _profile_button(pg).click()
+        expect(pg.locator("#tab-profile")).to_be_visible()
+    else:
+        pg.click(f"[role=tab][data-tab={view}]")
 
 
 def _rgb(hexcolor):
@@ -176,8 +195,8 @@ def _sweep(browser, site_url, size):
         card = pg.locator("#ideas .card").first
         card.locator("[data-paper]").click()
         expect(pg.locator("#toast")).to_contain_text("Paper trade opened", timeout=ENGINE)
-        for tab in ["today", "profile", "screener", "chat", "paper", "learn"]:
-            pg.click(f"[data-tab={tab}]")
+        for tab in VIEWS:
+            _go(pg, tab)
             _engine_idle(pg)
             if tab == "screener":
                 expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)
@@ -428,7 +447,7 @@ def test_CHL_DS_13_the_accent_only_marks_things_you_can_tap(browser, site_url, s
         assert logo != accent, "the logo is accent-filled (decoration)"
         found = []
         for tab in ["today", "profile", "screener", "paper", "learn"]:
-            pg.click(f"[data-tab={tab}]")
+            _go(pg, tab)
             _engine_idle(pg)
             found += pg.evaluate("""([accent, soft]) => [...document.querySelectorAll('body *')].filter((el) => {
                 if (!el.checkVisibility() || el.closest('svg, .chart, .sr-only')) return false;
@@ -571,7 +590,7 @@ def test_CHL_DS_16_keyboard_focus_is_a_2px_accent_ring_that_moves_nothing(browse
 
 # ---------------------------------------------------------------- CHL-DS-17 Appearance: Auto / Light / Dark
 def _profile(pg):
-    pg.click("[data-tab=profile]")
+    _go(pg, "profile")
     return pg.get_by_role("group", name="Appearance")
 
 
@@ -673,12 +692,12 @@ def test_CHL_DS_19_increased_contrast_gives_the_hc_tokens(browser, site_url, sch
 # ================================================================ fix round 1: ux-reviewer's CHL-DS-R1 to R14
 # Written first, red, by qa-tdd on Nov 21 2026 from ux-reviewer's 7/10 restyle review. One test per finding.
 SMALL = (320, 700)
-TABS = ["today", "profile", "screener", "chat", "paper", "learn"]
+TABS = VIEWS  # CHL-DS-25: the five tabs plus the Profile view (opened from the header)
 MONEY = re.compile(r"\$\d")
 
 
 def _open_tab(pg, tab):
-    pg.click(f"[data-tab={tab}]")
+    _go(pg, tab)
     _engine_idle(pg)
     if tab == "screener":
         expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)
@@ -1067,7 +1086,7 @@ def test_CHL_DS_R17_appearance_options_each_take_a_48px_row_with_one_left_edge_a
     assert bad == [], "Appearance at 390:\n" + "\n".join(bad)
 
 
-# ---------------------------------------------------------------- CHL-DS-R18 the tab bar shows there is more at 320
+# ---------------------------------------------------------------- CHL-DS-R18 the tab bar shows there is more (none at 320 since DS-25)
 # Testable signal for the engineer: while the tab scroller (nav.tabs .tabs-inner) has more to its right
 # (scrollLeft + clientWidth < scrollWidth - 1), nav.tabs carries the class "has-more" and its ::after draws the
 # right-edge fade (computed content is not "none", display is not "none", width > 0). Scrolled to the end, the
@@ -1079,12 +1098,26 @@ TAB_FADE = """() => { const n = document.querySelector('nav.tabs'), s = n.queryS
             fade: a.content !== 'none' && a.content !== 'normal' && a.display !== 'none' && parseFloat(a.width) > 0}; }"""
 
 
-def test_CHL_DS_R18_tab_bar_fades_on_the_right_while_more_tabs_are_hidden_at_320(make_page, site_url):
+def test_CHL_DS_R18_no_fade_at_320_when_all_five_tabs_fit(make_page, site_url):
+    """CHL-DS-25 changed R18: with five tabs, nothing hides at 320, so there's no fade to draw (and no R20 Learn cut-off)."""
     pg = make_page(*SMALL)
     pg.goto(site_url)
     _ready(pg)
+    pg.wait_for_timeout(300)
+    got = pg.evaluate(TAB_FADE)
+    assert not got["more"] and not got["cls"] and not got["fade"], \
+        f"at 320 the tab bar overflows or fades: scrollWidth {got['sw']} > clientWidth {got['cw']}={got['more']}, has-more={got['cls']}, fade={got['fade']}"
+
+
+def test_CHL_DS_R18_tab_bar_fades_on_the_right_while_more_tabs_are_hidden_when_it_overflows(make_page, site_url):
+    """The fade still works whenever the bar does overflow (large text, a later tab): squeeze the scroller to 200px."""
+    pg = make_page(*SMALL)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.evaluate("(() => { document.querySelector('nav.tabs .tabs-inner').style.width = '200px'; dispatchEvent(new Event('resize')); })()")
+    pg.wait_for_timeout(300)
     start = pg.evaluate(TAB_FADE)
-    assert start["more"], f"precondition: the tab bar doesn't overflow at 320 ({start})"
+    assert start["more"], f"precondition: the squeezed tab bar doesn't overflow ({start})"
     pg.evaluate("(() => { const s = document.querySelector('nav.tabs .tabs-inner'); s.scrollLeft = s.scrollWidth; })()")
     pg.wait_for_timeout(300)
     end = pg.evaluate(TAB_FADE)
@@ -1112,3 +1145,149 @@ def test_CHL_DS_R19_drawer_reason_lines_are_why_lines_with_no_fill(make_page, si
     filled = [x for x in got["lines"] if x["bg"] not in ("rgba(0, 0, 0, 0)", "transparent")]
     assert got["lines"] and not filled and not got["pills"], \
         {"drawer .why-line count": len(got["lines"]), "with a fill": filled, "reasons still as span.chip pills": got["pills"]}
+
+
+# ================================================================ CHL-DS-25 Profile leaves the tab bar (Chase, Nov 22)
+# Written first, red, by qa-tdd on Nov 22 2026. Profile isn't updated often, so it moves off the main tabs:
+# exactly five tabs (Today, Screener, Chat, Portfolio, Learn), and a header button with the visible word
+# "Profile" opens the same #tab-profile view. Testable signal for "shows it as the active view": #tab-profile
+# is the only visible view, the hash is #profile, the Profile button carries aria-current="page" (and drops it
+# when you leave), and no tab claims aria-selected="true" or .active while Profile shows.
+TAB_STATE = """() => [...document.querySelectorAll('nav.tabs [role=tab]')].map((t) => ({
+    t: t.innerText.trim(), sel: t.getAttribute('aria-selected'), act: t.classList.contains('active')}))"""
+VISIBLE_VIEWS = "[...document.querySelectorAll('main .tab')].filter((s) => s.checkVisibility()).map((s) => s.id)"
+
+
+def _profile_is_the_view(pg):
+    expect(pg.locator("#tab-profile")).to_be_visible()
+    assert pg.evaluate(VISIBLE_VIEWS) == ["tab-profile"], pg.evaluate(VISIBLE_VIEWS)
+    assert pg.evaluate("location.hash") == "#profile"
+    expect(_profile_button(pg)).to_have_attribute("aria-current", "page")
+    picked = [t for t in pg.evaluate(TAB_STATE) if t["sel"] == "true" or t["act"]]
+    assert picked == [], f"a tab still looks picked while Profile shows: {picked}"
+
+
+def _today_is_the_view(pg):
+    expect(pg.locator("#tab-today")).to_be_visible()
+    assert pg.evaluate(VISIBLE_VIEWS) == ["tab-today"], pg.evaluate(VISIBLE_VIEWS)
+    assert pg.evaluate("location.hash") == "#today"
+    expect(pg.get_by_role("tab", name="Today")).to_have_attribute("aria-selected", "true")
+    assert _profile_button(pg).get_attribute("aria-current") in (None, "false"), "Profile still marked current on Today"
+
+
+@pytest.mark.parametrize("size", [SMALL, PHONE, DESKTOP], ids=["320x700", "390x844", "1280x800"])
+def test_CHL_DS_25_tab_bar_has_exactly_five_tabs_in_order_with_no_profile_tab(make_page, site_url, size):
+    pg = make_page(*size)
+    pg.goto(site_url)
+    _ready(pg)
+    tabs = pg.locator("nav.tabs [role=tab]")
+    assert [t.strip() for t in tabs.all_inner_texts()] == TAB_NAMES, f"tabs at {size[0]}: {tabs.all_inner_texts()}"
+    expect(pg.get_by_role("tab", name="Profile")).to_have_count(0)
+    expect(pg.locator("[role=tab][data-tab=profile], #tabbtn-profile")).to_have_count(0)
+    # Keyboard (ARIA tabs): End lands on Learn, ArrowRight wraps to Today, never through Profile.
+    pg.get_by_role("tab", name="Today").focus()
+    pg.keyboard.press("End")
+    expect(pg.get_by_role("tab", name="Learn")).to_be_focused()
+    pg.keyboard.press("ArrowRight")
+    expect(pg.get_by_role("tab", name="Today")).to_be_focused()
+
+
+def test_CHL_DS_25_all_five_tabs_fit_at_320_with_no_horizontal_scroll(make_page, site_url):
+    """Closes CHL-DS-R20 (Learn hidden at 320): every tab sits wholly inside the bar and the viewport."""
+    pg = make_page(*SMALL)
+    pg.goto(site_url)
+    _ready(pg)
+    pg.wait_for_timeout(300)
+    got = pg.evaluate("""() => { const s = document.querySelector('nav.tabs .tabs-inner'), bar = s.getBoundingClientRect();
+        return {sw: s.scrollWidth, cw: s.clientWidth, doc: document.documentElement.scrollWidth,
+            tabs: [...s.querySelectorAll('[role=tab]')].map((t) => { const r = t.getBoundingClientRect();
+                return {t: t.innerText.trim(), l: r.left, r: r.right, w: r.width, h: r.height,
+                        out: r.left < Math.max(0, bar.left) - 0.5 || r.right > Math.min(320, bar.right) + 0.5}; })}; }""")
+    bad = []
+    if got["sw"] > got["cw"] + 1:
+        bad.append(f"tab bar scrolls: scrollWidth {got['sw']} > clientWidth {got['cw']}")
+    if got["doc"] > 320:
+        bad.append(f"page scrolls sideways: document scrollWidth {got['doc']}")
+    bad += [f"'{t['t']}' {t['l']:.0f}-{t['r']:.0f} is cut off" for t in got["tabs"] if t["out"]]
+    bad += [f"'{t['t']}' is {t['w']:.0f}x{t['h']:.0f} (want >= 48x48)" for t in got["tabs"] if t["w"] < TARGET - 0.5 or t["h"] < TARGET - 0.5]
+    assert len(got["tabs"]) == 5 and bad == [], f"at 320: {[t['t'] for t in got['tabs']]}\n" + "\n".join(bad)
+
+
+@pytest.mark.parametrize("size", [SMALL, PHONE, DESKTOP], ids=["320x700", "390x844", "1280x800"])
+def test_CHL_DS_25_header_profile_button_is_a_48px_quiet_button_clear_of_the_brand(make_page, site_url, size):
+    pg = make_page(*size)
+    pg.goto(site_url)
+    _ready(pg)
+    btn = _profile_button(pg)
+    expect(btn).to_have_count(1)
+    expect(btn).to_be_visible()
+    assert "Profile" in btn.inner_text(), f"the header button's visible text is {btn.inner_text()!r}, want the word Profile"
+    kinds = set((btn.get_attribute("class") or "").split()) & {"btn-quiet", "btn-secondary"}
+    assert kinds, f"Profile button classes {btn.get_attribute('class')!r}: want btn-quiet or btn-secondary"
+    got = pg.evaluate("""() => { const h = document.querySelector('header'), b = [...h.querySelectorAll('button')].find((x) => /\\bProfile\\b/.test(x.innerText)),
+        r = b.getBoundingClientRect(), br = h.querySelector('.brand').getBoundingClientRect();
+        return {b: [r.left, r.top, r.right, r.bottom], brand: [br.left, br.top, br.right, br.bottom], doc: document.documentElement.scrollWidth}; }""")
+    (l, t, r, b), (bl, bt, br, bb) = got["b"], got["brand"]
+    bad = []
+    if r - l < TARGET - 0.5 or b - t < TARGET - 0.5:
+        bad.append(f"target {r - l:.0f}x{b - t:.0f} (want >= 48x48)")
+    if l < -0.5 or r > size[0] + 0.5:
+        bad.append(f"off screen: {l:.0f}-{r:.0f} in a {size[0]}px viewport")
+    if min(r, br) - max(l, bl) > 0.5 and min(b, bb) - max(t, bt) > 0.5:
+        bad.append(f"overlaps the brand: button {got['b']}, brand {got['brand']}")
+    if got["doc"] > size[0]:
+        bad.append(f"page scrolls sideways: document scrollWidth {got['doc']}")
+    assert bad == [], f"Profile button at {size[0]}px:\n" + "\n".join(bad)
+
+
+@pytest.mark.parametrize("size", [SMALL, PHONE, DESKTOP], ids=["320x700", "390x844", "1280x800"])
+def test_CHL_DS_25_profile_button_opens_profile_as_the_active_view_and_tabs_lead_back(make_page, site_url, size):
+    pg = make_page(*size)
+    pg.goto(site_url)
+    _ready(pg)
+    _today_is_the_view(pg)
+    _profile_button(pg).click()
+    _profile_is_the_view(pg)
+    expect(pg.locator("#tab-profile h1")).to_have_text("Your circle of competence")
+    expect(pg.get_by_role("group", name="Appearance")).to_be_visible()
+    expect(pg.locator("#tab-profile").get_by_role("button", name="Build my profile")).to_be_visible()
+    # the view stays named for assistive tech: whatever labels #tab-profile must exist
+    dangling = pg.evaluate("""() => (document.querySelector('#tab-profile').getAttribute('aria-labelledby') || '')
+        .split(/\\s+/).filter((id) => id && !document.getElementById(id))""")
+    assert dangling == [], f"#tab-profile aria-labelledby points at missing ids: {dangling}"
+    # the tabs still work from Profile, and Today brings you back
+    pg.get_by_role("tab", name="Chat").click()
+    expect(pg.locator("#tab-chat")).to_be_visible()
+    expect(pg.get_by_role("tab", name="Chat")).to_have_attribute("aria-selected", "true")
+    assert _profile_button(pg).get_attribute("aria-current") in (None, "false")
+    _profile_button(pg).click()
+    _profile_is_the_view(pg)
+    pg.get_by_role("tab", name="Today").click()
+    _today_is_the_view(pg)
+
+
+def test_CHL_DS_25_profile_hash_still_opens_profile_on_load(make_page, site_url):
+    pg = make_page(*PHONE)
+    pg.goto(site_url + "#profile")
+    _booted_on(pg, "profile")
+    pg.locator("#ack-btn").click(timeout=ENGINE)
+    _profile_is_the_view(pg)
+    expect(pg.get_by_role("group", name="Appearance")).to_be_visible()
+
+
+def test_CHL_DS_25_first_run_paste_a_resume_then_see_todays_ideas_still_works(make_page, site_url):
+    """The demo's first run: header Profile -> Paste a resume (sample) -> Build -> See today's ideas -> Today.
+    (The local server's "Add your resume" nudge link isn't in the demo; setWhose swaps it for the sample line.)"""
+    pg = make_page(*PHONE)
+    pg.goto(site_url)
+    _ready(pg)
+    _profile_button(pg).click()
+    _profile_is_the_view(pg)
+    pg.click("#use-sample")
+    expect(pg.get_by_label("Paste a resume")).to_have_value(re.compile(r"\S"))
+    pg.locator("#tab-profile").get_by_role("button", name="Build my profile").click()
+    see = pg.locator("#profile-status").get_by_role("button", name="See today's ideas")
+    expect(see).to_be_visible(timeout=ENGINE)
+    see.click()
+    _today_is_the_view(pg)
+    expect(pg.locator("#ideas .card").first).to_be_visible(timeout=ENGINE)

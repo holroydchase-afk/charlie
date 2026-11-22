@@ -50,7 +50,7 @@ def test_chat_panel_and_reply_show_the_disclaimer(page):
 
 
 def test_profile_shows_the_sample_and_can_load_its_resume(page):
-    page.click("[data-tab=profile]")
+    page.locator("header").get_by_role("button", name=re.compile(r"\bProfile\b")).click()  # CHL-DS-25: not a tab
     expect(page.locator("#profile-view h2")).to_have_text("Alex Rivera's circle (sample)")
     page.click("#use-sample")
     expect(page.locator("textarea[name=resume_text]")).to_have_value(re.compile("Registered Nurse"))
@@ -99,7 +99,10 @@ def test_every_tab_passes_axe_and_fits(browser, site_url, axe_source, scheme, wi
     page.click("#ack-btn")
     problems = []
     for tab in ["today", "profile", "screener", "chat", "paper", "learn"]:
-        page.click(f"[data-tab={tab}]")
+        if tab == "profile":  # CHL-DS-25: Profile opens from the header button, not a tab
+            page.locator("header").get_by_role("button", name=re.compile(r"\bProfile\b")).click()
+        else:
+            page.click(f"[role=tab][data-tab={tab}]")
         _wait_for_engine_if_needed(page)
         if page.evaluate("document.documentElement.scrollWidth > innerWidth"):
             problems.append(f"{tab}: horizontal overflow")

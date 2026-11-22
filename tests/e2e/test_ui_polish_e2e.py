@@ -535,11 +535,12 @@ def test_UX20_first_card_hero_metrics_are_in_the_first_laptop_screen(make_page, 
     assert out == [], f"card 1 hero metrics not fully visible above {limit:.0f}px at 1280x800: {out}"
 
 
-# ---------------------------------------------------------------- CHL-UX21 all six tabs fit at 390
-def test_UX21_all_six_tabs_fit_at_390_and_the_last_says_portfolio(make_page, site_url):
+# ---------------------------------------------------------------- CHL-UX21 all five tabs fit at 390 (six before CHL-DS-25)
+def test_UX21_all_five_tabs_fit_at_390_and_portfolio_sits_before_learn(make_page, site_url):
     pg = _open(make_page, site_url, PHONE)
     tabs = pg.locator("[role=tab]")
-    expect(tabs).to_have_count(6)
+    expect(tabs).to_have_count(5)
+    expect(tabs).to_have_text(["Today", "Screener", "Chat", "Portfolio", "Learn"])
     expect(pg.locator("#tabbtn-paper")).to_have_text("Portfolio")
     boxes = tabs.evaluate_all("""(ts) => ts.map((t) => { const r = t.getBoundingClientRect(), bar = t.parentElement.getBoundingClientRect();
         return {name: t.textContent.trim(), l: r.left, r: r.right, barL: bar.left, barR: bar.right}; })""")
@@ -663,7 +664,10 @@ def test_UX28_phone_first_screen_shows_a_top_idea_number(make_page, site_url):
 @pytest.mark.parametrize("tab", ["today", "profile", "screener", "chat", "paper", "learn"])
 def test_UX29_no_horizontal_scroll_at_320_on_any_tab(make_page, site_url, tab):
     pg = _open(make_page, site_url, SMALL)
-    if tab != "today":
+    if tab == "profile":  # CHL-DS-25: Profile opens from the header button, not a tab
+        pg.locator("header").get_by_role("button", name=re.compile(r"\bProfile\b")).click()
+        expect(pg.locator("#tab-profile")).to_be_visible()
+    elif tab != "today":
         pg.click(f"[data-tab={tab}]")
         if tab == "screener":
             expect(pg.locator("#screen-results [data-row]").first).to_be_attached(timeout=ENGINE)

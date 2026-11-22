@@ -268,11 +268,16 @@ function retryButton(fn) { const id = `r${Math.random().toString(36).slice(2, 8)
 
 // ---------------------------------------------------------------- tabs
 const RISK_TABS = ["today", "screener", "learn"];  // where the risk slider changes what you see
+// CHL-DS-25: Profile is not a tab; the header Profile button opens it (aria-current="page" while it shows).
 function showTab(name) {
-  $$(".tabs button").forEach((b) => {
+  const tabs = $$(".tabs button"), isTab = tabs.some((b) => b.dataset.tab === name);
+  tabs.forEach((b, i) => {
     const on = b.dataset.tab === name;
-    b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1;
+    b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on || (!isTab && i === 0) ? 0 : -1;  // the tablist stays reachable by Tab while Profile shows
   });
+  const pb = $("#profile-btn");
+  if (name === "profile") pb.setAttribute("aria-current", "page"); else pb.removeAttribute("aria-current");
   $(`.tabs button[data-tab="${name}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" });
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
   $("#risk-row").classList.toggle("hidden", !RISK_TABS.includes(name));
@@ -449,7 +454,7 @@ function syncRisk() {
 async function onRisk() {
   state.risk = Number($("#risk").value); syncRisk();
   try { await postJSON("/api/profile/risk", { risk_level: state.risk }); if (state.profile) state.profile.risk_level = state.risk; } catch (e) { toast(e.message); }
-  const active = $(".tabs button.active").dataset.tab;
+  const active = $(".tabs button.active")?.dataset.tab;
   if (active === "today") loadIdeas();
   if (active === "learn") renderLearn();
   if (state.loaded.screener) syncStrategyChips();

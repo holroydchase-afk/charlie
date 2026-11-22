@@ -40,12 +40,12 @@
       </div>
     </div>
     <span id="data-badge" class="badge server-only">Loading…</span>
+    <button type="button" id="profile-btn" class="btn-quiet header-profile" data-goto="profile">Profile</button>
     </div>
   </header>
   <nav class="tabs" aria-label="Sections">
     <div class="tabs-inner" role="tablist">
     <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
-    <button data-tab="profile" role="tab" id="tabbtn-profile" aria-controls="tab-profile" aria-selected="false" tabindex="-1">Profile</button>
     <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
     <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
     <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Portfolio</button>
@@ -102,10 +102,10 @@
     </section>
 
     <!-- PROFILE -->
-    <section id="tab-profile" class="tab" role="tabpanel" aria-labelledby="tabbtn-profile">
+    <section id="tab-profile" class="tab" aria-labelledby="profile-title">
       <div class="section-head">
         <div>
-          <h1>Your circle of competence</h1>
+          <h1 id="profile-title">Your circle of competence</h1>
           <p class="muted">Charlie looks for ideas in the industries you work in, read about, and spend money in.</p>
         </div>
       </div>
