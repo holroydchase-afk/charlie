@@ -115,11 +115,13 @@ def test_CHL_DEMO_BAR_middle_text_by_width(make_page, site_url, width, expected)
 # ---------------------------------------------------------------- drawer
 @pytest.mark.parametrize("width", [390, 1280])
 def test_CHL_DEMO_BAR_opens_to_standard_copy_pushes_app_down_esc_closes(make_page, site_url, width):
+    """CHL-NAV-11 update: on a laptop the header is a fixed sidebar, so "the app" the drawer pushes is `main` (and
+    on a phone the sticky header too); the sidebar stays put and the drawer never slides under or over it."""
     pg = _open(make_page, site_url, width)
-    app_top = """() => { let el = document.querySelector('section[aria-label="Demo"]').nextElementSibling;
-        while (el && !el.getBoundingClientRect().height) el = el.nextElementSibling;
-        return el ? el.getBoundingClientRect().top : NaN; }"""
-    closed = pg.evaluate(app_top)
+    app_top = "() => document.querySelector('main').getBoundingClientRect().top"
+    side = """() => { const h = document.querySelector('header'), r = h.getBoundingClientRect();
+        return {pos: getComputedStyle(h).position, top: r.top, right: r.right}; }"""
+    closed, head = pg.evaluate(app_top), pg.evaluate(side)
     toggle = _toggle(pg)
     toggle.click()
     expect(toggle).to_have_attribute("aria-expanded", "true")
@@ -127,6 +129,13 @@ def test_CHL_DEMO_BAR_opens_to_standard_copy_pushes_app_down_esc_closes(make_pag
     expect(panel).to_be_visible()
     assert " ".join(panel.locator("p").first.inner_text().split()) == COPY
     assert pg.evaluate(app_top) > closed, "the drawer pushes the app down instead of covering it"
+    if width >= 760:
+        open_head = pg.evaluate(side)
+        assert open_head["pos"] == "fixed" and open_head["top"] == head["top"], f"the sidebar moved: {head} -> {open_head}"
+        assert panel.bounding_box()["x"] >= open_head["right"] - 0.5, "the open drawer sits under the sidebar"
+    else:
+        assert pg.evaluate("() => document.querySelector('header').getBoundingClientRect().top") > head["top"], \
+            "the drawer pushes the phone header down instead of covering it"
     # DEMO-R4: drawer text at least 17px (CHL-DS-7, was 16); every control at least 48px tall (CHL-DS-14, was 44).
     assert float(panel.locator("p").first.evaluate("(p) => getComputedStyle(p).fontSize")[:-2]) >= 17
     back = panel.get_by_role("link", name=BACK)
@@ -237,9 +246,16 @@ def test_CHL_DEMO_R1_header_badge_hidden_so_sample_data_is_said_once(make_page, 
 # ---------------------------------------------------------------- CHL-DEMO-R2 the bar lines up with the header
 @pytest.mark.parametrize("width", [390, 700, 1280])
 def test_CHL_DEMO_R2_back_link_lines_up_with_the_header_logo(make_page, site_url, width):
+    """CHL-NAV-11 update: under 760px the logo is in the top header, so the bar lines up with it. From 760px the logo
+    is in the fixed sidebar and the demo bar sits over the main column (it pushes `main`), so the bar lines up
+    with the main column's content edge, the edge the page titles and cards start on."""
     pg = _open(make_page, site_url, width)
     home = _bar(pg).get_by_role("link", name="← Portfolio").bounding_box()["x"]
-    logo = pg.locator("header.top .logo").bounding_box()["x"]
+    if width < 760:
+        logo = pg.locator("header.top .logo").bounding_box()["x"]
+    else:
+        logo = pg.evaluate("() => { const m = document.querySelector('main');"
+                           " return m.getBoundingClientRect().left + parseFloat(getComputedStyle(m).paddingLeft); }")
     assert abs(home - logo) <= 1, f"at {width}: ← Portfolio starts at {home}px, the logo at {logo}px"
     _toggle(pg).click()
     copy = _panel(pg).locator("p").first.bounding_box()["x"]

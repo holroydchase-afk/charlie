@@ -2,14 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Charlie</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%231E1B17%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2220%22 text-anchor=%22middle%22 fill=%22%23F7F7F4%22 font-family=%22sans-serif%22 font-weight=%22600%22%3EC%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/themes.css">
   <script src="/static/theme-init.js"></script>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body>
+<!-- CHL-NAV-10 (Chase, Nov 22: yes): nav-hide-on-type lets the phone tab bar and disclaimer line step aside only while
+     a text field has focus AND the on-screen keyboard is up (app.js sets is-typing and kb-open). -->
+<body class="nav-hide-on-type">
   <section class="demo-bar static-only hidden" aria-label="Demo">
     <div class="demo-bar__row">
       <a class="demo-bar__home" href="https://chaseholroyd.com/">← Portfolio</a>
@@ -30,28 +32,27 @@
       </div>
     </div>
   </section>
+  <!-- CHL-NAV: one header. Phones: brand + Profile on a 56px sticky bar; the tab bar and the disclaimer line are
+       fixed to the bottom. Laptops (760px+): the header is the 248px left sidebar holding all of it. -->
   <header class="top">
-    <div class="top-inner">
     <div class="brand">
-      <span class="logo">C</span>
-      <div>
-        <div class="brand-name">Charlie</div>
-        <div class="brand-sub">Invest in what you know. Paper trading only.</div>
-      </div>
+      <span class="logo" aria-hidden="true">C</span>
+      <span class="brand-name">Charlie</span>
     </div>
-    <span id="data-badge" class="badge server-only">Loading…</span>
-    <button type="button" id="profile-btn" class="btn-quiet header-profile" data-goto="profile">Profile</button>
+    <nav class="tabs" aria-label="Sections">
+      <div class="tabs-inner" role="tablist" aria-orientation="horizontal">
+      <button type="button" data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg></span><span class="tab-word">Today</span></button>
+      <button type="button" data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg></span><span class="tab-word">Search</span></button>
+      <button type="button" data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.2A2.5 2.5 0 0 1 4 13.5z"/></svg></span><span class="tab-word">Chat</span></button>
+      <button type="button" data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M4 16l5-5 4 3 7-8"/><path d="M15 6h5v5"/></svg></span><span class="tab-word">Trades</span></button>
+      <button type="button" data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1"><span class="tab-ico"><svg class="ico" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 4.8 7 4 3.5 4v14c3.5 0 6.5.8 8.5 2.5 2-1.7 5-2.5 8.5-2.5V4C17 4 14 4.8 12 6.5z"/><path d="M12 6.5v14"/></svg></span><span class="tab-word">Learn</span></button>
+      </div>
+    </nav>
+    <button type="button" id="profile-btn" class="btn-quiet header-profile"><svg class="ico" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c.8-4 4-6.5 8-6.5s7.2 2.5 8 6.5"/></svg><span class="tab-word">Profile</span></button>
+    <div id="disclaimer-line" class="disclaimer-line">
+      <button type="button" id="read-more" class="btn-quiet disc-btn" aria-haspopup="dialog"><span class="disc-text">Not financial advice. Paper trading only.</span> <span class="disc-more">Read more</span></button>
     </div>
   </header>
-  <nav class="tabs" aria-label="Sections">
-    <div class="tabs-inner" role="tablist">
-    <button data-tab="today" role="tab" id="tabbtn-today" aria-controls="tab-today" aria-selected="true" class="active">Today</button>
-    <button data-tab="screener" role="tab" id="tabbtn-screener" aria-controls="tab-screener" aria-selected="false" tabindex="-1">Screener</button>
-    <button data-tab="chat" role="tab" id="tabbtn-chat" aria-controls="tab-chat" aria-selected="false" tabindex="-1">Chat</button>
-    <button data-tab="paper" role="tab" id="tabbtn-paper" aria-controls="tab-paper" aria-selected="false" tabindex="-1">Portfolio</button>
-    <button data-tab="learn" role="tab" id="tabbtn-learn" aria-controls="tab-learn" aria-selected="false" tabindex="-1">Learn</button>
-    </div>
-  </nav>
 
   <main>
     <div id="risk-row" class="risk-control" title="Risk slider: controls which trade types Charlie will suggest">
@@ -61,24 +62,19 @@
     </div>
     <!-- TODAY -->
     <section id="tab-today" class="tab active" role="tabpanel" aria-labelledby="tabbtn-today">
-      <div class="hero">
-        <div class="hero-main">
-        <h1>Stock ideas from what you already know</h1>
-        <p class="hero-how">Charlie reads your resume, finds the industries you know, scores companies with a Munger-style checklist, and suggests 1 to 3 paper-trade ideas a day.</p>
-        <a id="hero-top-idea" class="hero-top-idea hidden" href="#today"></a>
-        </div>
-        <div class="hero-side">
-        <p id="profile-nudge" class="hero-whose muted">Showing a starter circle. <a href="#profile" data-goto="profile">Add your resume</a> to make it yours.</p>
-        <ul class="proof" aria-label="What makes Charlie different">
-          <li>Resume to circle of competence</li>
-          <li>Munger checklist score</li>
-          <li>Max loss on every trade</li>
-        </ul>
-        </div>
+      <div class="page-head">
+        <h1>Today</h1>
+        <p class="page-sub">Resume to paper trades, Munger-style</p>
       </div>
-      <div class="section-head">
+      <span id="data-badge" class="badge server-only">Loading…</span>
+      <div id="ideas" class="cards"></div>
+      <div id="ideas-skipped" class="muted small"></div>
+      <!-- CHL-NAV-8: the day's line, whose ideas these are, and the count/refresh controls sit under the cards, so card 1's
+           numbers make the phone's first screen. -->
+      <div class="ideas-meta">
+      <p id="profile-nudge" class="muted">Showing a starter circle. <a href="#profile" data-goto="profile">Add your resume</a> to make it yours.</p>
+      <div class="section-head ideas-head">
         <div>
-          <h2 class="h-section">Today's ideas</h2>
           <p id="today-sub" class="muted">Up to three ideas from inside your circle of competence.</p>
         </div>
         <div class="row gap">
@@ -88,8 +84,7 @@
           <button id="refresh-ideas" type="button" class="btn-secondary">Refresh</button>
         </div>
       </div>
-      <div id="ideas" class="cards"></div>
-      <div id="ideas-skipped" class="muted small"></div>
+      </div>
       <div id="track-record" class="track" aria-labelledby="track-h">
         <div class="section-head">
           <div>
@@ -103,12 +98,12 @@
 
     <!-- PROFILE -->
     <section id="tab-profile" class="tab" aria-labelledby="profile-title">
-      <div class="section-head">
-        <div>
-          <h1 id="profile-title">Your circle of competence</h1>
-          <p class="muted">Charlie looks for ideas in the industries you work in, read about, and spend money in.</p>
-        </div>
+      <div class="page-head sheet-head">
+        <h1 id="profile-title">Profile</h1>
+        <button type="button" id="profile-close" class="btn-quiet sheet-close">Close</button>
       </div>
+      <h2>Your circle of competence</h2>
+      <p class="muted">Charlie looks for ideas in the industries you work in, read about, and spend money in.</p>
       <div class="grid2">
         <div class="profile-col">
         <form id="profile-form" class="panel">
@@ -175,11 +170,9 @@
 
     <!-- SCREENER -->
     <section id="tab-screener" class="tab" role="tabpanel" aria-labelledby="tabbtn-screener">
-      <div class="section-head">
-        <div>
-          <h1>Screener</h1>
-          <p class="muted">Set your own criteria and Charlie finds trades that fit.</p>
-        </div>
+      <div class="page-head">
+        <h1>Search trades</h1>
+        <p class="page-sub muted">Set your own criteria and Charlie finds trades that fit.</p>
       </div>
       <div id="screen-summary" class="panel screen-summary">
         <span id="screen-summary-text" class="grow small"></span>
@@ -236,10 +229,8 @@
 
     <!-- CHAT -->
     <section id="tab-chat" class="tab" role="tabpanel" aria-labelledby="tabbtn-chat">
-      <div class="section-head">
-        <div>
-          <h1>Chat with Charlie</h1>
-        </div>
+      <div class="page-head">
+        <h1>Chat</h1>
       </div>
       <div class="chat-wrap">
         <div id="chat-log" class="chat-log" role="log" aria-live="polite" aria-label="Conversation with Charlie">
@@ -257,7 +248,8 @@
           <button class="btn-tinted">Send</button>
         </form>
         <div id="chat-mode" class="muted small"></div>
-        <p class="nfa">Not financial advice. Paper trading only.</p>
+        <!-- CHL-NAV-13 (Chase, Nov 22: yes): no page-level disclaimer here; #disclaimer-line carries it on Chat, and
+             every chat reply and chat trade card ends with it (added by code in app.js). -->
       </div>
     </section>
 
@@ -265,7 +257,7 @@
     <section id="tab-paper" class="tab" role="tabpanel" aria-labelledby="tabbtn-paper">
       <div class="section-head">
         <div>
-          <h1>Paper portfolio</h1>
+          <h1>Paper trades</h1>
           <p class="muted">Practice with pretend money first. Positions use the latest delayed or sample prices.</p>
           <p class="muted" id="alert-explainer" hidden>When a trade's exit plan says to act, Charlie flags it with a chip: “Take profit?”, “Near expiry” or “Below breakeven”.</p>
         </div>
@@ -277,11 +269,9 @@
 
     <!-- LEARN -->
     <section id="tab-learn" class="tab" role="tabpanel" aria-labelledby="tabbtn-learn">
-      <div class="section-head">
-        <div>
-          <h1>Learn</h1>
-          <p class="muted">How Charlie thinks, and what each strategy on the slider actually does.</p>
-        </div>
+      <div class="page-head">
+        <h1>Learn</h1>
+        <p class="page-sub muted">How Charlie thinks, and what each strategy on the slider actually does.</p>
       </div>
       <div id="learn"></div>
     </section>
@@ -314,7 +304,6 @@
     </div>
   </div>
 
-  <footer class="disclaimer" id="footer-disclaimer"><span class="foot-text"><span class="wide-only">For learning only. </span>Not financial advice. Paper trading only.</span> <button id="read-more" type="button" class="link-btn btn-quiet" aria-label="Read more: the full disclaimer">Read more</button><span class="static-only site-link hidden"><span class="sep"> · </span><a href="https://chaseholroyd.com/">chaseholroyd.com</a></span></footer>
   <div id="toast" class="toast hidden"></div>
   <div id="engine-status" class="engine-status hidden" role="status" aria-live="polite">Loading Charlie's engine…</div>
   <script src="/static/app.js"></script>

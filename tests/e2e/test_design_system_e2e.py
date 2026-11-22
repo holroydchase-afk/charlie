@@ -41,7 +41,8 @@ NOT_BUTTON_KINDS = "[role=tab], .row-card, .demo-bar__toggle"
 
 
 # CHL-DS-25 (Chase, Nov 22): five tabs, in this order; Profile opens from a header button, not a tab.
-TAB_NAMES = ["Today", "Screener", "Chat", "Portfolio", "Learn"]
+# CHL-NAV-1 (Chase, Nov 22): the visible words are now Today, Search, Chat, Trades, Learn (ids and data-tab unchanged).
+TAB_NAMES = ["Today", "Search", "Chat", "Trades", "Learn"]
 VIEWS = ["today", "profile", "screener", "chat", "paper", "learn"]  # every view a visitor can open
 
 
@@ -106,7 +107,7 @@ COLLECT = r"""([scope, prose, notKinds]) => {
   const vis = (el) => el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true}) && !el.closest('.sr-only');
   const name = (el) => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') +
       [...el.classList].slice(0, 3).map((c) => '.' + c).join('');
-  const where = (el) => { const t = el.closest('.tab, #drawer, #ack, .demo-bar, footer, header, nav');
+  const where = (el) => { const t = el.closest('.tab, #drawer, #ack, .demo-bar, #disclaimer-line, footer, header, nav');
       return (t ? name(t) + ' ' : '') + name(el); };
   const text = [];
   const seen = new Set();
@@ -224,7 +225,12 @@ def _sweep(browser, site_url, size):
         bar.get_by_role("button", name="Keep").click()
         add(_collect(pg, "demo bar open", "section.demo-bar"))
         bar.get_by_role("button", name="Demo details").click()
-        pg.locator("#footer-disclaimer").get_by_role("button", name=re.compile("read more", re.I)).click()
+        # CHL-NAV-3/11: the phone line is itself the button; the laptop sidebar line has Read more.
+        line = pg.locator("#disclaimer-line")
+        if size[0] < 760:
+            line.get_by_role("button").filter(visible=True).first.click()
+        else:
+            line.get_by_role("button", name=re.compile("read more", re.I)).click()
         expect(pg.locator("#ack")).to_be_visible()
         _open_all_details(pg, "#ack")
         add(_collect(pg, "read more dialog", "#ack"))
@@ -323,7 +329,7 @@ def test_CHL_DS_9_raising_the_root_size_grows_the_text(make_page, site_url):
     pg.wait_for_timeout(300)
     body = float(pg.evaluate("getComputedStyle(document.body).fontSize")[:-2])
     assert body >= 21, f"body text is {body}px with a 20px root (want >= 21: sizes in rem)"
-    small = pg.evaluate("""() => [...document.querySelectorAll('#tab-today *, header *, nav *, footer *')]
+    small = pg.evaluate("""() => [...document.querySelectorAll('#tab-today *, header *, nav *, footer *, #disclaimer-line *')]
         .filter((el) => el.checkVisibility() && !el.closest('.sr-only') && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
         .map((el) => { const m = el instanceof SVGElement ? el.getScreenCTM() : null;
             return {t: el.textContent.trim().slice(0, 30), px: parseFloat(getComputedStyle(el).fontSize) * (m ? Math.hypot(m.a, m.b) : 1)}; })
@@ -517,6 +523,13 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
             bad.append(f"{label} kinds {b['kinds']}")
             continue
         k = b["kinds"][0]
+        # Chief of staff, Nov 22: the disclaimer line (#disclaimer-line, and its Read more in the laptop sidebar) is a
+        # settings-style row / navigation item, so like the tabs it is exempt from the kind's colors; it must still
+        # be exactly one kind (checked above) and a 48px target.
+        if "#disclaimer-line" in b["where"].split(" ")[0]:
+            if b["h"] < 47.5:
+                bad.append(f"{label} the disclaimer line button is {b['h']:.1f}px tall (want 48)")
+            continue
         bg, fg = want[k]
         # Fix round 1 (CHL-DS-R2): the one exception. The quiet trigger that opens the inline delete confirm names
         # a destructive action, so it may use --danger-text; the filled danger is on the confirm (#delete-yes).
@@ -538,6 +551,8 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
     confirm = [b for b in sweeps[size]["buttons"] if b["state"] == "tab profile, delete confirm open" and "#delete-yes" in b["where"]]
     if not (len(confirm) == 1 and confirm[0]["kinds"] == ["btn-danger"] and confirm[0]["text"] == "Delete my data"):
         bad.append(f"the delete confirm's 'Delete my data' (#delete-yes) must be the one btn-danger, got {confirm}")
+    if not any("#disclaimer-line" in b["where"].split(" ")[0] for b in sweeps[size]["buttons"]):
+        bad.append("no visible button in #disclaimer-line in any swept state (the exemption must not hide a missing line)")
     triggers = [b for b in sweeps[size]["buttons"] if "#delete-profile" in b["where"]]
     if not triggers or any(b["kinds"] != ["btn-quiet"] for b in triggers):
         bad.append(f"#delete-profile must be a btn-quiet trigger, got {triggers}")
@@ -785,6 +800,7 @@ ACCENT_MONEY = r"""(accent) => [...document.querySelectorAll('body *')].filter((
 
 @pytest.mark.parametrize("scheme,contrast", [("light", None), ("dark", None), ("light", "more")], ids=["light", "dark", "hc"])
 def test_CHL_DS_R3_no_dollar_figure_is_in_the_accent_and_the_hero_link_names_the_idea(browser, site_url, scheme, contrast):
+    """No-$-in-accent half unchanged. Link half superseded by CHL-NAV-8: no top-idea link on Today."""
     ctx, pg = _new(browser, site_url, PHONE, scheme, contrast)
     try:
         pg.goto(site_url)
@@ -801,21 +817,11 @@ def test_CHL_DS_R3_no_dollar_figure_is_in_the_accent_and_the_hero_link_names_the
         bad += [f"drawer: {x}" for x in pg.evaluate(ACCENT_MONEY, accent)]
         pg.keyboard.press("Escape")
         pg.evaluate("scrollTo(0, 0)")
-        link = pg.locator("#hero-top-idea")
-        expect(link).to_be_visible()
-        text = link.inner_text().strip()
-        m = re.fullmatch(r"See today's top idea: (.+?) ›", text.split("\n")[0].strip())
-        assert m and m.group(1).strip(), f"hero link reads {text!r}, want \"See today's top idea: <name> ›\""
-        assert link.evaluate("(a) => getComputedStyle(a).color") == accent, "the hero link is in the accent"
-        nums = pg.evaluate(r"""(accent) => { const a = document.querySelector('#hero-top-idea'), top = a.getBoundingClientRect();
-            const title = [...a.querySelectorAll('*'), a].find((e) => /See today's top idea/.test([...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('')));
-            const tb = (title || a).getBoundingClientRect();
-            return [...document.querySelectorAll('.hero-main *')].filter((e) => e.checkVisibility()
-                && /\$\d/.test([...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('')))
-              .map((e) => ({t: e.textContent.trim().slice(0, 60), accent: getComputedStyle(e).color === accent,
-                            below: e.getBoundingClientRect().top >= tb.bottom - 1})); }""", accent)
-        assert nums and all(n["below"] and not n["accent"] for n in nums), \
-            f"the hero's numbers must sit on their own line under the link title, not in the accent: {nums}"
+        # Link half superseded by CHL-NAV-8: Today has no top-idea link at all (the card is in the first screen).
+        today = pg.locator("#tab-today")
+        links = today.get_by_role("link", name=re.compile("top idea", re.I)).filter(visible=True).count()
+        assert links == 0 and not pg.locator("#hero-top-idea").filter(visible=True).count(), \
+            "Today still shows a top-idea link (CHL-NAV-8: no hero link)"
         assert bad == [], f"dollar figures in the accent ({scheme}{', HC' if contrast else ''}):\n" + "\n".join(sorted(set(bad))[:30])
     finally:
         ctx.close()
@@ -892,16 +898,20 @@ def test_CHL_DS_R7_chat_welcome_and_panel_have_no_card_border_or_fill(make_page,
 
 # ---------------------------------------------------------------- CHL-DS-R8 footer disclaimer on one row at 320
 def test_CHL_DS_R8_footer_disclaimer_line_fits_one_row_at_320(make_page, site_url):
+    """Superseded by CHL-NAV-3: the line above the bottom bar (#disclaimer-line, all its text) is one row at 320,
+    and exactly 48px tall (a full tap target; chief of staff, Nov 22: principle 2 wins over the spec's 40px)."""
     pg = make_page(*SMALL)
     pg.goto(site_url)
     _ready(pg)
-    rows = pg.evaluate("""() => { const t = document.querySelector('#footer-disclaimer .foot-text'); const tops = new Set();
+    expect(pg.locator("#disclaimer-line")).to_be_visible()
+    rows = pg.evaluate("""() => { const t = document.querySelector('#disclaimer-line'); const tops = new Set();
         const tw = document.createTreeWalker(t, NodeFilter.SHOW_TEXT); let n;
         while ((n = tw.nextNode())) { if (!n.textContent.trim() || !n.parentElement.checkVisibility()) continue;
           const r = document.createRange(); r.selectNodeContents(n);
           [...r.getClientRects()].filter((x) => x.width > 0).forEach((x) => tops.add(Math.round(x.top))); }
-        return {rows: tops.size, text: t.innerText.trim()}; }""")
-    assert rows["rows"] == 1, f"the footer disclaimer '{rows['text']}' wraps onto {rows['rows']} rows at 320px (orphan word)"
+        return {rows: tops.size, text: t.innerText.trim(), h: t.getBoundingClientRect().height}; }""")
+    assert rows["rows"] == 1, f"the disclaimer line '{rows['text']}' wraps onto {rows['rows']} rows at 320px (orphan word)"
+    assert abs(rows["h"] - 48) <= 0.5, f"the disclaimer line is {rows['h']:.1f}px tall at 320px (want exactly 48)"
 
 
 # ---------------------------------------------------------------- CHL-DS-R9 Appearance above the circle, plain labels
@@ -970,15 +980,45 @@ def test_CHL_DS_R12_drawer_head_name_is_22px_and_says_sample_data_once(make_page
 
 # ---------------------------------------------------------------- CHL-DS-R13 one left edge at 1280
 def test_CHL_DS_R13_brand_tabs_and_content_share_a_left_edge_at_1280(make_page, site_url):
+    """Superseded by CHL-NAV-11: the brand and the tabs moved into the laptop sidebar. In the sidebar, the brand mark,
+    every tab row's icon and the Profile row's icon start on one left edge; in the main column, the risk slider,
+    each view's title and Today's cards start on main's content edge, right of the sidebar. Same intent (one left
+    edge per column), now two columns."""
     pg = make_page(*DESKTOP)
     pg.goto(site_url)
     _ready(pg)
-    got = pg.evaluate("""() => { const m = document.querySelector('main'), r = m.getBoundingClientRect();
-        return {content: r.left + parseFloat(getComputedStyle(m).paddingLeft),
-                brand: document.querySelector('header .brand').getBoundingClientRect().left,
-                tab: document.querySelector('nav.tabs [role=tab]').getBoundingClientRect().left}; }""")
-    assert abs(got["brand"] - got["content"]) <= 1 and abs(got["tab"] - got["content"]) <= 1, \
-        f"at 1280: brand left {got['brand']:.0f}, first tab left {got['tab']:.0f}, main content left {got['content']:.0f}"
+    edges = """() => { const L = (e) => e ? e.getBoundingClientRect().left : null;
+        const inner = (e) => e ? e.getBoundingClientRect().left + parseFloat(getComputedStyle(e).paddingLeft) : null;
+        const side = document.querySelector('header'), m = document.querySelector('main');
+        const prof = [...side.querySelectorAll('button')].find((b) => b.checkVisibility() && b.innerText.trim() === 'Profile');
+        const v = document.querySelector('main .tab.active');
+        return {sideRight: side.getBoundingClientRect().right, content: inner(m),
+                logo: L(document.querySelector('header .brand .logo')),
+                tabs: [...document.querySelectorAll('nav.tabs [role=tab]')].map((t) => L(t.querySelector('svg'))),
+                profile: prof ? L(prof.querySelector('svg')) : null,
+                risk: L([...document.querySelectorAll('#risk-row')].find((e) => e.checkVisibility())),
+                h1: L(v && v.querySelector('h1')),
+                cards: [...document.querySelectorAll('#ideas .card')].filter((c) => c.checkVisibility()).map(L)}; }"""
+    got = pg.evaluate(edges)
+    bad = []
+    side = [got["logo"], *got["tabs"], got["profile"]]
+    if None in side or max(side) - min(side) > 1:
+        bad.append(f"sidebar: mark {got['logo']}, tab icons {got['tabs']}, Profile icon {got['profile']} (want one left edge)")
+    if got["content"] < got["sideRight"]:
+        bad.append(f"main content edge {got['content']:.0f} is not right of the sidebar ({got['sideRight']:.0f})")
+    main_col = {"risk slider": got["risk"], "Today title": got["h1"], **{f"card {i + 1}": x for i, x in enumerate(got["cards"])}}
+    if not got["cards"]:
+        bad.append("no idea card to line up")
+    for what, x in main_col.items():
+        if x is None or abs(x - got["content"]) > 1:
+            bad.append(f"{what} starts at {x}, main content edge {got['content']:.0f}")
+    for view in ("screener", "chat", "paper", "learn"):
+        pg.click(f"nav.tabs [role=tab][data-tab={view}]")
+        expect(pg.locator(f"#tab-{view}")).to_be_visible()
+        x = pg.evaluate(edges)
+        if x["h1"] is None or abs(x["h1"] - x["content"]) > 1:
+            bad.append(f"{view} title starts at {x['h1']}, main content edge {x['content']:.0f}")
+    assert bad == [], "at 1280:\n" + "\n".join(bad)
 
 
 # ---------------------------------------------------------------- CHL-DS-R14 empty Portfolio: no icon, no Refresh
@@ -1054,28 +1094,45 @@ def _card_one_under_sticky(pg):
 
 
 def test_CHL_DS_R16_hero_top_idea_link_lands_card_one_title_below_the_sticky_bar_at_390(make_page, site_url):
+    """Superseded by CHL-NAV-5/8: no link at 390; at rest card 1 starts below the header, and a jump to any
+    #ideas .card (scrollIntoView, block start) lands its title clear of the 56px sticky header."""
     pg = make_page(*PHONE)
     pg.goto(site_url)
     _ready(pg)
     pg.evaluate("scrollTo(0, 0)")
-    link = pg.locator("#hero-top-idea")
-    expect(link).to_be_visible()
-    link.click()
+    expect(pg.locator("#hero-top-idea").filter(visible=True)).to_have_count(0)
+    rest = pg.evaluate("""() => ({card: document.querySelector('#ideas .card').getBoundingClientRect().top,
+        header: document.querySelector('header').getBoundingClientRect().bottom})""")
+    assert rest["card"] >= rest["header"] - 0.5, f"at rest card 1 top {rest['card']:.0f} is under the header bottom {rest['header']:.0f}"
+    for i in range(pg.locator("#ideas .card").count()):
+        pg.evaluate("(i) => document.querySelectorAll('#ideas .card')[i].scrollIntoView({block: 'start'})", i)
+        _settle_scroll(pg)
+        got = pg.evaluate("""(i) => ({t: document.querySelectorAll('#ideas .card .card-title')[i].getBoundingClientRect().top,
+            m: parseFloat(getComputedStyle(document.querySelectorAll('#ideas .card')[i]).scrollMarginTop)})""", i)
+        assert got["m"] >= 56 and got["t"] >= 56 - 0.5, f"card {i + 1}: scroll-margin-top {got['m']}px, title top {got['t']:.0f}px (want both >= 56)"
+    pg.evaluate("document.querySelector('#ideas .card').scrollIntoView({block: 'start'})")
     _settle_scroll(pg)
     _card_one_under_sticky(pg)
 
 
 def test_CHL_DS_R16_card_one_scrolled_into_view_sits_below_the_sticky_bar_at_1280(make_page, site_url):
+    """Superseded by CHL-NAV-8/11: no link; card 1 scrolled into view (block start) has its top >= 0 and nothing
+    sticky or fixed over its title (the sidebar sits beside it, not on top)."""
     pg = make_page(*DESKTOP)
     pg.goto(site_url)
     _ready(pg)
-    link = pg.locator("#hero-top-idea")
-    if link.is_visible():
-        link.click()
-    else:  # no hero link at 1280: scroll card 1 the way the link does (app.js, block: "start")
-        pg.evaluate("document.querySelector('#ideas .card').scrollIntoView({block: 'start'})")
+    expect(pg.locator("#hero-top-idea").filter(visible=True)).to_have_count(0)
+    pg.evaluate("document.querySelector('#ideas .card').scrollIntoView({block: 'start'})")
     _settle_scroll(pg)
-    _card_one_under_sticky(pg)
+    got = pg.evaluate("""() => { const c = document.querySelector('#ideas .card').getBoundingClientRect(),
+        t = document.querySelector('#ideas .card .card-title').getBoundingClientRect();
+        const over = [...document.querySelectorAll('body *')].filter((e) => { const p = getComputedStyle(e).position;
+            if ((p !== 'sticky' && p !== 'fixed') || !e.checkVisibility() || e.closest('#toast, #engine-status')) return false;
+            const r = e.getBoundingClientRect();
+            return r.height > 0 && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top; })
+            .map((e) => e.tagName + '.' + [...e.classList].join('.'));
+        return {top: c.top, over}; }""")
+    assert got["top"] >= -0.5 and got["over"] == [], f"card 1 top {got['top']:.0f}px; sticky/fixed over its title: {got['over']}"
 
 
 # ---------------------------------------------------------------- CHL-DS-R17 Appearance options stack at 390
@@ -1101,7 +1158,7 @@ def test_CHL_DS_R17_appearance_options_each_take_a_48px_row_with_one_left_edge_a
 # right-edge fade (computed content is not "none", display is not "none", width > 0). Scrolled to the end, the
 # class is gone and ::after draws nothing (content "none" or display "none" or width 0). Update it on the
 # scroller's "scroll" event and on resize.
-TAB_FADE = """() => { const n = document.querySelector('nav.tabs'), s = n.querySelector('.tabs-inner'), a = getComputedStyle(n, '::after');
+TAB_FADE = """() => { const n = document.querySelector('nav.tabs'), s = n.querySelector('[role=tablist]'), a = getComputedStyle(n, '::after');
     return {more: s.scrollLeft + s.clientWidth < s.scrollWidth - 1, sl: s.scrollLeft, cw: s.clientWidth, sw: s.scrollWidth,
             cls: n.classList.contains('has-more'),
             fade: a.content !== 'none' && a.content !== 'normal' && a.display !== 'none' && parseFloat(a.width) > 0}; }"""
@@ -1119,24 +1176,20 @@ def test_CHL_DS_R18_no_fade_at_320_when_all_five_tabs_fit(make_page, site_url):
 
 
 def test_CHL_DS_R18_tab_bar_fades_on_the_right_while_more_tabs_are_hidden_when_it_overflows(make_page, site_url):
-    """The fade still works whenever the bar does overflow (large text, a later tab): squeeze the scroller to 200px."""
-    pg = make_page(*SMALL)
-    pg.goto(site_url)
-    _ready(pg)
-    pg.evaluate("(() => { document.querySelector('nav.tabs .tabs-inner').style.width = '200px'; dispatchEvent(new Event('resize')); })()")
-    pg.wait_for_timeout(300)
-    start = pg.evaluate(TAB_FADE)
-    assert start["more"], f"precondition: the squeezed tab bar doesn't overflow ({start})"
-    pg.evaluate("(() => { const s = document.querySelector('nav.tabs .tabs-inner'); s.scrollLeft = s.scrollWidth; })()")
-    pg.wait_for_timeout(300)
-    end = pg.evaluate(TAB_FADE)
-    assert not end["more"], f"precondition: couldn't scroll the tab bar to its end ({end})"
+    """Superseded by CHL-NAV-1/11: the bar (320, 390) and the sidebar (1280) never scroll sideways, so there is
+    never anything hidden to fade to: scrollWidth <= clientWidth, a forced scrollLeft stays 0, has-more never set."""
     bad = []
-    if not (start["cls"] and start["fade"]):
-        bad.append(f"at rest with more tabs to the right: nav.tabs.has-more={start['cls']}, ::after fade drawn={start['fade']} (want both)")
-    if end["cls"] or end["fade"]:
-        bad.append(f"scrolled to the end: nav.tabs.has-more={end['cls']}, ::after fade drawn={end['fade']} (want neither)")
-    assert bad == [], "\n".join(bad)
+    for size in (SMALL, PHONE, DESKTOP):
+        pg = make_page(*size)
+        pg.goto(site_url)
+        _ready(pg)
+        pg.wait_for_timeout(300)
+        pg.evaluate("(() => { const s = document.querySelector('nav.tabs [role=tablist]'); s.scrollLeft = s.scrollWidth; dispatchEvent(new Event('resize')); })()")
+        pg.wait_for_timeout(300)
+        got = pg.evaluate(TAB_FADE)
+        if got["sw"] > got["cw"] or got["sl"] > 0 or got["cls"] or got["fade"]:
+            bad.append(f"{size[0]}px: scrollWidth {got['sw']} clientWidth {got['cw']} scrollLeft {got['sl']} has-more={got['cls']} fade={got['fade']}")
+    assert bad == [], "the tab bar/sidebar scrolls or fades:\n" + "\n".join(bad)
 
 
 # ---------------------------------------------------------------- CHL-DS-R19 drawer reasons are plain lines, not pills
@@ -1207,7 +1260,7 @@ def test_CHL_DS_25_all_five_tabs_fit_at_320_with_no_horizontal_scroll(make_page,
     pg.goto(site_url)
     _ready(pg)
     pg.wait_for_timeout(300)
-    got = pg.evaluate("""() => { const s = document.querySelector('nav.tabs .tabs-inner'), bar = s.getBoundingClientRect();
+    got = pg.evaluate("""() => { const s = document.querySelector('nav.tabs [role=tablist]'), bar = s.getBoundingClientRect();
         return {sw: s.scrollWidth, cw: s.clientWidth, doc: document.documentElement.scrollWidth,
             tabs: [...s.querySelectorAll('[role=tab]')].map((t) => { const r = t.getBoundingClientRect();
                 return {t: t.innerText.trim(), l: r.left, r: r.right, w: r.width, h: r.height,
@@ -1257,7 +1310,9 @@ def test_CHL_DS_25_profile_button_opens_profile_as_the_active_view_and_tabs_lead
     _today_is_the_view(pg)
     _profile_button(pg).click()
     _profile_is_the_view(pg)
-    expect(pg.locator("#tab-profile h1")).to_have_text("Your circle of competence")
+    # CHL-NAV-6/7: the view's large title is "Profile"; "Your circle of competence" becomes its h2.
+    expect(pg.locator("#tab-profile h1")).to_have_text("Profile")
+    expect(pg.locator("#tab-profile").get_by_role("heading", level=2, name="Your circle of competence")).to_be_visible()
     expect(pg.get_by_role("group", name="Appearance")).to_be_visible()
     expect(pg.locator("#tab-profile").get_by_role("button", name="Build my profile")).to_be_visible()
     # the view stays named for assistive tech: whatever labels #tab-profile must exist
@@ -1321,35 +1376,42 @@ def _park_pointer(pg):
     pg.wait_for_timeout(100)
 
 
-def _same_mark(a, b):
-    """Same visible bottom indicator: same thickness and colour (border-bottom and ::after are interchangeable
-    ways to draw it), or the identical box-shadow."""
-    if a["by"] == "box-shadow" or b["by"] == "box-shadow":
-        return a["by"] == b["by"] and a["value"] == b["value"]
-    return abs(a["px"] - b["px"]) < 0.5 and a["color"] == b["color"]
-
-
+@pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390", "1280"])
 @pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_CHL_DS_R25_profile_button_looks_like_the_active_tab_while_profile_is_open(make_page, site_url, scheme):
-    pg = make_page(*PHONE, scheme=scheme)
+def test_CHL_DS_R25_profile_button_looks_like_the_active_tab_while_profile_is_open(make_page, site_url, scheme, size):
+    """Rewritten for CHL-NAV (chief of staff's option a, Nov 22). The active tab now wears an accent-soft pill,
+    not a bottom bar, so the old "same mark as the active tab" precondition is gone. With Profile open:
+    accent colour (the active tab's), no underline, aria-current="page", and a 2px accent bottom mark
+    (border-bottom or ::after bar) that is absent at rest. At 390 and 1280, light and dark."""
+    pg = make_page(*size, scheme=scheme)
     pg.goto(site_url)
     _ready(pg)
     _park_pointer(pg)
+    accent = _color(pg, "var(--accent)")
     active = pg.evaluate(NAV_LOOK, "nav.tabs [role=tab][aria-selected=true]")
-    assert active["marks"], f"test bug guard: the active tab shows no bottom indicator in {scheme}: {active}"
+    assert active["color"] == accent, f"test bug guard: the active tab isn't accent in {scheme}: {active}"
+
+    def accent_bar(look):
+        return [m for m in look["marks"] if m["by"] != "box-shadow" and abs(m["px"] - 2) < 0.5 and m["color"] == accent]
+
+    at_rest = pg.evaluate(NAV_LOOK, "#profile-btn")
     _profile_button(pg).click()
     _profile_is_the_view(pg)
     _park_pointer(pg)
     got = pg.evaluate(NAV_LOOK, "#profile-btn")
+    current = pg.get_attribute("#profile-btn", "aria-current")
     bad = []
     if got["deco"] != "none":
         bad.append(f"text-decoration-line is {got['deco']!r}, want 'none'")
     if got["color"] != active["color"]:
         bad.append(f"color {got['color']} != active tab color {active['color']}")
-    want = active["marks"][0]
-    if not any(_same_mark(want, m) for m in got["marks"]):
-        bad.append(f"no bottom indicator like the active tab's {want}; Profile button shows {got['marks'] or 'none'}")
-    assert bad == [], f"Profile open, {scheme}:\n" + "\n".join(bad)
+    if current != "page":
+        bad.append(f"aria-current is {current!r}, want 'page'")
+    if not accent_bar(got):
+        bad.append(f"no 2px accent bottom mark while open; Profile button shows {got['marks'] or 'none'}")
+    if accent_bar(at_rest):
+        bad.append(f"the 2px accent mark already shows at rest (Today open): {at_rest['marks']}")
+    assert bad == [], f"Profile open, {size[0]}px {scheme}:\n" + "\n".join(bad)
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])

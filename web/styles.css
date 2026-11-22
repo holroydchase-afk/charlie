@@ -11,7 +11,10 @@
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --r-sm: 4px; --r-md: 12px; --r-pill: 999px;
   --target: 48px;
-  --footer-h: 49px;
+  --bar-h: 64px;      /* CHL-NAV-1: the phone tab bar, before the safe area */
+  --line-h: 48px;     /* CHL-NAV-3: the disclaimer line above it, one 48px target (principle 2) */
+  --side-w: 248px;    /* CHL-NAV-11: the laptop sidebar */
+  --stack-h: calc(var(--bar-h) + var(--line-h) + env(safe-area-inset-bottom, 0px));  /* the phone's bottom stack */
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -19,10 +22,10 @@ body {
   margin: 0; background: var(--bg); color: var(--ink);
   font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400;
-  padding-bottom: calc(var(--footer-h) + var(--s6));
+  padding-bottom: var(--s6);
   -webkit-font-smoothing: antialiased;
 }
-h1 { font-size: var(--fs-display); line-height: var(--lh-display); font-weight: 600; margin: 0 0 var(--s2); }
+h1 { font-size: var(--fs-large); line-height: var(--lh-large); font-weight: 600; margin: 0 0 var(--s2); }
 h2 { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: 600; margin: 0 0 var(--s2); }
 h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: var(--s4) 0 var(--s1); }
 b, strong, th { font-weight: 600; }
@@ -73,54 +76,94 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .demo-bar__confirm { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .demo-bar__back { display: inline-flex; align-items: center; min-height: 48px; color: inherit; font-weight: 600; }
 @media (min-width: 600px) { .demo-bar__long { display: inline; } }
-/* CHL-DEMO-R2: line the bar up with the header, which pads var(--s5) above its 760px breakpoint. */
+/* CHL-DEMO-R2 (CHL-NAV-11 update): from 761px the header is the sidebar and the bar sits over the main column,
+   so it pads like main (var(--s4)) and the back link and drawer copy start on main's content edge. */
 @media (min-width: 761px) {
-  .demo-bar__row { padding-left: max(var(--s5), env(safe-area-inset-left, 0px)); }
-  .demo-bar__toggle { padding-right: max(var(--s5), env(safe-area-inset-right, 0px)); }
-  .demo-bar__panel { padding-left: max(var(--s5), env(safe-area-inset-left, 0px)); padding-right: max(var(--s5), env(safe-area-inset-right, 0px)); }
+  .demo-bar__row { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); }
+  .demo-bar__toggle { padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
+  .demo-bar__panel { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
 }
 @media (max-width: 359px) { .demo-bar__sum { display: none; } }
 @media (prefers-reduced-motion: reduce) { .demo-bar__chev { transition: none; } }
 
-/* ---------------------------------------------------------------- header */
+/* ---------------------------------------------------------------- header, tab bar, disclaimer line (CHL-NAV)
+   One <header> holds the brand, the one nav.tabs, the Profile button and #disclaimer-line. Phones (under 760px):
+   a 56px sticky bar with the brand left and Profile right; the tab bar and the 48px disclaimer line are fixed to
+   the bottom. Laptops: the header is a 248px sidebar (see the min-width: 760px block below). */
 .top {
-  padding: var(--s2) var(--s5); background: var(--surface); border-bottom: 1px solid var(--line);
-  position: sticky; top: 0; z-index: 5; min-height: 48px;
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: var(--s3);
+  height: 56px; padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 max(var(--s4), env(safe-area-inset-left, 0px));
+  background: var(--surface); border-bottom: 1px solid var(--line);
 }
-/* CHL-DS-R13: the header, tab bar and demo bar keep their contents in main's column: main is 1120px
-   with 16px padding, so its content is 1088px wide, centered. */
-.top-inner { display: flex; align-items: center; gap: var(--s3); max-width: 1088px; margin: 0 auto; min-height: 32px; }
 .brand { display: flex; gap: var(--s3); align-items: center; margin-right: auto; min-width: 0; }
 /* The mark is ink, not the accent: the accent means "tap here" (principle 6). */
 .logo { width: 32px; height: 32px; border-radius: var(--r-sm); background: var(--ink); color: var(--bg); display: grid; place-items: center; font-weight: 600; flex: none; }
 .brand-name { font-weight: 600; }
-.brand-sub { color: var(--muted); }
 .badge { padding: 0 var(--s2); border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; }
 .badge.mock { border-color: var(--tab-line); color: var(--ink); }
+.top .header-profile { text-decoration: none; padding: 0 var(--s2); margin-right: calc(-1 * var(--s2)); }
+.top .header-profile .ico { width: 24px; height: 24px; flex: none; }
 
-/* Tabs: six at the top for now (Q1, pending Chase). The picked tab is the accent, with a 2px mark. */
-.tabs { padding: 0 var(--s4); border-bottom: 1px solid var(--line); background: var(--surface); }
-.tabs-inner { display: flex; gap: var(--s1); max-width: 1088px; margin: 0 auto; overflow-x: auto; }
-/* CHL-DS-R18: a 24px fade on the right while more tabs are hidden (app.js sets .has-more); taps pass through it. */
-nav.tabs { position: relative; }
-nav.tabs::after { content: none; }
-nav.tabs.has-more::after {
-  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: 24px; pointer-events: none;
-  background: linear-gradient(to right, transparent, var(--surface));
+/* The tab bar: icon over word; the picked tab is the accent, 600, with an accent-soft pill behind its icon. */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; box-sizing: border-box;
+  height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+  padding: var(--s1) max(var(--s1), env(safe-area-inset-right, 0px)) calc(var(--s1) + env(safe-area-inset-bottom, 0px)) max(var(--s1), env(safe-area-inset-left, 0px));
+  background: var(--surface); border-top: 1px solid var(--line);
 }
+nav.tabs::after { content: none; }  /* CHL-DS-R18: the bar never scrolls, so there is never a fade */
+.tabs-inner { display: flex; height: 100%; overflow: hidden; }
 .tabs button {
-  min-height: 48px; min-width: 48px; border: 0; background: none; padding: 0 var(--s3); font: inherit; color: var(--muted); cursor: pointer;
-  border-bottom: 2px solid transparent; border-top: 2px solid transparent; white-space: nowrap; border-radius: 0;
-  flex: none;  /* CHL-DS-R1: a tab never shrinks under its word; the bar scrolls instead */
+  flex: 1 1 0; min-width: 48px; min-height: 48px; margin: 0; padding: 0; border: 0; border-radius: var(--r-md); background: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  font: inherit; font-weight: 500; color: var(--muted); cursor: pointer; white-space: nowrap;
 }
 .tabs button:hover { color: var(--ink); }
-.tabs button.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.tab-ico { display: inline-flex; padding: var(--s1) var(--s4); border-radius: var(--r-pill); }
+.tab-ico .ico { width: 26px; height: 26px; display: block; }
+.tab-word { font-size: var(--fs-body); line-height: var(--lh-body); }
+.tabs button.active { color: var(--accent); font-weight: 600; }
+.tabs button.active .tab-ico { background: var(--accent-soft); }
+
+/* CHL-NAV-3: one 48px disclaimer line, directly above the bar; tapping it opens the full disclaimer. */
+.disclaimer-line {
+  position: fixed; left: 0; right: 0; z-index: 6; box-sizing: border-box; height: var(--line-h);
+  bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+}
+.disclaimer-line::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--line); pointer-events: none; }
+.disclaimer-line .disc-btn {
+  display: flex; min-height: 0; min-width: 0; font-weight: 400; text-decoration: none; gap: var(--s1); align-items: center; justify-content: center; width: 100%; height: var(--line-h); margin: 0;
+  padding: 0 max(var(--s4), env(safe-area-inset-right, 0px)) 0 max(var(--s4), env(safe-area-inset-left, 0px));
+  border: 0; border-radius: 0; background: transparent; color: var(--muted); font: inherit; white-space: nowrap; cursor: pointer;
+}
+.disclaimer-line .disc-btn:focus-visible { outline-offset: -2px; }
+.disc-more { display: none; }
+/* CHL-NAV-10 (Chase, Nov 22: yes; body.nav-hide-on-type is the switch, set in index.html): on a phone the bar and the
+   line step aside only while a text field has focus (.is-typing) AND the keyboard is up (.kb-open, from visualViewport).
+   Never on a laptop. Every trade surface keeps its own disclaimer. */
+@media (max-width: 759.98px) {
+  /* Room under the last content for the fixed bottom stack (CHL-NAV-4). */
+  body::after { content: ""; display: block; height: var(--stack-h); }
+  body.nav-hide-on-type.is-typing.kb-open nav.tabs, body.nav-hide-on-type.is-typing.kb-open .disclaimer-line { display: none; }
+}
+@media (max-width: 359px) { .disclaimer-line .disc-btn { padding: 0 var(--s2); } }
 
 main { max-width: 1120px; margin: 0 auto; padding: var(--s5) var(--s4); }
 .tab { display: none; }
 .tab.active { display: block; }
 .section-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s3); margin-bottom: var(--s3); flex-wrap: wrap; }
 .section-head p { margin: 0; }
+/* CHL-NAV-7: every view opens with a 34px large title and at most one subtitle line. */
+.page-head { margin-bottom: var(--s3); }
+.page-head h1 { margin: 0; }
+.page-head p { margin: var(--s1) 0 0; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); }
+.sheet-head .sheet-close { text-decoration: none; }
+#tab-today #data-badge { display: inline-block; margin-bottom: var(--s3); }
+#profile-nudge { margin-bottom: var(--s2); }
+.ideas-meta { margin-top: var(--s4); }
+.ideas-meta .section-head { align-items: center; }
 
 /* Risk control: a slim bar at the top of Today, Screener and Learn. */
 .risk-control { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s4); padding: 0 var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; width: fit-content; max-width: 100%; }
@@ -129,14 +172,6 @@ main { max-width: 1120px; margin: 0 auto; padding: var(--s5) var(--s4); }
 /* The risk level in words: ink, no fill (it's information, not a tap). */
 .pill { padding: 0 var(--s3); border-radius: 999px; border: 1px solid var(--line); color: var(--ink); white-space: nowrap; }
 
-/* ---------------------------------------------------------------- hero (UX2): on the page, no box */
-.hero { margin-bottom: var(--s5); }
-.hero h1 { max-width: 22ch; }
-.hero-how { max-width: 62ch; margin-bottom: var(--s2); }
-.hero-whose { margin-bottom: var(--s3); }
-.proof { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); list-style: none; margin: 0; padding: 0; }
-.proof li { color: var(--ink); position: relative; padding-left: var(--s5); }
-.proof li::before { content: ""; position: absolute; left: 4px; top: 50%; width: 12px; height: 6px; border-left: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-75%) rotate(-45deg); }
 
 /* ---------------------------------------------------------------- controls */
 button, select, input, textarea { font: inherit; color: inherit; }
@@ -393,30 +428,18 @@ tr.clickable:hover td { background: var(--fill); }
 #ack-btn { width: 100%; }
 
 .engine-status { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: var(--s2) var(--s4); border-radius: 999px; z-index: 45; }
-.toast { position: fixed; bottom: calc(var(--footer-h) + 16px); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: var(--s3) var(--s4); border-radius: var(--r-md); z-index: 40; }
-/* Footer (UX7): the disclaimer, with the full text one tap away. */
-.disclaimer {
-  position: fixed; bottom: 0; left: 0; right: 0; min-height: var(--footer-h); background: var(--surface); border-top: 1px solid var(--line);
-  color: var(--muted); padding: 0 var(--s4); z-index: 4;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: var(--s1);
-}
-.disclaimer .site-link { display: inline-flex; align-items: center; }
-.disclaimer a { display: inline-flex; align-items: center; min-height: 48px; padding: 0 var(--s1); }
+.toast { position: fixed; bottom: calc(var(--stack-h) + var(--s4)); left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 32px); background: var(--ink); color: var(--bg); padding: var(--s3) var(--s4); border-radius: var(--r-md); z-index: 40; }
 
 @media (max-width: 760px) {
   .grid2, .two-col { grid-template-columns: 1fr; }
-  .top { padding: 0 var(--s4); min-height: 48px; }  /* CHL-DS-25: the 48px Profile button sets the height */
-  .brand-sub { display: none; }
-  main { padding: var(--s4) var(--s4); }
+  main { padding: var(--s3) var(--s4) var(--s4); }
+  /* CHL-NAV-8: a tight title block, so card 1's first number is in the phone's first screen. */
+  .page-head { margin-bottom: var(--s2); }
+  .risk-control { margin-bottom: var(--s3); }
   .card { padding: var(--s4); }
   .risk-control input { width: 120px; }
   .msg { max-width: 95%; }
   .factor { grid-template-columns: 96px 1fr 32px; }
-  /* All five tabs fit at 390px (UX21) and 320px (CHL-DS-25); the bar would scroll only if a word grew. */
-  .tabs { padding: 0 var(--s2); }
-  .tabs-inner { gap: 0; scrollbar-width: none; justify-content: space-between; }
-  .tabs-inner::-webkit-scrollbar { display: none; }
-  .tabs button { padding: 0 var(--s1); }
   .drawer-head { padding-left: var(--s4); }
   #drawer-body { padding: var(--s4) var(--s4) var(--s6); }
   .save-group { justify-content: flex-start; }
@@ -426,12 +449,6 @@ tr.clickable:hover td { background: var(--fill); }
   .table-wrap.has-cards { display: none; }
   .row-cards, .pos-cards { display: grid; }
   .wide-only { display: none; }
-  /* UX46: on phones the footer takes two rows: the disclaimer line, then Read more (and, in the demo, the
-     portfolio link) as 48px targets. */
-  body { --footer-h: 75px; }
-  .disclaimer { align-content: center; }
-  .disclaimer .foot-text { flex-basis: 100%; text-align: center; padding-top: var(--s1); }
-  body.is-static .disclaimer .site-link .sep { display: none; }
   .card .actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .card .actions button { padding-left: var(--s2); padding-right: var(--s2); min-width: 0; white-space: normal; }
   .card-title .sym { display: block; margin-left: 0; }
@@ -447,7 +464,7 @@ tr.clickable:hover td { background: var(--fill); }
      card 1 keeps its 800px budget at 390. */
   .card-head .grade { grid-column: 2; grid-row: 1; align-self: start; margin-bottom: var(--s1); }
   .card-head .card-sub { grid-column: 1 / -1; grid-row: 2; }
-  /* CHL-DS-R16: jumping to card 1 clears the sticky header (48px) plus 16px. */
+  /* CHL-DS-R16: jumping to card 1 clears the 56px sticky header plus 8px. */
   #ideas .card { scroll-margin-top: calc(var(--s6) * 2); }
   /* Compact badge on phones ("Score 76 · A", UX34), so the title and sector get the width; aria-label keeps the full words. */
   .card-head .grade .gword, .card-head .grade .gout { display: none; }
@@ -476,20 +493,6 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   #tab-screener.screen-folded #screen-form { display: none; }
   .stats { grid-template-columns: 1fr 1fr; }
   .stats .metric:last-child:nth-child(odd) { grid-column: 1 / -1; }
-}
-/* UX20: on a laptop the hero is two columns, so card 1's numbers make the first screen. */
-@media (min-width: 900px) {
-  .hero { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s5); align-items: center; margin-bottom: var(--s4); }
-  .hero h1 { max-width: none; }
-  .hero-how { margin-bottom: 0; }
-  .hero-side .proof { flex-direction: column; align-items: flex-start; }
-}
-/* UX28: the top idea's numbers in the phone's first screen: a quiet link to card 1. */
-.hero-top-idea { display: none; }
-@media (max-width: 600px) {
-  .hero-top-idea:not(.hidden) { display: flex; flex-direction: column; justify-content: center; min-height: 48px; margin-top: var(--s2); color: var(--accent); font-weight: 600; }
-  /* CHL-DS-R3: the numbers are information, so they're ink on their own line; only the words are the link color. */
-  .hero-top-idea .hti-nums { color: var(--ink); font-weight: 400; text-decoration: none; display: block; }
 }
 /* UX29: reflow at 320px, no horizontal page scroll */
 @media (max-width: 400px) {
@@ -547,7 +550,31 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .appearance .choices { flex-direction: column; align-items: stretch; }
   .appearance .choice { display: flex; width: 100%; border-radius: var(--r-md); }
 }
-/* CHL-DS-R8: the footer disclaimer fits one row at 320px. */
-@media (max-width: 359px) {
-  .disclaimer { padding: 0 var(--s2); }
+/* ---------------------------------------------------------------- CHL-NAV-11 laptop: the header is a 248px sidebar
+   (brand at the top, the five rows, then Profile and the disclaimer line with Read more at its bottom). */
+@media (min-width: 760px) {
+  /* The sidebar is fixed; everything else in the page flow takes the second column. */
+  body { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); align-content: start; }
+  body > * { grid-column: 2; }
+  .top {
+    position: fixed; top: 0; bottom: 0; left: 0; width: var(--side-w); height: auto; z-index: 5;
+    flex-direction: column; align-items: stretch; gap: 0; overflow-y: auto;
+    padding: var(--s4) 0; border-bottom: 0; border-right: 1px solid var(--line);
+  }
+  .brand { margin: 0 0 var(--s4); padding: 0 var(--s5); min-height: 48px; flex: none; }
+  nav.tabs { position: static; height: auto; padding: 0 var(--s3); border: 0; background: none; z-index: auto; }
+  .tabs-inner { flex-direction: column; gap: var(--s1); height: auto; }
+  .tabs button { flex: none; flex-direction: row; justify-content: flex-start; gap: var(--s3); height: 48px; padding: 0 var(--s3); border-radius: var(--r-pill); }
+  .tab-ico { padding: 0; background: none !important; }
+  .tabs button.active { background: var(--accent-soft); }
+  .top .header-profile {
+    margin: auto var(--s3) 0; justify-content: flex-start; gap: var(--s3); height: 48px; padding: 0 var(--s3);
+    border-radius: 0;
+  }
+  /* Profile is showing: the accent and the straight 2px accent mark from the base rule (CHL-DS-R25), no underline.
+     DS-15 keeps its background clear, so it can't wear the sidebar tab's accent-soft pill. */
+  .disclaimer-line { position: relative; bottom: auto; height: auto; margin: var(--s2) var(--s3) 0; padding-top: var(--s2); background: none; }
+  .disclaimer-line .disc-btn { display: block; height: auto; min-height: 48px; padding: var(--s2) var(--s3); text-align: left; white-space: normal; border-radius: var(--r-md); }
+  .disc-more { display: inline; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  .toast { bottom: var(--s4); }
 }
