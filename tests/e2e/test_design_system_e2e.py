@@ -535,6 +535,12 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
         # a destructive action, so it may use --danger-text; the filled danger is on the confirm (#delete-yes).
         if k == "btn-quiet" and b["where"].endswith("button#delete-profile.btn-quiet.danger-text"):
             fg = colors["danger-text"]
+        # Nov 22 (chief of staff, CHL-DS-R25/R26): the header Profile button is a navigation item, the sixth
+        # view's tab, and section 6 exempts tabs from the kind colour rule. So its text colour is exempt here only;
+        # R25/R26 assert it (inactive tab colour at rest, accent while Profile shows). Its background, its one kind
+        # and its 48px target (DS-14, DS-25) are still checked.
+        if k == "btn-quiet" and "button#profile-btn." in b["where"]:
+            fg = b["color"]
         if b["bg"] != bg or b["color"] != fg:
             bad.append(f"{label} {k}: bg {b['bg']} color {b['color']}, want bg {bg} color {fg}")
         if k == "btn-tinted" and b["radius"] < min(999, b["h"] / 2 - 0.5):
@@ -550,6 +556,9 @@ def test_CHL_DS_15_every_button_has_one_kind_and_at_most_one_primary_and_tinted_
     triggers = [b for b in sweeps[size]["buttons"] if "#delete-profile" in b["where"]]
     if not triggers or any(b["kinds"] != ["btn-quiet"] for b in triggers):
         bad.append(f"#delete-profile must be a btn-quiet trigger, got {triggers}")
+    nav = [b for b in sweeps[size]["buttons"] if "button#profile-btn." in b["where"]]
+    if not nav or any(len(b["kinds"]) != 1 for b in nav):
+        bad.append(f"#profile-btn must carry exactly one kind class, got {[(b['state'], b['kinds']) for b in nav]}")
     assert bad == [] and many == [], {"kinds": bad[:40], "more than one per screen": many}
 
 
@@ -1346,3 +1355,72 @@ def test_CHL_DS_25_first_run_paste_a_resume_then_see_todays_ideas_still_works(ma
     see.click()
     _today_is_the_view(pg)
     expect(pg.locator("#ideas .card").first).to_be_visible(timeout=ENGINE)
+
+
+# CHL-DS-R25 / R26 (ux-reviewer, Nov 22): the header Profile button reads as a tab, not as an underlined link.
+# Written first, red, by qa-tdd on Nov 22 2026. Styles are read with the pointer parked off every control so
+# :hover never colours the answer.
+NAV_LOOK = """(sel) => { const el = document.querySelector(sel), s = getComputedStyle(el), a = getComputedStyle(el, '::after');
+    const clear = (c) => !c || c === 'transparent' || /rgba\\(.*,\\s*0\\)$/.test(c);
+    const marks = [];
+    if (s.borderBottomStyle !== 'none' && parseFloat(s.borderBottomWidth) > 0 && !clear(s.borderBottomColor))
+        marks.push({by: 'border-bottom', px: parseFloat(s.borderBottomWidth), color: s.borderBottomColor});
+    if (s.boxShadow && s.boxShadow !== 'none') marks.push({by: 'box-shadow', value: s.boxShadow});
+    if (a.content && a.content !== 'none' && a.content !== 'normal' && parseFloat(a.height) > 0 && !clear(a.backgroundColor))
+        marks.push({by: '::after', px: parseFloat(a.height), color: a.backgroundColor});
+    return {color: s.color, deco: s.textDecorationLine, weight: s.fontWeight, marks}; }"""
+
+
+def _park_pointer(pg):
+    pg.mouse.move(1, pg.viewport_size["height"] - 1)
+    pg.wait_for_timeout(100)
+
+
+def _same_mark(a, b):
+    """Same visible bottom indicator: same thickness and colour (border-bottom and ::after are interchangeable
+    ways to draw it), or the identical box-shadow."""
+    if a["by"] == "box-shadow" or b["by"] == "box-shadow":
+        return a["by"] == b["by"] and a["value"] == b["value"]
+    return abs(a["px"] - b["px"]) < 0.5 and a["color"] == b["color"]
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_CHL_DS_R25_profile_button_looks_like_the_active_tab_while_profile_is_open(make_page, site_url, scheme):
+    pg = make_page(*PHONE, scheme=scheme)
+    pg.goto(site_url)
+    _ready(pg)
+    _park_pointer(pg)
+    active = pg.evaluate(NAV_LOOK, "nav.tabs [role=tab][aria-selected=true]")
+    assert active["marks"], f"test bug guard: the active tab shows no bottom indicator in {scheme}: {active}"
+    _profile_button(pg).click()
+    _profile_is_the_view(pg)
+    _park_pointer(pg)
+    got = pg.evaluate(NAV_LOOK, "#profile-btn")
+    bad = []
+    if got["deco"] != "none":
+        bad.append(f"text-decoration-line is {got['deco']!r}, want 'none'")
+    if got["color"] != active["color"]:
+        bad.append(f"color {got['color']} != active tab color {active['color']}")
+    want = active["marks"][0]
+    if not any(_same_mark(want, m) for m in got["marks"]):
+        bad.append(f"no bottom indicator like the active tab's {want}; Profile button shows {got['marks'] or 'none'}")
+    assert bad == [], f"Profile open, {scheme}:\n" + "\n".join(bad)
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_CHL_DS_R26_profile_button_looks_like_an_inactive_tab_on_today(make_page, site_url, scheme):
+    pg = make_page(*PHONE, scheme=scheme)
+    pg.goto(site_url)
+    _ready(pg)
+    _today_is_the_view(pg)
+    _park_pointer(pg)
+    inactive = pg.evaluate(NAV_LOOK, "nav.tabs [role=tab][data-tab=screener]")
+    got = pg.evaluate(NAV_LOOK, "#profile-btn")
+    bad = []
+    if got["color"] != inactive["color"]:
+        bad.append(f"color {got['color']} != inactive tab color {inactive['color']}")
+    if got["deco"] != "none":
+        bad.append(f"text-decoration-line is {got['deco']!r}, want 'none'")
+    if got["weight"] != "600":
+        bad.append(f"font-weight {got['weight']}, want 600")
+    assert bad == [], f"Today open, {scheme}:\n" + "\n".join(bad)
