@@ -93,7 +93,7 @@ def _booted_on(pg, tab):
 
 def _engine_idle(pg):
     pg.wait_for_timeout(200)
-    pg.wait_for_function("document.querySelector('#engine-status').classList.contains('hidden')", timeout=ENGINE)
+    pg.wait_for_function("() => document.querySelector('#engine-status').classList.contains('hidden')", timeout=ENGINE)
 
 
 def _color(pg, expr):

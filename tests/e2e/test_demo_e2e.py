@@ -91,7 +91,7 @@ def axe_source():
 
 def _wait_for_engine_if_needed(page):
     page.wait_for_timeout(300)
-    page.wait_for_function("document.querySelector('#engine-status').classList.contains('hidden')", timeout=120_000)
+    page.wait_for_function("() => document.querySelector('#engine-status').classList.contains('hidden')", timeout=120_000)
     page.wait_for_timeout(300)
 
 
