@@ -1376,35 +1376,42 @@ def _park_pointer(pg):
     pg.wait_for_timeout(100)
 
 
-def _same_mark(a, b):
-    """Same visible bottom indicator: same thickness and colour (border-bottom and ::after are interchangeable
-    ways to draw it), or the identical box-shadow."""
-    if a["by"] == "box-shadow" or b["by"] == "box-shadow":
-        return a["by"] == b["by"] and a["value"] == b["value"]
-    return abs(a["px"] - b["px"]) < 0.5 and a["color"] == b["color"]
-
-
+@pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390", "1280"])
 @pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_CHL_DS_R25_profile_button_looks_like_the_active_tab_while_profile_is_open(make_page, site_url, scheme):
-    pg = make_page(*PHONE, scheme=scheme)
+def test_CHL_DS_R25_profile_button_looks_like_the_active_tab_while_profile_is_open(make_page, site_url, scheme, size):
+    """Rewritten for CHL-NAV (chief of staff's option a, Nov 22). The active tab now wears an accent-soft pill,
+    not a bottom bar, so the old "same mark as the active tab" precondition is gone. With Profile open:
+    accent colour (the active tab's), no underline, aria-current="page", and a 2px accent bottom mark
+    (border-bottom or ::after bar) that is absent at rest. At 390 and 1280, light and dark."""
+    pg = make_page(*size, scheme=scheme)
     pg.goto(site_url)
     _ready(pg)
     _park_pointer(pg)
+    accent = _color(pg, "var(--accent)")
     active = pg.evaluate(NAV_LOOK, "nav.tabs [role=tab][aria-selected=true]")
-    assert active["marks"], f"test bug guard: the active tab shows no bottom indicator in {scheme}: {active}"
+    assert active["color"] == accent, f"test bug guard: the active tab isn't accent in {scheme}: {active}"
+
+    def accent_bar(look):
+        return [m for m in look["marks"] if m["by"] != "box-shadow" and abs(m["px"] - 2) < 0.5 and m["color"] == accent]
+
+    at_rest = pg.evaluate(NAV_LOOK, "#profile-btn")
     _profile_button(pg).click()
     _profile_is_the_view(pg)
     _park_pointer(pg)
     got = pg.evaluate(NAV_LOOK, "#profile-btn")
+    current = pg.get_attribute("#profile-btn", "aria-current")
     bad = []
     if got["deco"] != "none":
         bad.append(f"text-decoration-line is {got['deco']!r}, want 'none'")
     if got["color"] != active["color"]:
         bad.append(f"color {got['color']} != active tab color {active['color']}")
-    want = active["marks"][0]
-    if not any(_same_mark(want, m) for m in got["marks"]):
-        bad.append(f"no bottom indicator like the active tab's {want}; Profile button shows {got['marks'] or 'none'}")
-    assert bad == [], f"Profile open, {scheme}:\n" + "\n".join(bad)
+    if current != "page":
+        bad.append(f"aria-current is {current!r}, want 'page'")
+    if not accent_bar(got):
+        bad.append(f"no 2px accent bottom mark while open; Profile button shows {got['marks'] or 'none'}")
+    if accent_bar(at_rest):
+        bad.append(f"the 2px accent mark already shows at rest (Today open): {at_rest['marks']}")
+    assert bad == [], f"Profile open, {size[0]}px {scheme}:\n" + "\n".join(bad)
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])

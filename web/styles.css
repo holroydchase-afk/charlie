@@ -12,7 +12,7 @@
   --r-sm: 4px; --r-md: 12px; --r-pill: 999px;
   --target: 48px;
   --bar-h: 64px;      /* CHL-NAV-1: the phone tab bar, before the safe area */
-  --line-h: 40px;     /* CHL-NAV-3: the disclaimer line above it */
+  --line-h: 48px;     /* CHL-NAV-3: the disclaimer line above it, one 48px target (principle 2) */
   --side-w: 248px;    /* CHL-NAV-11: the laptop sidebar */
   --stack-h: calc(var(--bar-h) + var(--line-h) + env(safe-area-inset-bottom, 0px));  /* the phone's bottom stack */
 }
@@ -76,18 +76,19 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .demo-bar__confirm { display: flex; flex-wrap: wrap; gap: var(--s2); align-items: center; }
 .demo-bar__back { display: inline-flex; align-items: center; min-height: 48px; color: inherit; font-weight: 600; }
 @media (min-width: 600px) { .demo-bar__long { display: inline; } }
-/* CHL-DEMO-R2: line the bar up with the header, which pads var(--s5) above its 760px breakpoint. */
+/* CHL-DEMO-R2 (CHL-NAV-11 update): from 761px the header is the sidebar and the bar sits over the main column,
+   so it pads like main (var(--s4)) and the back link and drawer copy start on main's content edge. */
 @media (min-width: 761px) {
-  .demo-bar__row { padding-left: max(var(--s5), env(safe-area-inset-left, 0px)); }
-  .demo-bar__toggle { padding-right: max(var(--s5), env(safe-area-inset-right, 0px)); }
-  .demo-bar__panel { padding-left: max(var(--s5), env(safe-area-inset-left, 0px)); padding-right: max(var(--s5), env(safe-area-inset-right, 0px)); }
+  .demo-bar__row { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); }
+  .demo-bar__toggle { padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
+  .demo-bar__panel { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
 }
 @media (max-width: 359px) { .demo-bar__sum { display: none; } }
 @media (prefers-reduced-motion: reduce) { .demo-bar__chev { transition: none; } }
 
 /* ---------------------------------------------------------------- header, tab bar, disclaimer line (CHL-NAV)
    One <header> holds the brand, the one nav.tabs, the Profile button and #disclaimer-line. Phones (under 760px):
-   a 56px sticky bar with the brand left and Profile right; the tab bar and the 40px disclaimer line are fixed to
+   a 56px sticky bar with the brand left and Profile right; the tab bar and the 48px disclaimer line are fixed to
    the bottom. Laptops: the header is a 248px sidebar (see the min-width: 760px block below). */
 .top {
   position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: var(--s3);
@@ -124,7 +125,7 @@ nav.tabs::after { content: none; }  /* CHL-DS-R18: the bar never scrolls, so the
 .tabs button.active { color: var(--accent); font-weight: 600; }
 .tabs button.active .tab-ico { background: var(--accent-soft); }
 
-/* CHL-NAV-3: one 40px disclaimer line, directly above the bar; tapping it opens the full disclaimer. */
+/* CHL-NAV-3: one 48px disclaimer line, directly above the bar; tapping it opens the full disclaimer. */
 .disclaimer-line {
   position: fixed; left: 0; right: 0; z-index: 6; box-sizing: border-box; height: var(--line-h);
   bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
@@ -567,9 +568,10 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .tabs button.active { background: var(--accent-soft); }
   .top .header-profile {
     margin: auto var(--s3) 0; justify-content: flex-start; gap: var(--s3); height: 48px; padding: 0 var(--s3);
-    border-radius: var(--r-pill);
+    border-radius: 0;
   }
-  .top .header-profile[aria-current="page"] { text-decoration: underline; text-underline-offset: 3px; }  /* Profile is showing */
+  /* Profile is showing: the accent and the straight 2px accent mark from the base rule (CHL-DS-R25), no underline.
+     DS-15 keeps its background clear, so it can't wear the sidebar tab's accent-soft pill. */
   .disclaimer-line { position: relative; bottom: auto; height: auto; margin: var(--s2) var(--s3) 0; padding-top: var(--s2); background: none; }
   .disclaimer-line .disc-btn { display: block; height: auto; min-height: 48px; padding: var(--s2) var(--s3); text-align: left; white-space: normal; border-radius: var(--r-md); }
   .disc-more { display: inline; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
