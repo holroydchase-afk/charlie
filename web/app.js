@@ -935,7 +935,13 @@ document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-tab],[data-goto],[data-ticker],[data-paper],[data-copy],[data-close],[data-q],[data-row],[data-saved],[data-retry]");
   if (!el) return;
   if (el.dataset.tab) return showTab(el.dataset.tab);
-  if (el.dataset.goto) { e.preventDefault(); return go(el.dataset.goto); }
+  if (el.dataset.goto) {
+    e.preventDefault(); go(el.dataset.goto);
+    // CHL-HUNCH-SW-1: the switch's own view just hid, so keep focus on the same switch button in the new view.
+    if (el.closest(".search-switch"))
+      $(`#tab-${currentView} .search-switch [data-goto="${el.dataset.goto}"]`)?.focus();
+    return;
+  }
   if (el.dataset.retry) return retries[el.dataset.retry]?.();
   if (el.dataset.ticker) return openTicker(el.dataset.ticker);
   if (el.dataset.paper) return paperTrade(window._trades[el.dataset.paper], el);
