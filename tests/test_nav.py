@@ -92,11 +92,21 @@ def test_CHL_NAV_8_today_markup_has_no_hero_pitch_proof_list_or_top_idea_link():
     assert "See today's top idea" not in js, "app.js still writes the top-idea link"
 
 
-def test_CHL_NAV_13_chat_section_keeps_its_page_level_disclaimer():
-    """NAV-13 ships as "keep" (chief of staff's safe default, Nov 22, until Chase answers; privacy-security rated
-    dropping the paragraph a P1). Chat's own markup carries the exact disclaimer outside the conversation log, added
-    by static code, not by a reply. test_guardrails::test_chat_panel_shows_the_disclaimer_in_markup and DS-23 stay as is."""
-    chat = _block(_html(), r'<section id="tab-chat"[^>]*>')
+def test_CHL_NAV_13_chat_section_drops_its_page_level_disclaimer_and_the_line_carries_it():
+    """NAV-13 is "drop" (Chase, Nov 22, decision card: yes). Renamed by qa-tdd on Nov 22:
+    test_CHL_NAV_13_chat_section_keeps_its_page_level_disclaimer -> this test.
+    Chat's own markup has no page-level disclaimer paragraph outside #chat-log; the page-level disclaimer on Chat is
+    #disclaimer-line, static markup outside every view (so it is in every view), with the exact text. Replies and chat
+    trade cards keep theirs (test_guardrails::test_chat_panel_shows_the_disclaimer_in_markup, test_privacy)."""
+    html = _html()
+    chat = _block(html, r'<section id="tab-chat"[^>]*>')
     log = _block(chat, r'<div[^>]*id="chat-log"[^>]*>')
     page_level = chat.replace(log, "")
-    assert NFA in _text(page_level), "Chat's page-level disclaimer paragraph is gone (outside #chat-log)"
+    assert NFA not in page_level, "Chat still has its page-level disclaimer paragraph (Chase said drop it, Nov 22)"
+    assert 'class="nfa"' not in page_level, "Chat still has a page-level .nfa element"
+    line = _block(html, r'<\w+[^>]*id="disclaimer-line"[^>]*>')
+    assert not re.search(r'<section[^>]*class="[^"]*\btab\b', line), "the line must not sit inside a view"
+    for sec in re.finditer(r'<section id="tab-\w+"[^>]*>', html):
+        assert line not in _block(html, re.escape(sec.group(0))), f"#disclaimer-line is inside {sec.group(0)}, not in every view"
+    text = re.sub(r"\s*Read more\s*$", "", _text(line))
+    assert text == NFA, f"the line reads {text!r} (besides Read more), want exactly {NFA!r}"
