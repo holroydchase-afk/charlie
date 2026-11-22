@@ -92,9 +92,11 @@ def test_CHL_NAV_8_today_markup_has_no_hero_pitch_proof_list_or_top_idea_link():
     assert "See today's top idea" not in js, "app.js still writes the top-idea link"
 
 
-def test_CHL_NAV_13_PENDING_CHASE_chat_section_has_no_page_level_disclaimer():
-    """PENDING Chase's answer on NAV-13. Drop this test if he says no. If he says go, this body also replaces
-    tests/test_guardrails.py::test_chat_panel_shows_the_disclaimer_in_markup in rendered form (same name kept,
-    DS-23 pin re-taken), and DS-23's `html.count(NFA) >= 3` comment/limit is revisited with Chase's go."""
+def test_CHL_NAV_13_chat_section_keeps_its_page_level_disclaimer():
+    """NAV-13 ships as "keep" (chief of staff's safe default, Nov 22, until Chase answers; privacy-security rated
+    dropping the paragraph a P1). Chat's own markup carries the exact disclaimer outside the conversation log, added
+    by static code, not by a reply. test_guardrails::test_chat_panel_shows_the_disclaimer_in_markup and DS-23 stay as is."""
     chat = _block(_html(), r'<section id="tab-chat"[^>]*>')
-    assert "Not financial advice" not in chat
+    log = _block(chat, r'<div[^>]*id="chat-log"[^>]*>')
+    page_level = chat.replace(log, "")
+    assert NFA in _text(page_level), "Chat's page-level disclaimer paragraph is gone (outside #chat-log)"

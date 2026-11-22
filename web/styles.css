@@ -139,7 +139,7 @@ nav.tabs::after { content: none; }  /* CHL-DS-R18: the bar never scrolls, so the
 }
 .disclaimer-line .disc-btn:focus-visible { outline-offset: -2px; }
 .disc-more { display: none; }
-/* CHL-NAV-10 (pending Chase; body.nav-hide-on-type is the switch): while a text field has focus on a phone, the
+/* CHL-NAV-10 (off by default, pending Chase; body.nav-hide-on-type is the switch, not set in index.html): while a text field has focus on a phone, the
    bar and the line step aside for the keyboard. Every trade surface keeps its own disclaimer. */
 @media (max-width: 759.98px) {
   /* Room under the last content for the fixed bottom stack (CHL-NAV-4). */

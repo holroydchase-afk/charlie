@@ -309,7 +309,7 @@ addEventListener("popstate", () => {
   if (was === "profile" && currentView !== "profile") $("#profile-btn").focus();
 });
 
-// CHL-NAV-10 (pending Chase): body.nav-hide-on-type is the switch; .is-typing is set while a text field has focus.
+// CHL-NAV-10 (off by default, pending Chase): .is-typing alone has no effect; adding class nav-hide-on-type to <body> in index.html turns NAV-10 on.
 const TYPING = "textarea, input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=file]):not([type=button]):not([type=submit]):not([type=reset])";
 document.addEventListener("focusin", (e) => document.body.classList.toggle("is-typing", !!e.target.closest?.(TYPING)));
 document.addEventListener("focusout", (e) => { if (!e.relatedTarget?.closest?.(TYPING)) document.body.classList.toggle("is-typing", false); });
@@ -584,7 +584,7 @@ function sizeChat() {
   const top = wrap.getBoundingClientRect().top + scrollY;
   wrap.style.height = `${Math.max(340, innerHeight - top - bottomStack() - 16)}px`;
 }
-// Focus the input only on a laptop: on a phone it would raise the keyboard (and, NAV-10, hide the tab bar).
+// Focus the input only on a laptop: on a phone it would raise the keyboard (and, if NAV-10 is on, hide the tab bar).
 function openChat() { sizeChat(); if (matchMedia("(hover: hover) and (min-width: 760px)").matches) $("#chat-input").focus(); }
 function renderChatMsg(role, text, cards = []) {
   const div = document.createElement("div");

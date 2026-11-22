@@ -13,9 +13,9 @@ Selector contract for the engineer (role and label first; these ids/classes are 
   accessible name is "Profile". Profile's view is still `#tab-profile`; its Close button is inside it.
 - The risk slider is the range input labelled "Risk level".
 
-PENDING Chase's answer: CHL-NAV-10 (hide the bar and the line while typing) and CHL-NAV-13 (drop Chat's page-level
-disclaimer paragraph) are in their own tests whose names contain PENDING_CHASE. If Chase says no, drop exactly those
-tests. Every trade-surface and chat-reply disclaimer test elsewhere stays untouched.
+CHL-NAV-10 and CHL-NAV-13 ship as "no" (chief of staff's safe default, Nov 22, until Chase answers; privacy-security
+rated NAV-13 as built a P1 and NAV-10 a P2): the disclaimer line stays visible while typing, and Chat keeps its
+page-level disclaimer paragraph. Every trade-surface and chat-reply disclaimer test elsewhere stays untouched.
 """
 import os
 import re
@@ -434,27 +434,27 @@ def test_CHL_NAV_9_risk_slider_sits_under_the_title_on_today_and_search_only(mak
     assert bad == [], f"risk slider at {size[0]}px:\n" + "\n".join(bad)
 
 
-# ================================================================ CHL-NAV-10 (PENDING Chase) chrome hides while typing
+# ================================================================ CHL-NAV-10 ("no": the line stays while typing)
 @pytest.mark.parametrize("field", ["chat", "profile", "screener"])
-def test_CHL_NAV_10_PENDING_CHASE_bar_and_line_hide_while_a_field_has_focus(make_page, site_url, field):
-    """PENDING Chase's answer on NAV-10. Drop this test if he says no."""
+def test_CHL_NAV_10_disclaimer_line_stays_visible_while_a_field_has_focus(make_page, site_url, field):
+    """NAV-10 ships as "no" (safe default until Chase answers). The tab bar may hide or not; only the line is checked,
+    before focus, while focused, and after blur."""
     pg = _open(make_page, site_url, PHONE)
     sel = {"chat": "#chat-input", "profile": "#resume-text", "screener": "#screen-form input[name=max_capital]"}[field]
     _go(pg, field)
     if field == "screener" and pg.locator("#edit-filters").is_visible():
         pg.click("#edit-filters")
-    assert pg.evaluate(SHOWN, "nav.tabs") and pg.evaluate(SHOWN, "#disclaimer-line"), "precondition: bar and line show"
+    assert pg.evaluate(SHOWN, "#disclaimer-line"), "precondition: the line shows"
     pg.locator(sel).focus()
     pg.wait_for_timeout(250)
-    shown = {"bar": pg.evaluate(SHOWN, "nav.tabs"), "line": pg.evaluate(SHOWN, "#disclaimer-line")}
-    assert shown == {"bar": False, "line": False}, f"{field} focused: still shown {shown}"
+    assert pg.evaluate(SHOWN, "#disclaimer-line"), f"{field} focused: the disclaimer line is hidden while typing"
+    assert NFA in pg.locator("#disclaimer-line").inner_text()
     if field == "chat":
         b = pg.locator(sel).bounding_box()
         assert 0 <= b["y"] and b["y"] + b["height"] <= 844, f"chat input at {b['y']:.0f}-{b['y'] + b['height']:.0f} while typing"
     pg.locator(sel).blur()
     pg.wait_for_timeout(250)
-    shown = {"bar": pg.evaluate(SHOWN, "nav.tabs"), "line": pg.evaluate(SHOWN, "#disclaimer-line")}
-    assert shown == {"bar": True, "line": True}, f"{field} blurred: {shown}"
+    assert pg.evaluate(SHOWN, "#disclaimer-line"), f"{field} blurred: the line is hidden"
 
 
 # ================================================================ CHL-NAV-11 laptop sidebar
@@ -530,16 +530,17 @@ def test_CHL_NAV_12_no_sideways_scroll_on_any_view(make_page, site_url, size):
     assert wide == [], f"at {size[0]}px: {wide}"
 
 
-# ================================================================ CHL-NAV-13 (PENDING Chase) Chat drops its page paragraph
+# ================================================================ CHL-NAV-13 ("no": Chat keeps its page paragraph)
 @pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
-def test_CHL_NAV_13_PENDING_CHASE_chat_page_has_no_paragraph_but_the_line_and_every_reply_carry_it(make_page, site_url, size):
-    """PENDING Chase's answer on NAV-13. Drop this test if he says no. If he says go, this body also replaces
-    tests/e2e/test_demo_e2e.py::test_chat_panel_and_reply_show_the_disclaimer (same name kept, DS-23 pin re-taken)."""
+def test_CHL_NAV_13_chat_page_keeps_its_paragraph_and_every_reply_ends_with_it(make_page, site_url, size):
+    """NAV-13 ships as "no" (safe default until Chase answers). The rendered Chat page shows the exact disclaimer outside
+    the conversation log and outside #disclaimer-line, the line still carries it, and a reply ends with it.
+    test_demo_e2e::test_chat_panel_and_reply_show_the_disclaimer stays as is."""
     pg = _open(make_page, site_url, size)
     _go(pg, "chat")
-    page_copy = pg.evaluate("""() => [...document.querySelectorAll('#tab-chat *')].filter((e) => e.checkVisibility() && !e.closest('#chat-log')
-        && /Not financial advice/.test([...e.childNodes].filter((c) => c.nodeType === 3).map((c) => c.textContent).join(''))).length""")
-    assert page_copy == 0, f"Chat still carries {page_copy} page-level disclaimer paragraph(s)"
+    page_copy = pg.evaluate("""(nfa) => [...document.querySelectorAll('#tab-chat *')].filter((e) => e.checkVisibility()
+        && !e.closest('#chat-log') && !e.closest('#disclaimer-line') && e.innerText.trim() === nfa).length""", NFA)
+    assert page_copy >= 1, "Chat's page-level disclaimer paragraph is not shown"
     line = pg.locator("#disclaimer-line")
     expect(line).to_be_visible()
     assert NFA in line.inner_text(), f"disclaimer line reads {line.inner_text()!r}"
