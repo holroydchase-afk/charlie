@@ -579,11 +579,11 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .toast { bottom: var(--s4); }
 }
 /* M3.1: Hunches, a sub-view of Search (in the static demo too since M3.2, with a sample label and example buttons). */
-/* The Screener/Hunches switch: two segments on a fill track; the one showing is the raised surface. */
-.search-switch { display: inline-flex; gap: var(--s1); padding: var(--s1); margin-bottom: var(--s3); background: var(--fill); border-radius: var(--r-pill); }
-.search-switch .seg { background: transparent; color: var(--muted); font-weight: 500; }
-.search-switch .seg:hover { color: var(--ink); }
-.search-switch .seg[aria-current="page"] { background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; }
+/* The Screener/Hunches switch, under the large title (iOS segmented control, CHL-NAV-7). DS-15: the segment
+   showing is a btn-secondary (ink on fill), the other a btn-quiet (accent text, the tap target), on a lined track. */
+.search-switch { display: inline-flex; gap: var(--s1); padding: var(--s1); margin: 0 0 var(--s3); background: transparent; border: 1px solid var(--line); border-radius: var(--r-pill); }
+.search-switch .seg { padding: 0 var(--s4); }
+.search-switch .seg.btn-secondary[aria-current="page"]:hover { text-decoration: none; }
 .hunch-form textarea { resize: vertical; min-height: 88px; }
 .hunch-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
 .hunch-llm { margin: var(--s2) 0 0; }

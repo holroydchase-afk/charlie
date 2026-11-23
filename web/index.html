@@ -171,11 +171,11 @@
     <!-- SCREENER -->
     <section id="tab-screener" class="tab" role="tabpanel" aria-labelledby="tabbtn-screener">
       <!-- M3.1: Search has two views, Screener and Hunches (in the static demo too since M3.2). -->
-      <div class="search-switch" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener" aria-current="page">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch">Hunches</button></div>
       <div class="page-head">
         <h1>Search trades</h1>
         <p class="page-sub muted">Set your own criteria and Charlie finds trades that fit.</p>
       </div>
+      <div class="search-switch" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener" aria-current="page">Screener</button><button type="button" class="btn-quiet seg" data-goto="hunch">Hunches</button></div>
       <div id="screen-summary" class="panel screen-summary">
         <span id="screen-summary-text" class="grow small"></span>
         <button type="button" id="edit-filters" class="btn-secondary">Edit filters</button>
@@ -231,12 +231,12 @@
 
     <!-- HUNCHES (M3.1; in the static demo since M3.2, playbooks only): a sub-view of Search; the Search tab stays selected. -->
     <section id="tab-hunch" class="tab" aria-labelledby="hunch-title">
-      <div class="search-switch" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch" aria-current="page">Hunches</button></div>
       <div class="page-head">
         <h1 id="hunch-title">Hunches</h1>
         <p class="page-sub muted">Type a hunch about the world. Charlie restates it, checks the premise, maps the companies it touches and ranks the most exposed ones it can score.</p>
         <p class="hunch-sample small static-only hidden">Sample data. Built-in maps for two example hunches.</p>
       </div>
+      <div class="search-switch" role="group" aria-label="Search by"><button type="button" class="btn-quiet seg" data-goto="screener">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch" aria-current="page">Hunches</button></div>
       <form id="hunch-form" class="panel hunch-form">
         <label for="hunch-text">Your hunch <span class="hint">Up to 600 characters.</span></label>
         <textarea id="hunch-text" name="text" rows="3" maxlength="600" placeholder="e.g. Everyone wears earbuds all day, so hearing help becomes a huge consumer market."></textarea>

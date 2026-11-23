@@ -389,12 +389,15 @@ def test_CHL_HUNCH_DEMO_8_lead_paper_trade_survives_reload_and_reset_clears_it(m
     bar.get_by_role("button", name="Reset demo").click()
     with pg.expect_navigation():
         bar.get_by_role("button", name="Reset", exact=True).click()
-    expect(pg.locator("#ideas .card").first).to_be_visible(timeout=ENGINE)
-    assert pg.evaluate("localStorage.getItem('charlie:positions')") is None
-    pg.get_by_role("tab", name="Trades", exact=True).click()
-    expect(trades).to_be_visible()
-    pg.wait_for_timeout(500)
+    # Reset reloads and keeps the URL hash (test_CHL_DS_18_reset_demo_keeps_the_appearance_choice), so the
+    # app reopens on Trades. Booted there = the Trades tab is the active, visible panel after the reload.
+    assert pg.evaluate("location.hash") == "#paper"
+    expect(pg.locator("#tab-paper.active")).to_be_visible(timeout=ENGINE)
+    # Positive proof the reset emptied it: the rendered empty state, not just the symbol's absence.
+    expect(trades.get_by_role("heading", name="No paper trades yet")).to_be_visible(timeout=ENGINE)
     expect(trades).not_to_contain_text(sym)
+    assert pg.evaluate("localStorage.getItem('charlie:positions')") is None
+    assert not [v for v in _storage_values(pg) if sym in v], "the lead's paper trade is still in storage"
 
 
 def test_CHL_HUNCH_DEMO_8_hunch_text_never_reaches_storage_url_or_console(make_page, site_url):
