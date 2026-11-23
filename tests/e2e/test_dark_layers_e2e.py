@@ -284,7 +284,13 @@ def test_CHL_DARK_6_controls_on_a_raised_card_use_control_edge(browser, site_url
             .filter((el) => el.checkVisibility()).map((el) => getComputedStyle(el).borderTopColor)""")
         assert got and set(got) == {edge}, f"profile control edges {sorted(set(got))}, want --control-edge {edge}"
         _go(pg, "screener")  # Triage QA-R3: the unticked filter chips are controls on a raised panel too
-        chips = pg.evaluate("""() => [...document.querySelectorAll('#tab-screener .chip-check:not(.disabled):not(:has(input:checked))')]
+        # QA-R4: the visible trade-type chips start ticked (or disabled) by design, so the unticked chips a
+        # visitor meets are the Industries ones under "More filters". Open it as a person would.
+        more = pg.locator("#more-filters")
+        if not more.evaluate("(d) => d.open"):
+            more.locator("summary").click()
+        expect(pg.locator("#domain-select .chip-check").first).to_be_visible()
+        chips =pg.evaluate("""() => [...document.querySelectorAll('#tab-screener .chip-check:not(.disabled):not(:has(input:checked))')]
             .filter((el) => el.checkVisibility()).map((el) => getComputedStyle(el).borderTopColor)""")
         assert chips and set(chips) == {edge}, f"screener .chip-check edges {sorted(set(chips))}, want --control-edge {edge}"
     finally:

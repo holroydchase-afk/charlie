@@ -64,6 +64,21 @@ These calls amend the criteria above; where they differ, this section wins.
   - `.row-card`, `.callout`, `.badge.mock` and the zero line are covered by 6b. No per-element e2e.
 - Lanes: qa-tdd → DS-4 allowlist, DARK-1 HC-dark rule, DARK-6b, 8b and the `.chip-check` e2e red. Done when: they fail for the stated reason and DS is otherwise green. engineer → HC-dark `--raised` and the `--tab-line` swaps. Done when: all suites are green with nothing else loosened.
 
+## Triage round 2 (staff-pm, Nov 23, on ux-reviewer's round 1, `docs/reviews/2026-11-23-dark-layers.md`)
+These calls amend the criteria above; where they differ, this section wins. Still no studio token change and no third local token.
+- **CHL-UX-DK1 (P1): fix in this PR.** `.bar { background: var(--line); }`. It's a regression this PR causes, so it can't ship without the fix. Light gets slightly firmer (1.34:1). That's accepted, and it's the only light change added in this round.
+  - Add **CHL-DARK-14** (auto, e2e): in standard dark at 390 and 1280, with the drawer open and on Profile, every visible `.bar` background is 1.15:1 or more against its first opaque ancestor. In light it's 1.15:1 or more too.
+  - Done when: DARK-14 goes red on the current branch, then green, and the light drawer and Profile are re-shot.
+- **CHL-UX-DK3 (P2): fix in this PR, and amend CHL-DARK-7.** `.risk-control { background: var(--raised); border-color: var(--line); }`. WCAG 1.4.11 covers the slider's track and thumb (`--accent`, 3:1 already), not the pill around it. The 3:1 outline made the toolbar louder than the answer.
+  - **CHL-DARK-7 now reads:** the range keeps `accent-color: var(--accent)` at 3:1 or more against `--raised` and `--surface`. `.risk-control`'s background is `--raised` and its border is `--line` in all 4 modes.
+  - Done when: amended DARK-7 goes red, then green, and the `--control-edge` count for the risk control drops to 0.
+- **CHL-UX-DK4 (P2): fix in this PR.** `.table-wrap`, `table`, `.row-card` and `.pos-card` backgrounds move to `var(--raised)`. Same role as `.card`, and it's 4 lines with no light or HC effect.
+  - Extend **CHL-DARK-3** to those selectors, including Trades with a sample position open.
+  - Done when: the extended DARK-3 goes red, then green, at 390 and 1280.
+- **CHL-UX-DK2 (P2): not in this PR.** Labels and 3:1 input edges carry these controls, so nothing fails WCAG. Moving `.btn-secondary`, chips and input fills to `--line` would change light text pairs that DS-3 doesn't cover. That's new contrast work for a P2. We accept it for now and log a hearth suggestion: a `raised-fill` token next to `raised`.
+  - Done when: the PR body lists DK2 as deferred, with the hearth suggestion, and `PLAN.md` gets a P2 item for it.
+- **Lanes.** qa-tdd: DARK-14, the amended DARK-7 and the extended DARK-3, all red. Done when they fail for the stated reason and everything else stays green. engineer: the CSS lines for DK1, DK3 and DK4, in `web/styles.css` only. Done when all suites are green 3x with nothing loosened. ux-reviewer: recheck DK1, DK3 and DK4 with after shots (dark and light drawer, Today, Search, Trades). Done when there's no P0/P1 and the score is 8 or more.
+
 ## Not doing
 - Changing any studio token value in `themes.css` (that's hearth's call; we suggest a `raised` token upstream).
 - Light-mode card steps: light reads fine with borders and the intake asks for dark only.
