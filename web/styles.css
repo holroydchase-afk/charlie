@@ -579,16 +579,24 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .toast { bottom: var(--s4); }
 }
 /* M3.1: Hunches, a sub-view of Search (in the static demo too since M3.2, with a sample label and example buttons). */
-/* The Screener/Hunches switch, under the large title (iOS segmented control, CHL-NAV-7). DS-15: the segment
-   showing is a btn-secondary (ink on fill), the other a btn-quiet (accent text, the tap target), on a lined track. */
-.search-switch { display: inline-flex; gap: var(--s1); padding: var(--s1); margin: 0 0 var(--s3); background: transparent; border: 1px solid var(--line); border-radius: var(--r-pill); }
-.search-switch .seg { padding: 0 var(--s4); }
-.search-switch .seg.btn-secondary[aria-current="page"]:hover { text-decoration: none; }
+/* The Screener/Hunches switch, under the large title (iOS segmented control, CHL-NAV-7; CHL-HUNCH-H27). One filled,
+   lined track; the segment showing is a raised surface pill in ink at 600, the other plain muted text at 400. The markup
+   keeps btn-secondary for the static DS-15 check, overridden here (the e2e DS-15 exempts .search-switch .seg like
+   [role=tab]); never link-styled, no underline on hover; 48px targets (DS-14). */
+.search-switch { display: inline-flex; align-items: stretch; gap: var(--s1); padding: var(--s1); margin: 0 0 var(--s3); background: var(--fill); border: 1px solid var(--line); border-radius: var(--r-pill); }
+.search-switch .seg {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 48px; min-width: 48px; margin: 0;
+  padding: 0 var(--s4); border: 1px solid transparent; border-radius: var(--r-pill); background: transparent;
+  color: var(--muted); font: inherit; font-weight: 400; text-decoration: none; white-space: nowrap; cursor: pointer; flex: none;
+}
+.search-switch .seg:hover { color: var(--ink); text-decoration: none; }
+.search-switch .seg[aria-current="page"] { background: var(--surface); border-color: var(--line); color: var(--ink); font-weight: 600; }
 .hunch-form textarea { resize: vertical; min-height: 88px; }
 .hunch-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
 .hunch-llm { margin: var(--s2) 0 0; }
 .hunch-llm:empty { display: none; }
-.hunch-sample { margin: var(--s2) 0 0; font-weight: 600; }
+#hunch-engine { margin: var(--s1) 0 var(--s2); }
+.hunch-sample { margin: var(--s2) 0 0; font-weight: 400; }
 .hunch-try { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); }
 #hunch-result { margin-top: var(--s4); }
 .hunch-block { margin-bottom: var(--s4); overflow-wrap: anywhere; }

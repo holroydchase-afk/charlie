@@ -309,3 +309,35 @@ def test_CHL_HUNCH_DEMO_6_empty_or_too_long_is_422_with_the_message(static, text
 def test_CHL_HUNCH_DEMO_6_600_characters_is_allowed_in_the_demo(static):
     text = ((HEARING_FREE + " ") * 10)[:600]
     assert _post_hunch(text, 2)["status"] == 200
+
+
+# ============================================================ Round 5 showcase review fixes (static half)
+# Failing-first, written by qa-tdd on Nov 23 from ux-reviewer round 5. Browser half: test_hunch_demo_e2e.py.
+
+def _index() -> str:
+    return (ROOT / "web" / "index.html").read_text()
+
+
+def test_CHL_PS_H7_hunch_textarea_turns_autocomplete_off():
+    # A hunch can hold something personal; the browser must not offer to remember it (CHL-PS-H7).
+    m = re.search(r'<textarea[^>]*\bid="hunch-text"[^>]*>', _index())
+    assert m, "no #hunch-text textarea"
+    assert re.search(r'\bautocomplete="off"', m.group(0)), m.group(0)
+
+
+def test_CHL_HUNCH_H27_switch_segments_are_not_link_styled_buttons():
+    # The switch is a segmented control, not two buttons of different kinds: no segment wears btn-quiet, the
+    # accent-and-underline "link" kind (DS-15 exempts .search-switch .seg like [role=tab]).
+    segs = re.findall(r'<button[^>]*class="[^"]*\bseg\b[^"]*"[^>]*>', _index())
+    assert len(segs) == 4, f"want 2 segments in each of the 2 switches, got {len(segs)}"
+    quiet = [s for s in segs if re.search(r'class="[^"]*\bbtn-quiet\b', s)]
+    assert quiet == [], f"segments styled as quiet (link) buttons: {quiet}"
+
+
+def test_CHL_HUNCH_H30_paper_trade_toasts_name_the_trades_tab():
+    js = (ROOT / "web" / "app.js").read_text()
+    m = re.search(r"async function paperTrade\(.*?\n\}", js, re.S)
+    assert m, "no paperTrade in web/app.js"
+    body = m.group(0)
+    assert "Paper portfolio" not in body, "the paper-trade toast still says 'Paper portfolio'; the tab is 'Trades'"
+    assert "See it in Trades." in body

@@ -167,9 +167,9 @@ function moreMetrics(t) {
   return `<div class="metrics">${m.map(([k, v]) => metric(k, v)).join("")}</div>`;
 }
 function chartBlock(t, { caption = true } = {}) {  // the legend keeps "today" and breakeven readable above the chart
-  return `<div class="chart-legend"><span class="key-spot">Today <b>${money(t.spot, 2)}</b></span><span class="key-be">Breakeven <b>${t.breakeven ? money(t.breakeven, 2) : "—"}</b></span><span class="wide-only">Profit or loss at expiration</span></div>
+  return `<div class="chart-legend"><span class="key-spot">Today <b>${money(t.spot, 2)}</b></span><span class="key-be">Breakeven <b>${t.breakeven ? money(t.breakeven, 2) : "—"}</b></span><span class="wide-only">${t.expiry ? "Profit or loss at expiration" : "Profit or loss by share price"}</span></div>
     ${chartSlot("payoff", t)}
-    ${caption ? `<p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])} at expiry.</p>` : ""}`;
+    ${caption ? `<p class="chart-cap">Shown for ${esc(t.symbol)} between ${money(payoffRange(t)[0])} and ${money(payoffRange(t)[1])}${t.expiry ? " at expiry" : ""}.</p>` : ""}`;
 }
 function planTicket(t, { nested = false, skipExit = false } = {}) {  // nested: already inside a <details>, so no second one
   const plan = skipExit ? t.management.slice(1) : t.management;  // skipExit: the card already shows the exit plan line
@@ -288,7 +288,8 @@ function showTab(name) {
   $$(".tab").forEach((s) => s.classList.toggle("active", s.id === `tab-${name}`));
   const risk = $("#risk-row"), onRisk = RISK_TABS.includes(name);
   risk.classList.toggle("hidden", !onRisk);
-  if (onRisk) $(`#tab-${name} .page-head`).after(risk);
+  // CHL-HUNCH-H28: on Search the Screener/Hunches switch comes first, then the slider (the switch picks the view).
+  if (onRisk) { const sec = $(`#tab-${name}`); (sec.querySelector(".search-switch") || sec.querySelector(".page-head")).after(risk); }
   if (isTab) lastTab = name;
   currentView = name;
   if (name !== "profile" || !history.state?.profile) history.replaceState(null, "", `#${name}`);
@@ -637,11 +638,11 @@ async function paperTrade(t, btn) {
   try {
     const r = await postJSON("/api/paper", { trade: t });
     opened();
-    const msg = `Paper trade opened: ${t.symbol} ${lcFirst(t.label)}. It's in your Paper portfolio.`;
+    const msg = `Paper trade opened: ${t.symbol} ${lcFirst(t.label)}. See it in Trades.`;
     if (r.warning) toast(`${msg} ${r.warning}`, 7000);
     else toast(msg, 3500);
   } catch (e) {
-    if (e.status === 409) { opened(); toast(`${e.message} It's in your Paper portfolio.`, 4000); }
+    if (e.status === 409) { opened(); toast(`${e.message} See it in Trades.`, 4000); }
     else { if (btn) btn.disabled = false; toast(e.message); }
   }
 }
@@ -730,7 +731,7 @@ function hunchLead(i, n) {
   const t = i.trade;
   const body = t ? `${tradeTag(t)}
     ${heroMetrics(t)}
-    <p class="exit-line"><b>Breakeven:</b> <span class="num">${t.breakeven ? money(t.breakeven, 2) : "—"}</span> at expiry</p>
+    <p class="exit-line"><b>Breakeven:</b> <span class="num">${t.breakeven ? money(t.breakeven, 2) : "—"}</span>${t.expiry ? " at expiry" : ""}</p>
     ${t.management.length ? `<p class="exit-line"><b>Exit plan:</b> ${esc(t.management[0])}</p>` : ""}
     <details class="more"><summary>Chart, plan and order details</summary>
       ${chartBlock(t)}
@@ -797,6 +798,8 @@ function hunchRanked(r) {
 }
 function renderHunch(r) {
   const p = r.premise, box = $("#hunch-result");
+  // CHL-HUNCH-H33: an unmatched hunch shows one set of examples, the panel's; the form's row steps aside meanwhile.
+  if (window.charlieStatic) $("#hunch-form .hunch-try").classList.toggle("hidden", r.source === "none");
   if (r.source === "none") { box.innerHTML = hunchNoMap(r); return; }
   const list = (xs) => `<ul class="tight">${xs.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
   const premise = `<div class="panel hunch-block"><h2>Is the premise true? <span class="pill">${esc(VERDICT_LABEL[p.verdict] || "Not checked")}</span></h2>

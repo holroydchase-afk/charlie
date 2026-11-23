@@ -530,3 +530,167 @@ def test_CHL_HUNCH_DEMO_10_hunches_paints_the_prebuilt_map_under_2s(browser, sit
     finally:
         server.shutdown()
     assert ms < 2000, f"Search > Hunches' first research lead painted at {ms:.0f} ms on the throttled phone profile"
+
+
+# ============================================================ Round 5 showcase review fixes (CHL-HUNCH-H27 to H33)
+# Failing-first, written by qa-tdd on Nov 23 from ux-reviewer round 5 (public demo). Each test names its finding.
+
+SEG_LOOK = """() => {
+  const sw = [...document.querySelectorAll('.search-switch')].find((s) => s.offsetParent);
+  const probe = document.createElement('span'); probe.style.color = 'var(--accent)'; document.body.appendChild(probe);
+  const accent = getComputedStyle(probe).color; probe.remove();
+  const look = (el) => { const s = getComputedStyle(el), r = el.getBoundingClientRect();
+    return {text: el.textContent.trim(), current: el.getAttribute('aria-current'), deco: s.textDecorationLine,
+            color: s.color, bg: s.backgroundColor, weight: parseFloat(s.fontWeight), h: r.height, top: r.top,
+            parent: el.parentElement === sw}; };
+  const t = getComputedStyle(sw);
+  return {accent, track: {bg: t.backgroundColor, border: parseFloat(t.borderTopWidth), borderStyle: t.borderTopStyle},
+          segs: [...sw.querySelectorAll('.seg')].map(look)};
+}"""
+
+
+def _seg_problems(got, where):
+    bad = []
+    segs = got["segs"]
+    if len(segs) != 2 or not all(s["parent"] for s in segs):
+        return [f"{where}: want 2 .seg segments directly inside one .search-switch track, got {segs}"]
+    cur = [s for s in segs if s["current"] == "page"]
+    other = [s for s in segs if s["current"] != "page"]
+    if len(cur) != 1 or len(other) != 1:
+        return [f"{where}: want one current segment, got {segs}"]
+    cur, other = cur[0], other[0]
+    track = got["track"]
+    if track["bg"] == "rgba(0, 0, 0, 0)" and not (track["border"] > 0 and track["borderStyle"] != "none"):
+        bad.append(f"{where}: the track is neither filled nor bordered, so the two segments don't read as one control")
+    if abs(cur["h"] - other["h"]) > 0.5 or abs(cur["top"] - other["top"]) > 0.5:
+        bad.append(f"{where}: segments differ in height/top: {cur['h']:.1f}@{cur['top']:.1f} vs {other['h']:.1f}@{other['top']:.1f}")
+    if min(cur["h"], other["h"]) < 44:
+        bad.append(f"{where}: a segment is under 44px tall")
+    if "underline" in other["deco"]:
+        bad.append(f"{where}: the other segment '{other['text']}' is underlined like a link ({other['deco']})")
+    if other["color"] == got["accent"]:
+        bad.append(f"{where}: the other segment '{other['text']}' is in the accent link color {other['color']}")
+    if cur["bg"] in ("rgba(0, 0, 0, 0)", track["bg"]):
+        bad.append(f"{where}: the current segment isn't filled apart from the track (bg {cur['bg']}, track {track['bg']})")
+    if cur["weight"] <= other["weight"]:
+        bad.append(f"{where}: the current segment ({cur['weight']}) isn't heavier than the other ({other['weight']})")
+    return bad
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_H27_search_switch_reads_as_a_segmented_control_not_a_link(make_page, site_url, scheme, width, height):
+    pg = _demo(make_page, site_url, width, height, scheme)
+    pg.get_by_role("tab", name="Search", exact=True).click()
+    bad = []
+    for view in ("screener", "hunch"):
+        if view == "hunch":
+            _switch_buttons(pg)[1].click()
+        _expect_on(pg, view)
+        pg.mouse.move(0, 0)
+        bad += _seg_problems(pg.evaluate(SEG_LOOK), f"{scheme} {width}px #{view} at rest")
+        # Hover the other segment: it still must not turn into an underlined link.
+        other = _switch_buttons(pg)[0 if view == "hunch" else 1]
+        other.hover()
+        bad += [p for p in _seg_problems(pg.evaluate(SEG_LOOK), f"{scheme} {width}px #{view} other hovered")
+                if "other segment" in p]
+    assert bad == [], "\n".join(bad)
+
+
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_H28_switch_sits_above_the_risk_panel(make_page, site_url, width, height):
+    pg = _demo(make_page, site_url, width, height)
+    pg.get_by_role("tab", name="Search", exact=True).click()
+    bad = []
+    for view in ("screener", "hunch"):
+        if view == "hunch":
+            _switch_buttons(pg)[1].click()
+        _expect_on(pg, view)
+        got = pg.evaluate("""() => { const sw = [...document.querySelectorAll('.search-switch')].find((s) => s.offsetParent),
+            risk = document.querySelector('#risk-row');
+            return {riskShown: !!risk.offsetParent, before: !!(sw.compareDocumentPosition(risk) & Node.DOCUMENT_POSITION_FOLLOWING),
+                    sw: sw.getBoundingClientRect().top, risk: risk.getBoundingClientRect().top}; }""")
+        assert got["riskShown"], f"#{view}: the risk panel isn't showing (this test needs it)"
+        if not got["before"]:
+            bad.append(f"#{view} {width}px: the risk panel comes before the switch in the DOM")
+        if not got["sw"] < got["risk"]:
+            bad.append(f"#{view} {width}px: switch top {got['sw']:.0f} is not above risk panel top {got['risk']:.0f}")
+    assert bad == [], "\n".join(bad)
+
+
+@pytest.mark.parametrize("width,height", [(360, 740), (390, 844)], ids=["360x740", "390x844"])
+def test_CHL_HUNCH_H29_loading_line_is_in_the_first_phone_screen(make_page, site_url, width, height):
+    pg = _demo(make_page, site_url, width, height, hold=True)
+    view = _to_hunches(pg)
+    pg.evaluate("scrollTo(0, 0)")
+    line = view.get_by_text("Loading the engine…")
+    expect(line).to_be_visible()
+    box = line.bounding_box()
+    # The visible bottom: the top of a bottom-docked tab bar or demo bar, else the viewport.
+    bottom = pg.evaluate("""() => { let b = innerHeight;
+        for (const el of document.querySelectorAll('nav.tabs, .demo-bar, [role=region][aria-label=Demo]')) {
+          const s = getComputedStyle(el), r = el.getBoundingClientRect();
+          if ((s.position === 'fixed' || s.position === 'sticky') && r.top > innerHeight / 2) b = Math.min(b, r.top); }
+        return b; }""")
+    _release(pg)
+    assert box["y"] + box["height"] <= bottom, \
+        f"{width}x{height}: 'Loading the engine…' ends at y={box['y'] + box['height']:.0f}, below the first screen's bottom {bottom:.0f}"
+
+
+def test_CHL_HUNCH_H30_paper_trade_toast_names_the_trades_tab(make_page, site_url):
+    pg = _demo(make_page, site_url)
+    view = _to_hunches(pg)
+    _engine_ready(view)
+    card = view.get_by_role("article").first
+    card.locator("summary").first.click()
+    card.get_by_role("button", name="Paper trade this").click()
+    toast = pg.locator("#toast")
+    expect(toast).to_contain_text("Paper trade opened", timeout=ENGINE)
+    text = toast.inner_text()
+    assert "See it in Trades." in text, text
+    assert "Paper portfolio" not in text, text
+
+
+@pytest.mark.parametrize("level,kind", [(2, "shares"), (3, "option")])
+def test_CHL_HUNCH_H31_at_expiry_only_on_option_leads(make_page, site_url, pre, level, kind):
+    pg = _demo(make_page, site_url, risk=level)
+    view = _to_hunches(pg)
+    _map_shows(view)
+    ideas = pre["levels"][str(level)]["hunch"][HEARING]["ideas"]
+    n = next(i for i, idea in enumerate(ideas)
+             if idea["trade"] and (idea["trade"].get("expiry") is None) == (kind == "shares"))
+    card = view.get_by_role("article").nth(n)
+    expect(card).to_contain_text(ideas[n]["symbol"])
+    card.locator("summary").first.click()
+    text = card.evaluate("(a) => a.textContent")
+    if kind == "shares":
+        assert "at expiry" not in text, f"{ideas[n]['symbol']} {ideas[n]['trade']['label']} says 'at expiry'"
+    else:
+        assert "at expiry" in text, f"option lead {ideas[n]['symbol']} lost its 'at expiry'"
+
+
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_HUNCH_H32_sample_line_is_body_weight_and_smaller_than_the_title(make_page, site_url, width, height):
+    pg = _demo(make_page, site_url, width, height)
+    view = _to_hunches(pg)
+    sample = view.get_by_text("Sample data. Built-in maps for two example hunches.")
+    expect(sample).to_be_visible()
+    got = sample.evaluate("""(el) => { const s = getComputedStyle(el), h1 = getComputedStyle(el.closest('section').querySelector('h1')),
+        sub = getComputedStyle(el.closest('section').querySelector('.page-sub'));
+        return {w: parseFloat(s.fontWeight), px: parseFloat(s.fontSize), h1: parseFloat(h1.fontSize), sub: parseFloat(sub.fontWeight)}; }""")
+    assert got["w"] <= 400, f"the sample line is weight {got['w']} (want 400, not bold)"
+    assert got["w"] <= got["sub"], f"the sample line ({got['w']}) is heavier than the subtitle ({got['sub']})"
+    assert got["px"] < got["h1"], f"the sample line ({got['px']}px) isn't smaller than the title ({got['h1']}px)"
+
+
+def test_CHL_HUNCH_H33_unmatched_hunch_shows_one_set_of_examples(make_page, site_url):
+    pg = _demo(make_page, site_url)
+    view = _to_hunches(pg)
+    _run(pg, view, GIBBERISH)
+    expect(view.get_by_role("heading", name="No map for this hunch yet")).to_be_visible(timeout=ENGINE)
+    expect(view.get_by_role("button", name="Try the hearing hunch")).to_be_visible()
+    expect(view.get_by_role("button", name="Try the AI power hunch")).to_be_visible()
+    expect(view.get_by_role("button", name="Hearing", exact=True)).to_be_hidden()
+    expect(view.get_by_role("button", name="AI power", exact=True)).to_be_hidden()
+    shown = view.locator("[data-hunch-example]:visible")
+    expect(shown).to_have_count(2)
