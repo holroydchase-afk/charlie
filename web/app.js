@@ -270,8 +270,8 @@ function retryButton(fn) { const id = `r${Math.random().toString(36).slice(2, 8)
 // ---------------------------------------------------------------- tabs
 // CHL-NAV-9: the one risk slider sits directly under the title on Today and Search; Chat, Trades and Learn show none.
 const RISK_TABS = ["today", "screener", "hunch"];
-// Hunches (M3.1, local app only) is a sub-view of Search, not a sixth tab: the Search tab stays selected while it
-// shows, and the Screener/Hunches switch at the top of both views moves between them. The static demo drops it.
+// Hunches (M3.1; in the static demo too since M3.2) is a sub-view of Search, not a sixth tab: the Search tab stays
+// selected while it shows, and the Screener/Hunches switch at the top of both views moves between them.
 const VIEWS = ["today", "profile", "screener", "hunch", "chat", "paper", "learn"];
 const TAB_OF = { hunch: "screener" };
 let currentView = null, lastTab = "today";
@@ -292,7 +292,7 @@ function showTab(name) {
   if (isTab) lastTab = name;
   currentView = name;
   if (name !== "profile" || !history.state?.profile) history.replaceState(null, "", `#${name}`);
-  ({ today: loadIdeas, profile: renderProfile, screener: initScreener, paper: loadPaper, learn: renderLearn, chat: openChat }[name] || (() => {}))();
+  ({ today: loadIdeas, profile: renderProfile, screener: initScreener, hunch: initHunch, paper: loadPaper, learn: renderLearn, chat: openChat }[name] || (() => {}))();
 }
 // CHL-NAV-6 / CHL-DS-R27: Profile opens like a sheet over the last tab. Opening it pushes a history entry, so the
 // phone's Back (and Close, and Escape) return to that tab with focus on the Profile button.
@@ -695,7 +695,7 @@ async function loadPaper() {
        <button type="button" class="btn-tinted" data-goto="today">See today's ideas</button></div>`;
 }
 
-// ---------------------------------------------------------------- hunches (M3.1, local app only)
+// ---------------------------------------------------------------- hunches (M3.1; static demo since M3.2)
 // The trail, top to bottom: a short summary first (claim, premise, purest plays, research leads), then the
 // premise check with its evidence folded, who it touches, the most exposed names Charlie can score, up to
 // three research leads (trade numbers up front, plan and order details one tap away; max loss, breakeven,
@@ -709,7 +709,9 @@ const HUNCH_EXAMPLES = {
   ai_power: "AI data centers need so much electricity that power demand is going to explode.",
 };
 const HUNCH_LLM_NOTE = { on: "Your hunch text is sent to Anthropic's Claude to draft the map. Leave out personal details.",
-  off: "Your hunch stays on this computer. Charlie uses its built-in maps." };
+  off: "Your hunch stays on this computer. Charlie uses its built-in maps.",
+  // The demo (M3.2): playbooks only, nothing leaves the browser. Copy from docs/product/MARKETING.md.
+  demo: "Your hunch stays in this browser. The demo has built-in maps for two example hunches: hearing and AI power." };
 function fmtMonth(d) {  // "2022-11" -> "Nov 2022"; full dates use fmtDate
   const m = /^(\d{4})-(\d{2})$/.exec(String(d ?? ""));
   return m ? new Date(+m[1], +m[2] - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : fmtDate(d);
@@ -834,7 +836,7 @@ async function runHunch(e) {
   e && e.preventDefault();
   const f = $("#hunch-form"), ta = $("#hunch-text"), text = ta.value, btn = f.querySelector('button[type="submit"]'), box = $("#hunch-result");
   if (!text.trim()) { toast("Type a hunch first."); ta.focus(); return; }
-  btn.disabled = true; btn.textContent = "Running hunch…";
+  hunchRunning = true; btn.disabled = true; btn.textContent = "Running hunch…";
   box.innerHTML = skeletonCards(1, "Mapping your hunch…");
   try {
     const r = await postJSON("/api/hunch", { text, risk: state.risk });
@@ -842,9 +844,26 @@ async function runHunch(e) {
     renderHunch(r);
   } catch (err) {
     box.innerHTML = errorState("Couldn't run this hunch. Check your connection and try again.", err, retryButton(() => runHunch()));
-  } finally { btn.disabled = false; btn.textContent = "Run hunch"; }
+  } finally { btn.textContent = "Run hunch"; hunchRunning = false; syncHunchControls(); }
 }
 const hunchCount = () => { $("#hunch-count").textContent = `${$("#hunch-text").value.length} / 600`; };
+// Static demo (M3.2): the hearing map paints from prebuilt answers; until the engine is up, typing, Run hunch and
+// the examples wait, with a visible "Loading the engine…" (never a silent dead button, CHL-HUNCH-DEMO-5).
+let hunchRunning = false;
+function syncHunchControls() {
+  const waiting = !!window.charlieStatic && !engineSettled;
+  $("#hunch-engine").textContent = waiting ? "Loading the engine…" : "";
+  $("#hunch-text").disabled = waiting;
+  $$("#hunch-form [data-hunch-example]").forEach((b) => { b.disabled = waiting; });
+  $('#hunch-form button[type="submit"]').disabled = waiting || hunchRunning;
+}
+function initHunch() {
+  syncHunchControls();
+  // The demo opens on the hearing example's map (prebuilt, so it shows before the engine loads).
+  if (window.charlieStatic && !$("#hunch-result").children.length && !$("#hunch-text").value) {
+    $("#hunch-text").value = HUNCH_EXAMPLES.hearing; hunchCount(); runHunch();
+  }
+}
 
 // ---------------------------------------------------------------- learn
 function renderLearn() {
@@ -995,7 +1014,7 @@ $("#chat-form").addEventListener("submit", (e) => { e.preventDefault(); const v 
 $("#refresh-paper").onclick = loadPaper;
 $("#hunch-form").addEventListener("submit", runHunch);
 $("#hunch-text").addEventListener("input", hunchCount);
-$("#hunch-result").addEventListener("click", hunchResultClick);
+$("#tab-hunch").addEventListener("click", hunchResultClick);  // the result's links and examples, and the demo's examples
 window.addEventListener("resize", () => { if ($("#tab-chat").classList.contains("active")) sizeChat(); });
 // CHL-DS-R2: Delete my data is a quiet button that asks inline first (never window.confirm).
 const deleteWhat = () => (window.charlieStatic ? "profile, resume, saved screens, paper trades and saved ideas"
@@ -1019,10 +1038,12 @@ $("#delete-yes").onclick = async () => {
     toast(`Done. Your ${what} are deleted.`, 4000);
   } catch (err) { toast(err.message); }
 };
-let engineReady = false;
+let engineReady = false, engineSettled = false;
 // Static demo: say so while a control waits for the engine, so nothing looks dead.
 window.addEventListener("charlie:engine", (e) => {
   engineReady = e.detail.ready && !e.detail.error;
+  engineSettled = e.detail.ready;  // up, or failed (then Run hunch can try again)
+  syncHunchControls();
   $("#engine-status").classList.toggle("hidden", e.detail.ready);
   if (e.detail.error) toast("Charlie's engine couldn't load. Check your connection and reload the page.", 5000);
 });
@@ -1112,10 +1133,9 @@ async function boot() {
     if (!state.acked) openAck(false);
     $("#chat-mode").textContent = status.static ? "Demo mode: rule-based answers on sample data."
       : status.llm ? "Claude is connected." : "Offline mode (rule-based). Add ANTHROPIC_API_KEY for full conversation.";
-    $("#hunch-llm").textContent = HUNCH_LLM_NOTE[status.llm ? "on" : "off"];  // whether a hunch leaves this computer (CHL-PS-H4)
+    // Whether a hunch leaves this computer (CHL-PS-H4); in the demo it never leaves the browser (M3.2).
+    $("#hunch-llm").textContent = HUNCH_LLM_NOTE[status.static ? "demo" : status.llm ? "on" : "off"];
     if (status.static) {  // no uploads or Claude in the demo; show the sample banner, back link and reset
-      $$('#tab-hunch, .search-switch').forEach((el) => el.remove());  // local-only view and its switch: gone, not just hidden
-      VIEWS.splice(VIEWS.indexOf("hunch"), 1);
       $$(".server-only").forEach((el) => el.classList.add("hidden"));
       $$(".static-only").forEach((el) => el.classList.remove("hidden"));
       document.body.classList.add("is-static");

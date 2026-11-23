@@ -20,6 +20,10 @@ from .data.market import MarketData
 from .demo import SAMPLE_LEVEL, SAMPLE_RESUME, sample_profile
 from .handlers import Api
 
+# The hearing example's text exactly as web/app.js HUNCH_EXAMPLES.hearing fills it in; its map is prebuilt so
+# Search > Hunches paints before the engine loads (M3.2). The AI power example runs in the engine.
+HUNCH_PREBUILT = "Everyone wears earbuds all day, so hearing help becomes a huge consumer market."
+
 INVALID_IF_KEYS = [PREFIX + k for k in ("kv:profile", "kv:intake", "positions", "screens")]
 COMMON_GETS = ["/api/meta", "/api/status", "/api/screens", "/api/paper"]
 # The chat panel's starter chips (web/index.html data-q); their first answers are prebuilt too.
@@ -82,6 +86,10 @@ def prebuild(today_iso: str, count: int = 3) -> dict:
             status, answer = json.loads(request("POST", "/api/chat", "{}", body)).values()
             assert status == 200, (q, answer)
             entries["chat"][q] = answer
+        status, answer = json.loads(request("POST", "/api/hunch", "{}",
+                                            json.dumps({"text": HUNCH_PREBUILT, "risk": lvl}))).values()
+        assert status == 200, ("hunch", answer)
+        entries["hunch"] = {HUNCH_PREBUILT: answer}
         levels[str(lvl)] = entries
     return {"date": today_iso, "default_risk": SAMPLE_LEVEL, "invalid_if_keys": INVALID_IF_KEYS,
             "sample_resume": SAMPLE_RESUME,  # fictional; the "Use the sample resume" button fills the form with it

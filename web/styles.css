@@ -578,7 +578,7 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .disc-more { display: inline; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
   .toast { bottom: var(--s4); }
 }
-/* M3.1: Hunches, a sub-view of Search on the local app only (the static demo removes it and its switch). */
+/* M3.1: Hunches, a sub-view of Search (in the static demo too since M3.2, with a sample label and example buttons). */
 /* The Screener/Hunches switch: two segments on a fill track; the one showing is the raised surface. */
 .search-switch { display: inline-flex; gap: var(--s1); padding: var(--s1); margin-bottom: var(--s3); background: var(--fill); border-radius: var(--r-pill); }
 .search-switch .seg { background: transparent; color: var(--muted); font-weight: 500; }
@@ -587,6 +587,9 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 .hunch-form textarea { resize: vertical; min-height: 88px; }
 .hunch-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
 .hunch-llm { margin: var(--s2) 0 0; }
+.hunch-llm:empty { display: none; }
+.hunch-sample { margin: var(--s2) 0 0; font-weight: 600; }
+.hunch-try { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s2); }
 #hunch-result { margin-top: var(--s4); }
 .hunch-block { margin-bottom: var(--s4); overflow-wrap: anywhere; }
 .hunch-block h2 .pill { margin-left: var(--s1); }
