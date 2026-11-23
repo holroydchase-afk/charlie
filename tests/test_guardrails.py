@@ -39,10 +39,44 @@ def test_demo_banner_back_link_and_reset_exist_for_static_mode_only():
 
 
 def test_chat_panel_shows_the_disclaimer_in_markup():
+    # Re-pinned by qa-tdd, Nov 22, after Chase's NAV-13 call (decision card: drop Chat's page-level paragraph).
+    # Old: NFA appears inside the #tab-chat section. New (at least as strict): the Chat view's rendered page shows the
+    # exact disclaimer through #disclaimer-line, static markup outside every view (so present on Chat), AND the
+    # rule-based reply, from both chat.py and the browser router, ends with it, once.
+    from datetime import date
+
+    from charlie import chat
+    from charlie.data.market import MarketData
+    from charlie.profile import build_profile
+    from charlie.store import Store
+    from tests.test_browser import FakeStorage
+    from charlie.browser_store import BrowserStore
+    from charlie.handlers import Api
+
     html = (WEB / "index.html").read_text()
-    chat = html[html.index('id="tab-chat"'):]
-    chat = chat[:chat.index("</section>")]
-    assert NFA in chat
+    def block(start):
+        tag = re.match(r"<(\w+)", html[start:]).group(1)
+        depth = 0
+        for t in re.finditer(rf"<(/?){tag}\b[^>]*>", html[start:]):
+            depth += -1 if t.group(1) else 1
+            if depth == 0:
+                return start, start + t.end()
+
+    m = re.search(r'<\w+[^>]*\bid="disclaimer-line"[^>]*>', html)
+    assert m, "no #disclaimer-line in the page"
+    for v in re.finditer(r'<section\b[^>]*\bid="tab-\w+"[^>]*>', html):
+        a, b = block(v.start())
+        assert not a < m.start() < b, f"#disclaimer-line sits inside {v.group(0)}; it must be outside every view"
+    a, b = block(m.start())
+    line = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html[a:b])).strip()
+    assert re.sub(r"\s*Read more$", "", line) == NFA, f"#disclaimer-line reads {line!r}"
+
+    md = MarketData(mode="mock", today=date(2026, 10, 22), cache_dir="/tmp/charlie-test-cache")
+    msgs = [{"role": "user", "content": "Tell me about Visa"}]
+    out = chat.chat(msgs, md, Store(":memory:"), build_profile(capital=30000))
+    assert out["reply"].rstrip("_ \n").endswith(NFA) and out["reply"].count(NFA) == 1, out["reply"][-120:]
+    status, out = Api(BrowserStore(FakeStorage()), md, static=True).route("POST", "/api/chat", body={"messages": msgs})
+    assert status == 200 and out["reply"].rstrip("_ \n").endswith(NFA) and out["reply"].count(NFA) == 1, out["reply"][-120:]
 
 
 def test_site_check_passes_on_the_real_build(tmp_path):

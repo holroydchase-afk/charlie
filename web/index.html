@@ -9,9 +9,9 @@
   <script src="/static/theme-init.js"></script>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
-<!-- CHL-NAV-10 is off by default (pending Chase): adding class="nav-hide-on-type" to <body> turns NAV-10 on
-     (the phone tab bar and disclaimer line hide while a text field has focus). -->
-<body>
+<!-- CHL-NAV-10 (Chase, Nov 22: yes): nav-hide-on-type lets the phone tab bar and disclaimer line step aside only while
+     a text field has focus AND the on-screen keyboard is up (app.js sets is-typing and kb-open). -->
+<body class="nav-hide-on-type">
   <section class="demo-bar static-only hidden" aria-label="Demo">
     <div class="demo-bar__row">
       <a class="demo-bar__home" href="https://chaseholroyd.com/">← Portfolio</a>
@@ -270,8 +270,8 @@
           <button class="btn-tinted">Send</button>
         </form>
         <div id="chat-mode" class="muted small"></div>
-        <p class="nfa">Not financial advice. Paper trading only.</p>
-        <!-- CHL-NAV-13 is "no" by default (pending Chase): Chat keeps this page-level paragraph. -->
+        <!-- CHL-NAV-13 (Chase, Nov 22: yes): no page-level disclaimer here; #disclaimer-line carries it on Chat, and
+             every chat reply and chat trade card ends with it (added by code in app.js). -->
       </div>
     </section>
 

@@ -139,12 +139,13 @@ nav.tabs::after { content: none; }  /* CHL-DS-R18: the bar never scrolls, so the
 }
 .disclaimer-line .disc-btn:focus-visible { outline-offset: -2px; }
 .disc-more { display: none; }
-/* CHL-NAV-10 (off by default, pending Chase; body.nav-hide-on-type is the switch, not set in index.html): while a text field has focus on a phone, the
-   bar and the line step aside for the keyboard. Every trade surface keeps its own disclaimer. */
+/* CHL-NAV-10 (Chase, Nov 22: yes; body.nav-hide-on-type is the switch, set in index.html): on a phone the bar and the
+   line step aside only while a text field has focus (.is-typing) AND the keyboard is up (.kb-open, from visualViewport).
+   Never on a laptop. Every trade surface keeps its own disclaimer. */
 @media (max-width: 759.98px) {
   /* Room under the last content for the fixed bottom stack (CHL-NAV-4). */
   body::after { content: ""; display: block; height: var(--stack-h); }
-  body.nav-hide-on-type.is-typing nav.tabs, body.nav-hide-on-type.is-typing .disclaimer-line { display: none; }
+  body.nav-hide-on-type.is-typing.kb-open nav.tabs, body.nav-hide-on-type.is-typing.kb-open .disclaimer-line { display: none; }
 }
 @media (max-width: 359px) { .disclaimer-line .disc-btn { padding: 0 var(--s2); } }
 

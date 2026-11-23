@@ -936,7 +936,8 @@ def test_CHL_DS_22_local_server_serves_themes_theme_init_and_fonts(client):
 # Nov 21 before the restyle. A failure here means a disclaimer test was deleted, skipped or its check changed.
 NFA_TESTS = {
     "tests/e2e/test_demo_e2e.py::test_every_idea_card_shows_the_disclaimer": "77ea45acaa49b983",
-    "tests/e2e/test_demo_e2e.py::test_chat_panel_and_reply_show_the_disclaimer": "5348b9ab6291120b",
+    # Re-pinned Nov 22 after Chase's NAV-13 call (drop Chat's page paragraph), at least as strict: was 5348b9ab6291120b.
+    "tests/e2e/test_demo_e2e.py::test_chat_panel_and_reply_show_the_disclaimer": "1f2e43a299ebe602",
     "tests/e2e/test_demo_e2e.py::test_first_screen_and_chat_starters_work_before_the_engine_loads": "ea2a504a83794e16",
     "tests/e2e/test_demo_verified_e2e.py::test_DEMO_SUBPATH_demo_works_when_served_under_charlie": "8ebfac2f671d5122",
     "tests/e2e/test_demo_verified_e2e.py::test_CHL_R9_screener_results_and_paper_positions_show_the_disclaimer": "e5fa3cdafbd4b583",
@@ -953,7 +954,8 @@ NFA_TESTS = {
     "tests/test_enhancements.py::test_ALERT7_shares_get_a_breakeven_alert_but_never_a_time_alert": "2e3b381c4dc282be",
     "tests/test_first_screen.py::test_prebuilt_shape": "7112acbfbd312448",
     "tests/test_first_screen.py::test_prebuilt_chat_answers_match_the_engine": "1fa5551803ac913c",
-    "tests/test_guardrails.py::test_chat_panel_shows_the_disclaimer_in_markup": "43a2b9ed3f24320b",
+    # Re-pinned Nov 22 after Chase's NAV-13 call (the line on Chat + replies end with it): was 43a2b9ed3f24320b.
+    "tests/test_guardrails.py::test_chat_panel_shows_the_disclaimer_in_markup": "3f9c9aff677a71f1",
     "tests/test_harden.py::test_CORE_chat_happy_and_bad": "7fabbd32b6714042",
     "tests/test_privacy.py::test_disclaimer_text": "f242a760404ffca4",
     "tests/test_privacy.py::test_every_rule_based_reply_ends_with_disclaimer": "7c6e46064b00528c",
@@ -984,5 +986,31 @@ def test_CHL_DS_23_disclaimer_tests_are_all_still_there_unskipped_and_unchanged(
         if hashlib.sha256("\n".join(lines).encode()).hexdigest()[:16] != want:
             problems.append(f"{node}: its disclaimer check changed")
     assert problems == []
+    # Chase's call, Nov 22 (decision card, NAV-13 yes): Chat's page-level paragraph goes. Old pin:
+    # html.count(NFA) >= 3 ("footer, drawer and chat"). New pin counts each required static copy by location:
+    # exactly one in #disclaimer-line (outside every view, with the exact text), exactly one in the drawer, none
+    # page-level in Chat, and no copy anywhere else unaccounted for. Replies and chat trade cards add theirs in code
+    # (tests/test_privacy.py, test_guardrails::test_chat_panel_shows_the_disclaimer_in_markup).
+    nfa = "Not financial advice. Paper trading only."
     html = (WEB / "index.html").read_text()
-    assert html.count("Not financial advice. Paper trading only.") >= 3, "footer, drawer and chat keep the disclaimer"
+
+    def block(open_re):
+        m = re.search(open_re, html)
+        assert m, open_re
+        tag = re.match(r"<(\w+)", m.group(0)).group(1)
+        depth = 0
+        for t in re.finditer(rf"<(/?){tag}\b[^>]*>", html[m.start():]):
+            depth += -1 if t.group(1) else 1
+            if depth == 0:
+                return html[m.start(): m.start() + t.end()]
+        raise AssertionError(f"unclosed {open_re}")
+
+    line = block(r'<\w+[^>]*\bid="disclaimer-line"[^>]*>')
+    drawer = block(r'<\w+[^>]*\bid="drawer"[^>]*>')
+    chat = block(r'<section id="tab-chat"[^>]*>')
+    chat_page = chat.replace(block(r'<div[^>]*id="chat-log"[^>]*>'), "")
+    where = {"#disclaimer-line": line.count(nfa), "#drawer": drawer.count(nfa), "Chat page-level": chat_page.count(nfa)}
+    assert where == {"#disclaimer-line": 1, "#drawer": 1, "Chat page-level": 0}, where
+    line_text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", line)).strip()
+    assert re.sub(r"\s*Read more$", "", line_text) == nfa, f"the line reads {line_text!r}"
+    assert html.count(nfa) == sum(where.values()), f"{html.count(nfa)} copies in index.html, {sum(where.values())} accounted for"

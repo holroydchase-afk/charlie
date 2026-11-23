@@ -13,9 +13,23 @@ Selector contract for the engineer (role and label first; these ids/classes are 
   accessible name is "Profile". Profile's view is still `#tab-profile`; its Close button is inside it.
 - The risk slider is the range input labelled "Risk level".
 
-CHL-NAV-10 and CHL-NAV-13 ship as "no" (chief of staff's safe default, Nov 22, until Chase answers; privacy-security
-rated NAV-13 as built a P1 and NAV-10 a P2): the disclaimer line stays visible while typing, and Chat keeps its
-page-level disclaimer paragraph. Every trade-surface and chat-reply disclaimer test elsewhere stays untouched.
+CHL-NAV-10 and CHL-NAV-13 are "yes" (Chase, Nov 22, decision card), with privacy-security's conditions (CHL-PS-R2).
+Re-pinned by qa-tdd on Nov 22; old -> new test names:
+- test_CHL_NAV_10_disclaimer_line_stays_visible_while_a_field_has_focus ->
+  test_CHL_NAV_10_line_and_bar_hide_only_while_the_keyboard_is_up_and_return_when_it_closes (390) and
+  test_CHL_NAV_10_line_never_hides_on_a_laptop (1280)
+- test_CHL_NAV_13_chat_page_keeps_its_paragraph_and_every_reply_ends_with_it ->
+  test_CHL_NAV_13_chat_page_drops_its_paragraph_and_every_reply_and_card_ends_with_it
+
+NAV-10 contract for the engineer (the keyboard signal is visualViewport, because Android Back closes the keyboard
+without a blur, CHL-PS-R2):
+- app.js listens for `resize` on `window.visualViewport` and on focusin/focusout, reads `visualViewport.height`
+  and `innerHeight` at that moment, and sets `kb-open` on <body> only while visualViewport.height < innerHeight - 120.
+- On a phone (< 760px), nav.tabs and #disclaimer-line are hidden only while BOTH a text field has focus (.is-typing)
+  AND the keyboard is up (.kb-open), with the switch class on <body>. When the viewport returns to full height with
+  the field still focused, or the field blurs, both come back. At 760px and up nothing hides.
+- The tests simulate the keyboard by shadowing `visualViewport.height` on the instance and dispatching `resize` on
+  visualViewport (headless Chromium has no on-screen keyboard), so read the height on each event; don't cache it.
 """
 import os
 import re
@@ -60,7 +74,7 @@ def _profile_button(pg):
 
 def _engine_idle(pg):
     pg.wait_for_timeout(200)
-    pg.wait_for_function("document.querySelector('#engine-status').classList.contains('hidden')", timeout=ENGINE)
+    pg.wait_for_function("() => document.querySelector('#engine-status').classList.contains('hidden')", timeout=ENGINE)
 
 
 def _go(pg, view):
@@ -434,27 +448,74 @@ def test_CHL_NAV_9_risk_slider_sits_under_the_title_on_today_and_search_only(mak
     assert bad == [], f"risk slider at {size[0]}px:\n" + "\n".join(bad)
 
 
-# ================================================================ CHL-NAV-10 ("no": the line stays while typing)
-@pytest.mark.parametrize("field", ["chat", "profile", "screener"])
-def test_CHL_NAV_10_disclaimer_line_stays_visible_while_a_field_has_focus(make_page, site_url, field):
-    """NAV-10 ships as "no" (safe default until Chase answers). The tab bar may hide or not; only the line is checked,
-    before focus, while focused, and after blur."""
-    pg = _open(make_page, site_url, PHONE)
-    sel = {"chat": "#chat-input", "profile": "#resume-text", "screener": "#screen-form input[name=max_capital]"}[field]
+# ================================================================ CHL-NAV-10 (yes: hide only while the keyboard is up)
+FIELDS = {"chat": "#chat-input", "profile": "#resume-text", "screener": "#screen-form input[name=max_capital]"}
+KEYBOARD = """(up) => { const vv = window.visualViewport;
+    if (up) Object.defineProperty(vv, 'height', {configurable: true, get: () => Math.round(innerHeight * 0.55)});
+    else delete vv.height;
+    vv.dispatchEvent(new Event('resize')); }"""
+
+
+def _keyboard(pg, up):
+    pg.evaluate(KEYBOARD, up)
+    pg.wait_for_timeout(250)
+
+
+def _focus_field(pg, field):
     _go(pg, field)
     if field == "screener" and pg.locator("#edit-filters").is_visible():
         pg.click("#edit-filters")
-    assert pg.evaluate(SHOWN, "#disclaimer-line"), "precondition: the line shows"
-    pg.locator(sel).focus()
+    pg.locator(FIELDS[field]).focus()
     pg.wait_for_timeout(250)
-    assert pg.evaluate(SHOWN, "#disclaimer-line"), f"{field} focused: the disclaimer line is hidden while typing"
-    assert NFA in pg.locator("#disclaimer-line").inner_text()
+
+
+@pytest.mark.parametrize("field", list(FIELDS))
+def test_CHL_NAV_10_line_and_bar_hide_only_while_the_keyboard_is_up_and_return_when_it_closes(make_page, site_url, field):
+    """Chase's yes (Nov 22) with CHL-PS-R2: at 390 a focused field hides the line and the bar only while the on-screen
+    keyboard is up; the line comes back when the keyboard closes with the field still focused (Android Back), and on blur."""
+    pg = _open(make_page, site_url, PHONE)
+    sel = FIELDS[field]
+    _go(pg, field)
+    assert pg.evaluate(SHOWN, "#disclaimer-line") and pg.evaluate(SHOWN, "nav.tabs"), "precondition: line and bar show"
+    _focus_field(pg, field)
+    assert pg.evaluate("(s) => document.activeElement === document.querySelector(s)", sel), f"{field}: focus did not land"
+    steps = []
+
+    def check(step, want_line, want_bar):
+        got = (pg.evaluate(SHOWN, "#disclaimer-line"), pg.evaluate(SHOWN, "nav.tabs"))
+        if got != (want_line, want_bar):
+            steps.append(f"{step}: line shown={got[0]} bar shown={got[1]} (want {want_line}/{want_bar})")
+
+    check("focused, no keyboard (e.g. hardware keyboard)", True, True)
+    _keyboard(pg, True)
+    check("focused, keyboard up", False, False)
     if field == "chat":
         b = pg.locator(sel).bounding_box()
-        assert 0 <= b["y"] and b["y"] + b["height"] <= 844, f"chat input at {b['y']:.0f}-{b['y'] + b['height']:.0f} while typing"
+        if not (b and 0 <= b["y"] and b["y"] + b["height"] <= 844):
+            steps.append(f"chat input off screen while typing: {b}")
+    _keyboard(pg, False)
+    assert pg.evaluate("(s) => document.activeElement === document.querySelector(s)", sel), "the field must keep focus"
+    check("keyboard closed, field still focused (Android Back)", True, True)
+    if pg.evaluate(SHOWN, "#disclaimer-line") and NFA not in pg.locator("#disclaimer-line").inner_text():
+        steps.append(f"line text after the keyboard closed: {pg.locator('#disclaimer-line').inner_text()!r}")
+    _keyboard(pg, True)
+    check("keyboard up again", False, False)
     pg.locator(sel).blur()
     pg.wait_for_timeout(250)
-    assert pg.evaluate(SHOWN, "#disclaimer-line"), f"{field} blurred: the line is hidden"
+    check("blurred (viewport still short)", True, True)
+    _keyboard(pg, False)
+    check("blurred, keyboard closed", True, True)
+    assert steps == [], f"NAV-10 at 390, {field}:\n" + "\n".join(steps)
+
+
+@pytest.mark.parametrize("field", list(FIELDS))
+def test_CHL_NAV_10_line_never_hides_on_a_laptop(make_page, site_url, field):
+    pg = _open(make_page, site_url, DESKTOP)
+    _focus_field(pg, field)
+    for up in (True, False):
+        _keyboard(pg, up)
+        assert pg.evaluate(SHOWN, "#disclaimer-line"), f"1280, {field} focused, short viewport={up}: the line hid"
+        assert NFA in pg.locator("#disclaimer-line").inner_text()
 
 
 # ================================================================ CHL-NAV-11 laptop sidebar
@@ -530,25 +591,31 @@ def test_CHL_NAV_12_no_sideways_scroll_on_any_view(make_page, site_url, size):
     assert wide == [], f"at {size[0]}px: {wide}"
 
 
-# ================================================================ CHL-NAV-13 ("no": Chat keeps its page paragraph)
+# ================================================================ CHL-NAV-13 (yes: Chat drops its page paragraph)
 @pytest.mark.parametrize("size", [PHONE, DESKTOP], ids=["390x844", "1280x800"])
-def test_CHL_NAV_13_chat_page_keeps_its_paragraph_and_every_reply_ends_with_it(make_page, site_url, size):
-    """NAV-13 ships as "no" (safe default until Chase answers). The rendered Chat page shows the exact disclaimer outside
-    the conversation log and outside #disclaimer-line, the line still carries it, and a reply ends with it.
-    test_demo_e2e::test_chat_panel_and_reply_show_the_disclaimer stays as is."""
+def test_CHL_NAV_13_chat_page_drops_its_paragraph_and_every_reply_and_card_ends_with_it(make_page, site_url, size):
+    """Chase's yes (Nov 22): the rendered Chat page has no page-level disclaimer paragraph (outside the conversation
+    log and outside #disclaimer-line); #disclaimer-line is visible on Chat with the exact text; every reply and every
+    chat trade card ends with the exact disclaimer. The line stays visible after the input blurs."""
     pg = _open(make_page, site_url, size)
     _go(pg, "chat")
     page_copy = pg.evaluate("""(nfa) => [...document.querySelectorAll('#tab-chat *')].filter((e) => e.checkVisibility()
-        && !e.closest('#chat-log') && !e.closest('#disclaimer-line') && e.innerText.trim() === nfa).length""", NFA)
-    assert page_copy >= 1, "Chat's page-level disclaimer paragraph is not shown"
+        && !e.closest('#chat-log') && !e.closest('#disclaimer-line') && e.innerText.includes(nfa)
+        && ![...e.children].some((c) => c.innerText && c.innerText.includes(nfa))).length""", NFA)
+    assert page_copy == 0, f"Chat still shows {page_copy} page-level disclaimer paragraph(s) (Chase said drop, Nov 22)"
     line = pg.locator("#disclaimer-line")
     expect(line).to_be_visible()
-    assert NFA in line.inner_text(), f"disclaimer line reads {line.inner_text()!r}"
-    pg.fill("#chat-input", "Tell me about Visa")
-    pg.keyboard.press("Enter")
-    reply = pg.locator("#chat-log .msg.bot").last
-    expect(reply).to_contain_text(NFA, timeout=ENGINE)
-    assert reply.inner_text().strip().endswith(NFA), f"the reply must end with the disclaimer: ...{reply.inner_text()[-80:]!r}"
+    assert re.sub(r"\s*Read more\s*$", "", line.inner_text().strip()) == NFA, f"disclaimer line reads {line.inner_text()!r}"
+    for q in ("Tell me about Visa", "what are today's ideas"):
+        n = pg.locator("#chat-log .msg.bot").count()
+        pg.fill("#chat-input", q)
+        pg.keyboard.press("Enter")
+        reply = pg.locator("#chat-log .msg.bot").nth(n)
+        expect(reply).to_contain_text(NFA, timeout=ENGINE)
+        assert reply.inner_text().strip().endswith(NFA), f"{q!r}: the reply must end with the disclaimer: ...{reply.inner_text()[-80:]!r}"
+        for card in reply.locator(".mini").all():
+            assert card.inner_text().strip().endswith(NFA), f"{q!r}: a chat trade card must end with it: {card.inner_text()[-80:]!r}"
+    assert pg.locator("#chat-log .msg.bot .mini").count() >= 1, "no chat trade card was shown, so the card check proved nothing"
     pg.locator("#chat-input").blur()
     pg.wait_for_timeout(250)
     expect(line).to_be_visible()

@@ -389,7 +389,7 @@ def test_UX17_today_hero_metrics_never_show_a_dash(make_page, site_url, level):
     pg = _open(make_page, site_url, PHONE)
     if level != 2:
         _set_risk(pg, level)
-        pg.wait_for_function("[...document.querySelectorAll('#ideas .card .strategy-tag')]"
+        pg.wait_for_function("() => [...document.querySelectorAll('#ideas .card .strategy-tag')]"
                              ".every((t) => t.textContent.startsWith('Buy shares'))", timeout=ENGINE)
     found = pg.locator("#ideas").evaluate(HERO_VALUES)
     assert found, "no hero metrics on Today"
@@ -675,7 +675,7 @@ def test_UX27_explainer_headings_come_from_the_strategy_not_the_label(make_page,
     pg = _open(make_page, site_url, PHONE)
     _set_risk(pg, level)
     if level == 1:
-        pg.wait_for_function("[...document.querySelectorAll('#ideas .card .strategy-tag')]"
+        pg.wait_for_function("() => [...document.querySelectorAll('#ideas .card .strategy-tag')]"
                              ".every((t) => t.textContent.startsWith('Buy shares'))", timeout=ENGINE)
     cards = pg.locator("#ideas").evaluate(EXPLAINER_HEADINGS)
     assert len(cards) >= pg.locator("#ideas .card").count(), f"each idea card needs an explainer heading: {cards}"
