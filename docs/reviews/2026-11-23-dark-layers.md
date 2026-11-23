@@ -102,3 +102,82 @@ CHL-UX-DK2 | P2 | V6/V7 | Card score button, Copy trade details, Profile chips, 
 CHL-UX-DK3 | P2 | V1/V5 | Risk control, Today and Search, all modes | Pill stays --surface beside --raised cards; its 3:1 outline is the loudest container edge | .risk-control background var(--raised); staff-pm consider --line outline (amend CHL-DARK-7)
 CHL-UX-DK4 | P2 | V5 | Search .table-wrap/.row-card, Trades .pos-card, dark | Still --surface at 1.08:1 while other cards are 1.15:1 | Move those backgrounds to var(--raised)
 ```
+
+## Round 2
+
+Recheck of the round 2 fix (commit `c693dd7`, `web/styles.css` only: `.bar` track on `--line`, `.risk-control` on `--raised` with a `--line` edge, `table`, `.table-wrap`, `.row-card` and `.pos-card` on `--raised`). DK2 is deferred to PLAN M1.17 and not rechecked here.
+Build: `tools/build_demo.py --date 2026-11-23` into a scratch dir. "Before" is the round 1 after build; "after" is this branch. `diff -rq` of the two builds: only `styles.css` differs.
+Shots: `/mnt/project-files/charlie-dark-layers-2026-11-23/round2/`. Each shot is named `<screen>-<width>-<mode>-<before|after>.png` (screens: `first-open-dialog`, `today`, `today-full`, `drawer`, `profile`, `profile-full`, `screener`, `screener-full`, `trades`, `trades-full`; trades has one sample paper position opened from the first idea). Modes: light and dark at 390 and 1280, plus HC dark at 390. Side-by-side pairs are in `round2/pairs/`.
+
+Hard rules checked: "Not financial advice. Paper trading only." is visible in every after shot: idea card, drawer header, Trades footer line and the desktop sidebar. "Sample data" stays in the demo bar. The trades flow only opens a paper position in the browser (static demo, no network beyond Pyodide). The change is CSS only, so paper-only, safe-by-default, resume privacy and the static-demo rules are untouched. Every trade surface still shows max loss, breakeven and the exit plan (today and trades shots).
+
+### Verdict: Ready for this PR. Visual score 8/10 (bar 8)
+
+- **Recruiter, phone, dark:** Today, Search and Trades now share one card elevation, so nothing new to trip on. The risk box is calmer and the first idea is the focal point again.
+- **Hiring manager, laptop, dark:** the Munger checklist bars have their 0 to 100 track back (65 and 55 read against a rail), in both the drawer and the Profile circle bars.
+- **New investor, phone:** controls unchanged. Worst control edge is still 3.02:1 in dark and 3.04:1 in light, and 4.60:1 in HC dark.
+- **Light and HC dark:** light matches round 1 apart from the firmer bar track (1.34:1) and the risk box edge going back to the hairline. HC dark cards are unchanged. The HC bar track is now `--line` (4.60:1 on the drawer), with the ink value 3.26:1 on that track. That's above 3:1, and the bars read more clearly as a scale than before.
+
+Score evidence (8): every "card on the page" surface (`.card`, `.panel`, `.risk-control`, `.table-wrap`, `.row-card`, `.pos-card`, dialog and drawer) now paints `--raised` at 1.15:1 on the page in dark, measured. The bar tracks are back at 1.15:1 in dark and 1.34:1 in light. The risk box no longer has the loudest container edge on Today. Not 9, because DK2 (the `--fill` buttons and chips at 1.02:1 on raised) is still open by plan, and the Trades stat tiles sit on a different layer (DK5).
+
+### The critic's line
+
+Hiring manager, laptop, dark: "OK, the bars have rails and the cards line up now. Why are the four numbers on Trades just outlines when the trade under them is a card?"
+
+### Recheck of round 1 findings (measured, Chromium computed styles)
+
+| ID | Round 1 | Round 2 | Status | Evidence |
+|---|---|---|---|---|
+| CHL-UX-DK1 | `.bar` track 1.02:1 on raised (dark) | 1.15:1 dark, 1.34:1 light, 4.60:1 HC dark; value on track 12.16 / 12.79 / 3.26 | Fixed, verified | `pairs/drawer-390-dark-pair.png`, `pairs/drawer-390-dark-hc-pair.png`, `pairs/profile-1280-dark-pair.png` |
+| CHL-UX-DK2 | `--fill` on raised 1.02:1 | 1.02:1 (unchanged) | Deferred, PLAN M1.17 | `pairs/today-390-dark-pair.png` |
+| CHL-UX-DK3 | risk box `--surface` 1.08:1, edge 3.22:1 | `--raised` 1.15:1 on page (dark), edge `--line` 1.15:1 dark, 1.34:1 light, 4.60:1 HC | Fixed, verified | `pairs/today-1280-dark-pair.png`, `pairs/today-1280-light-pair.png` |
+| CHL-UX-DK4 | `.table-wrap`, `.row-card`, `.pos-card` 1.08:1 | 1.15:1 on page in dark, at 390 and 1280; light and HC unchanged (1.07 / 1.08) | Fixed, verified (Trades now shot) | `pairs/screener-1280-dark-pair.png`, `pairs/trades-390-dark-pair.png`, `pairs/trades-1280-dark-pair.png` |
+
+`node scripts/ux-rules.mjs` on the round 2 build gives the same 6 pre-existing failures as round 1 (the G3 on `#ack` and two V9 card-in-card hits). Report: `round2/ux-rules-report.md`. No new failure.
+
+### New findings
+
+| ID | Pri | Rule | Screen and region | Problem | What the person would do | Fix |
+|---|---|---|---|---|---|---|
+| CHL-UX-DK5 | P2 | V5 | Trades `.stats .metric` tiles (Open positions, Open P&L, Realized P&L, Most you could lose), all modes, clearest in dark | The tiles have no fill: a `--line` outline on the page (`--bg`). The `.pos-card` right under them is now `--raised` (1.15:1 in dark), so the same "card on the page" role gets two treatments on one screen. This isn't new in round 2, but DK4 made it visible. | Reads the four numbers as a lighter-weight thing than the position. That's mild, and arguably intended. | `.stats .metric { background: var(--raised); }`. No new token. Light and HC get `--surface`, which matches `.pos-card` there. Fold into M1.17 with DK2 if staff-pm prefers one follow-up. |
+
+### Cut list (C5)
+
+Nothing to cut: round 2 swaps backgrounds and one border, and adds no element, word or size.
+
+### Acceptance criteria for qa-tdd
+
+- **CHL-UX-DK5:** in standard dark at 390 and 1280 on Trades with one paper position, every visible `.stats .metric` computed background equals the `.pos-card` (or `.table-wrap`) background and is 1.15:1 or more against `--bg`. In light and HC dark it equals `--surface`.
+
+### For Chase
+
+1. Nothing needed from you: DK1, DK3 and DK4 are verified fixed with after shots, and the PR is at the 8/10 bar.
+2. One new P2 (DK5, the Trades number tiles) can ride with DK2 in M1.17.
+
+```uxrun
+date: 2026-11-23
+product: charlie
+tier: Advisory
+model: claude-opus-5-5
+tokens: not measured
+cost: not measured
+flows:
+  - first-open dialog, today, drawer, profile, screener, trades (one sample position) at 390x844 and 1280x800, light and dark, plus HC dark at 390 -> /mnt/project-files/charlie-dark-layers-2026-11-23/round2/
+findings:
+  - CHL-UX-DK1 | P1 | V7/W5 | fixed, round2/pairs/drawer-390-dark-pair.png
+  - CHL-UX-DK2 | P2 | V6/V7 | deferred (PLAN M1.17), round2/pairs/today-390-dark-pair.png
+  - CHL-UX-DK3 | P2 | V1/V5 | fixed, round2/pairs/today-1280-light-pair.png
+  - CHL-UX-DK4 | P2 | V5 | fixed, round2/pairs/trades-390-dark-pair.png
+  - CHL-UX-DK5 | P2 | V5 | round2/pairs/trades-390-dark-pair.png
+verdict: Ready
+rechecked: yes (round 1 after build vs round 2 build, same flows plus Trades)
+escalated: no
+checks: ux-rules.mjs run on round 2 build (same 6 pre-existing failures); check-ux-run.mjs, check-findings.mjs and ux-refs.mjs not in this repo
+```
+
+```findings
+verdict: Ready
+score: 8/10
+CHL-UX-DK2 | P2 | V6/V7 | Card score button, Copy trade details, Profile chips, input fills, dark | --fill on --raised still 1.02:1 (deferred to PLAN M1.17) | Use --line for .card .btn-secondary and .panel .chip, or ask hearth for raised-fill
+CHL-UX-DK5 | P2 | V5 | Trades .stats .metric tiles, all modes | Unfilled outline tiles on --bg next to a --raised .pos-card | .stats .metric { background: var(--raised) }
+```
