@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -20,6 +21,8 @@ from .profile import FileTooComplex, extract_text
 from .store import Store
 
 WEB = Path(__file__).resolve().parent.parent / "web"
+# The self-hosted font (CHL-DS-22): some systems' mime tables lack .woff2, so say it once here.
+mimetypes.add_type("font/woff2", ".woff2")
 
 app = FastAPI(title="Charlie", version=__version__)
 store = Store()

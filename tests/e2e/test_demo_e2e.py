@@ -41,16 +41,25 @@ def test_banner_says_sample_and_links_back(page):
 
 
 def test_chat_panel_and_reply_show_the_disclaimer(page):
+    # Re-pinned by qa-tdd, Nov 22, after Chase's NAV-13 call (drop Chat's page-level paragraph). Old: the first
+    # #tab-chat .nfa has the exact text and the reply contains it. New (at least as strict): on Chat the disclaimer
+    # line is visible with the exact text, the reply contains it AND ends with it, and every chat trade card ends with it.
     page.click("[data-tab=chat]")
-    expect(page.locator("#tab-chat .nfa").first).to_have_text(NFA)
+    expect(page.locator("#tab-chat")).to_be_visible()
+    line = page.locator("#disclaimer-line")
+    expect(line).to_be_visible()
+    assert re.sub(r"\s*Read more\s*$", "", line.inner_text().strip()) == NFA, f"line reads {line.inner_text()!r}"
     page.fill("#chat-input", "Tell me about Visa")
     page.keyboard.press("Enter")
     reply = page.locator("#chat-log .msg.bot").last
     expect(reply).to_contain_text(NFA, timeout=120_000)
+    assert reply.inner_text().strip().endswith(NFA), f"reply must end with the disclaimer: ...{reply.inner_text()[-80:]!r}"
+    for card in reply.locator(".mini").all():
+        assert card.inner_text().strip().endswith(NFA), f"chat trade card must end with the disclaimer: {card.inner_text()[-80:]!r}"
 
 
 def test_profile_shows_the_sample_and_can_load_its_resume(page):
-    page.click("[data-tab=profile]")
+    page.locator("header").get_by_role("button", name=re.compile(r"\bProfile\b")).click()  # CHL-DS-25: not a tab
     expect(page.locator("#profile-view h2")).to_have_text("Alex Rivera's circle (sample)")
     page.click("#use-sample")
     expect(page.locator("textarea[name=resume_text]")).to_have_value(re.compile("Registered Nurse"))
@@ -82,7 +91,7 @@ def axe_source():
 
 def _wait_for_engine_if_needed(page):
     page.wait_for_timeout(300)
-    page.wait_for_function("document.querySelector('#engine-status').classList.contains('hidden')", timeout=120_000)
+    page.wait_for_function("() => document.querySelector('#engine-status').classList.contains('hidden')", timeout=120_000)
     page.wait_for_timeout(300)
 
 
@@ -99,7 +108,10 @@ def test_every_tab_passes_axe_and_fits(browser, site_url, axe_source, scheme, wi
     page.click("#ack-btn")
     problems = []
     for tab in ["today", "profile", "screener", "chat", "paper", "learn"]:
-        page.click(f"[data-tab={tab}]")
+        if tab == "profile":  # CHL-DS-25: Profile opens from the header button, not a tab
+            page.locator("header").get_by_role("button", name=re.compile(r"\bProfile\b")).click()
+        else:
+            page.click(f"[role=tab][data-tab={tab}]")
         _wait_for_engine_if_needed(page)
         if page.evaluate("document.documentElement.scrollWidth > innerWidth"):
             problems.append(f"{tab}: horizontal overflow")
