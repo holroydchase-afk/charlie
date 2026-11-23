@@ -145,6 +145,14 @@ def test_CHL_DARK_3_4_5_layered_surfaces_paint_raised(selector):
     assert bg and re.search(r"var\(--raised\)", bg), f"{selector} background is {bg!r}, want var(--raised)"
 
 
+@pytest.mark.parametrize("selector", [".table-wrap", "table", ".row-card", ".pos-card"])
+def test_CHL_DARK_3_tables_row_cards_and_position_cards_paint_raised(selector):
+    # Triage round 2 (CHL-UX-DK4): the Search table and phone row cards and the Trades position cards play the
+    # same "card on the page" role as .card, so they move to --raised too.
+    bg = _bg_of(_styles(), selector)
+    assert bg and re.search(r"var\(--raised\)", bg), f"{selector} background is {bg!r}, want var(--raised) (CHL-UX-DK4)"
+
+
 def test_CHL_DARK_4_5_modal_and_drawer_keep_the_scrim_and_trades_sit_on_the_drawer():
     rules = _styles()
     for sel in (".modal", ".drawer"):
@@ -172,11 +180,19 @@ def test_CHL_DARK_6b_styles_css_has_no_tab_line_left():
 
 
 # ============================================================ CHL-DARK-7 the risk slider
-def test_CHL_DARK_7_risk_slider_keeps_the_accent_and_its_outline_uses_control_edge():
+def test_CHL_DARK_7_risk_slider_keeps_the_accent_and_the_pill_is_raised_with_a_line_border():
+    # Amended in Triage round 2 (CHL-UX-DK3): WCAG 1.4.11 covers the slider's track and thumb (--accent), not the
+    # pill around it, so the pill paints --raised like the card beside it and keeps the hairline --line border.
     rules = _styles()
     assert (_decl(rules, ".risk-control input", "accent-color") or "").strip() == "var(--accent)"
+    bg = (_bg_of(rules, ".risk-control") or "").strip()
+    assert bg == "var(--raised)", f".risk-control background is {bg!r}, want var(--raised) (CHL-UX-DK3)"
     border = _decl(rules, ".risk-control", "border") or ""
-    assert "var(--control-edge)" in border, f".risk-control border is {border!r}, want var(--control-edge)"
+    assert re.search(r"var\(--line\)", border) and "--control-edge" not in border, \
+        f".risk-control border is {border!r}, want 1px solid var(--line) (amended CHL-DARK-7)"
+    edged = [r["sel"][:50] for r in rules if ".risk-control" in r["sel"] and "input" not in r["sel"]
+             and any("--control-edge" in v for _, v in r["decls"])]
+    assert edged == [], f"the risk control still uses --control-edge in {edged} (want 0)"
 
 
 @pytest.mark.parametrize("mode,more", MODES, ids=MODE_IDS)
@@ -185,6 +201,20 @@ def test_CHL_DARK_7_accent_is_3_to_1_on_raised_and_surface(mode, more):
     assert v.get(RAISED), f"--raised not defined in {mode}{' HC' if more else ''}"
     accent, raised, surface = (ds._hex(v[k]) for k in ("--accent", RAISED, "--surface"))
     assert ds.contrast(accent, raised) >= 3 and ds.contrast(accent, surface) >= 3
+
+
+# ============================================================ CHL-DARK-14 the score bars keep a visible track
+@pytest.mark.parametrize("mode", ["light", "dark"])
+def test_CHL_DARK_14_bar_track_is_1_15_against_the_raised_layer_it_sits_on(mode):
+    # Triage round 2 (CHL-UX-DK1): the drawer's checklist bars and Profile's circle bars sit on --raised
+    # (.drawer-inner, .panel). Their track must stay 1.15:1 or more on it, in standard dark and in light.
+    bg = (_bg_of(_styles(), ".bar") or "").strip()
+    m = re.fullmatch(r"var\((--[\w-]+)\)", bg)
+    assert m, f".bar background is {bg!r}, want a single token"
+    v = _vars({"scheme": mode, "more": False, "theme": None})
+    track, raised = ds._hex(v[m.group(1)]), ds._hex(v.get(RAISED) or v["--surface"])
+    r = ds.contrast(track, raised)
+    assert r >= 1.15, f"{mode}: .bar track {m.group(1)} {track} on --raised {raised}: {r:.2f}:1, want 1.15:1 (CHL-DARK-14)"
 
 
 # ============================================================ CHL-DARK-8 DS-3 pairs with --raised for --surface

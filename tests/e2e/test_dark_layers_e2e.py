@@ -197,6 +197,46 @@ def test_CHL_DARK_3_every_top_level_card_and_panel_is_1_15_against_the_page(brow
         ctx.close()
 
 
+# ================================================================ CHL-DARK-3 (extended) tables, row cards and position cards
+TABLES_JS = r"""(scope) => { const vis = (el) => el.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})
+    && el.getBoundingClientRect().height > 0;
+  return [...document.querySelectorAll(scope)].filter(vis).map((el) => ({
+    name: (el.closest('[id]') ? '#' + el.closest('[id]').id + ' ' : '') + el.tagName.toLowerCase() +
+          [...el.classList].slice(0, 2).map((c) => '.' + c).join(''),
+    bg: getComputedStyle(el).backgroundColor})); }"""
+TABLE_SEL = ".table-wrap, .table-wrap > table, .row-card, .pos-card"
+
+
+@pytest.mark.parametrize("way", DARK_WAYS, ids=DARK_IDS)
+@pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
+def test_CHL_DARK_3_search_table_row_cards_and_trades_position_cards_are_1_15_against_the_page(browser, site_url, size, way):
+    # Triage round 2 (CHL-UX-DK4): .table-wrap, table, .row-card and .pos-card play the same "card on the page"
+    # role as .card, so they step off the page too. Trades is checked with a sample position open, opened the way a
+    # visitor would: "Paper trade this" on the first idea.
+    ctx, pg = _open(browser, site_url, size, scheme=way[0], theme=way[1])
+    try:
+        page = _page_bg(pg)
+        pg.locator("#ideas .card [data-paper]").filter(visible=True).first.click()
+        bad, seen = [], set()
+        for view, scope in (("screener", "#screen-results"), ("paper", "#paper-list")):
+            _go(pg, view)
+            if view == "paper":
+                expect(pg.locator("#paper-list .pos-card:visible, #paper-list tbody tr:visible").first).to_be_visible(timeout=ENGINE)
+            for el in pg.evaluate(TABLES_JS, ", ".join(f"{scope} {x.strip()}" for x in TABLE_SEL.split(","))):
+                seen.add(f"{view} {el['name'].split(' ', 1)[-1]}")
+                bg = _solid(el["bg"], page) if _alpha(el["bg"]) else page
+                r = contrast(bg, page)
+                if r < LAYER:
+                    bad.append(f"{view}: {el['name']} {bg} on page {page}: {r:.2f}:1")
+        want = ({"screener button.row-card", "paper div.pos-card"} if size[0] < 760 else
+                {"screener div.table-wrap.has-cards", "screener table", "paper div.table-wrap.has-cards", "paper table"})
+        assert want <= seen, f"at {size[0]}px the sweep should reach {sorted(want)}; saw {sorted(seen)}"
+        assert bad == [], f"dark ({way}) at {size[0]}px, want {LAYER}:1 or more:\n" + "\n".join(sorted(set(bad))[:30])
+        assert pg.errors == []
+    finally:
+        ctx.close()
+
+
 # ================================================================ CHL-DARK-4 the dialog steps off the page and the scrim
 @pytest.mark.parametrize("way", DARK_WAYS, ids=DARK_IDS)
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
@@ -297,22 +337,26 @@ def test_CHL_DARK_6_controls_on_a_raised_card_use_control_edge(browser, site_url
         ctx.close()
 
 
-# ================================================================ CHL-DARK-7 the risk slider
+# ================================================================ CHL-DARK-7 the risk slider (amended, Triage round 2)
 @pytest.mark.parametrize("mode", MODES + [("light", "picked-dark")], ids=MODE_IDS + ["picked-dark"])
 @pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
-def test_CHL_DARK_7_risk_slider_keeps_the_accent_at_3_to_1_and_its_outline_is_control_edge(browser, site_url, size, mode):
+def test_CHL_DARK_7_risk_slider_keeps_the_accent_at_3_to_1_and_the_pill_is_raised_with_a_line_edge(browser, site_url, size, mode):
+    # CHL-UX-DK3: WCAG 1.4.11 covers the slider's track and thumb (--accent), not the pill around it, so the pill
+    # paints --raised like the card beside it and its border is the hairline --line, in all 4 modes.
     theme = "dark" if mode[1] == "picked-dark" else None
     ctx, pg = _open(browser, site_url, size, scheme=mode[0], contrast_pref=None if theme else mode[1], theme=theme)
     try:
         slider = pg.locator(".risk-control input[type=range]").filter(visible=True).first
         expect(slider).to_be_visible()
-        accent, raised, surface, edge = (_var(pg, n) for n in ("--accent", "--raised", "--surface", "--control-edge"))
-        assert raised and edge, f"--raised {raised!r} / --control-edge {edge!r} not defined (CHL-DARK-1)"
+        accent, raised, surface, line = (_var(pg, n) for n in ("--accent", "--raised", "--surface", "--line"))
+        assert raised, "--raised not defined (CHL-DARK-1)"
         assert slider.evaluate("(s) => getComputedStyle(s).accentColor") == accent, "the slider keeps accent-color: var(--accent)"
         assert contrast(accent, raised) >= EDGE and contrast(accent, surface) >= EDGE, \
             f"--accent {accent}: {contrast(accent, raised):.2f}:1 on --raised, {contrast(accent, surface):.2f}:1 on --surface"
-        outline = slider.evaluate("(s) => getComputedStyle(s.closest('.risk-control')).borderTopColor")
-        assert outline == edge, f".risk-control outline is {outline}, want --control-edge {edge}"
+        pill = slider.evaluate("""(s) => { const c = getComputedStyle(s.closest('.risk-control'));
+            return {bg: c.backgroundColor, edge: c.borderTopColor}; }""")
+        assert pill == {"bg": raised, "edge": line}, \
+            f".risk-control paints {pill}, want background --raised {raised} and border --line {line} (amended CHL-DARK-7)"
     finally:
         ctx.close()
 
@@ -344,6 +388,40 @@ def test_CHL_DARK_8b_hc_dark_cards_panels_and_dialog_have_a_3_to_1_line_border(b
                 bad.append(f".modal-inner: border {b['w']} {b['c']}, want 1px+ --line {line}")
         assert len(seen) == 3, f"found {sorted(seen)}"
         assert bad == [], "\n".join(bad[:20])
+    finally:
+        ctx.close()
+
+
+# ================================================================ CHL-DARK-14 the score bars keep a visible track
+BARS_JS = r"""(scope) => { const outside = """ + OUTSIDE_FN + r""";
+  return [...document.querySelectorAll(scope + ' .bar')].filter((el) => el.checkVisibility() && el.getBoundingClientRect().width > 0)
+    .map((el) => ({bg: getComputedStyle(el).backgroundColor, outside: outside(el)})); }"""
+
+
+@pytest.mark.parametrize("way", DARK_WAYS + [("light", None)], ids=DARK_IDS + ["light"])
+@pytest.mark.parametrize("size", SIZES, ids=SIZE_IDS)
+def test_CHL_DARK_14_drawer_and_profile_bar_tracks_are_1_15_against_what_they_sit_on(browser, site_url, size, way):
+    # Triage round 2 (CHL-UX-DK1): the drawer's Munger checklist bars and Profile's circle bars need a track that
+    # reads as "out of 100": every visible .bar is 1.15:1 or more against its first opaque ancestor, dark and light.
+    ctx, pg = _open(browser, site_url, size, scheme=way[0], theme=way[1])
+    try:
+        page = _page_bg(pg)
+        bad, counted = [], {}
+        _open_drawer(pg)
+        found = [("drawer", b) for b in pg.evaluate(BARS_JS, "#drawer")]
+        pg.click("#drawer-close")
+        expect(pg.locator("#drawer")).to_be_hidden()
+        _go(pg, "profile")
+        found += [("profile", b) for b in pg.evaluate(BARS_JS, "#tab-profile")]
+        for where, b in found:
+            counted[where] = counted.get(where, 0) + 1
+            out = _solid(b["outside"], page)
+            track = _solid(b["bg"], out) if _alpha(b["bg"]) else out
+            r = contrast(track, out)
+            if r < LAYER:
+                bad.append(f"{where}: .bar {track} on {out}: {r:.2f}:1")
+        assert counted.get("drawer", 0) >= 3 and counted.get("profile", 0) >= 1, f"bars found: {counted}"
+        assert bad == [], f"{way} at {size[0]}px, want {LAYER}:1 or more:\n" + "\n".join(sorted(set(bad))[:30])
     finally:
         ctx.close()
 
