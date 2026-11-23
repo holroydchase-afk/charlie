@@ -73,6 +73,41 @@ Done means the recruiter-ready bar in pm-tools `docs/ONBOARDING.md` section 5 is
 
 Not in M1: resume file upload in the demo (paste and the sample resume are enough), Claude chat, live data, accounts.
 
+## M3: Hunch to supply chain
+
+M2.1 to M2.3 stay reserved for "Chase uses it daily" (HANDOFF "Later"). Chase asked for this next (Nov 17): "I provide a hunch ...; break my hunch down into a supply chain, looking at stock price and details for players, determine highest winners in supply chain, make recommendations." It follows his hunch-to-trend-plan template: restate, premise check, who benefits (obvious, sleepers, losers), options to act, 3 confirm and 3 kill signals.
+
+**The bet.** Chase types a fuzzy hunch and in under a minute gets a trail he can check: the sharper claim, what's true vs what he added, the supply chain in tiers, which players Charlie can actually price and score, and 1 to 3 research leads with a safe paper trade. Signal: Chase runs 5 of his own hunches in the 14 days after merge and keeps at least 3 maps without editing the chain by hand (he says so in the thread). Stop: if he runs fewer than 3, or the Claude path fails validation on more than 2 of 5, freeze at playbooks and don't build M3.2.
+
+**Ranking, plainly.** `rank = exposure weight x Charlie score`, exposure weights pure play 1.0, meaningful 0.6, small slice 0.25; ties by symbol. The Charlie score already has a value factor, so there is no separate margin-of-safety multiplier (it would count value twice). Exposure is a labeled judgment from the playbook or Claude, never a measured number.
+
+- **M3.1** Hunch pipeline v1, local app. Status: todo. Branch: `m3.1-hunch`. One PR, about 5 sessions. Touches `charlie/` and `web/`, so it waits for Chase's go to merge.
+  - New `charlie/hunch.py`: stages restate, premise, chain, enrich, rank, ideas, signals; each returns a plain dict. Offline drafter = curated playbooks matched by keywords: hearing (Case 1) and AI power demand (NVDA, ANET, VST, NEE, GE, CAT are in the universe). Claude drafter when `llm_available()`: strict JSON schema, then our code validates, prices and ranks.
+  - Surfaces: `POST /api/hunch` in `server.py` and `Api.route`; a Hunches tab in the local app, hidden in static mode.
+  - Acceptance criteria (qa-tdd writes these red first):
+    - **CHL-HUNCH-1** (auto) Given a hunch, when `run_hunch` runs with mock data and the LLM off, then the result is JSON-serializable with `restate`, `premise`, `chain`, `ranked`, `unscored`, `ideas`, `signals`, `source` (`playbook`, `claude` or `none`) and `disclaimer`.
+    - **CHL-HUNCH-2** (auto) Given the Case 1 hearing hunch, then `restate.claim` and `restate.horizon` are non-empty and the claim names earbuds or OTC hearing aids.
+    - **CHL-HUNCH-3** (auto) Given the hearing hunch, then `premise.verdict == "partial"`, `premise.true` and `premise.added` are separate non-empty lists, and `premise.evidence` cites the FDA OTC rule (Aug 2022) and Apple's AirPods Pro 2 hearing aid feature (Sep 2024), each with source name and date.
+    - **CHL-HUNCH-4** (auto) Given the hearing hunch, then every player has name, role, tier (`obvious`, `sleeper` or `loser`), ticker or null, listing (`us`, `non_us`, `private`) and exposure; Knowles and Qualcomm are sleepers and at least one loser is premium clinic-sold hearing aids.
+    - **CHL-HUNCH-5** (auto) Given players outside `charlie/universe.py`, non-US or private (KN, REGN, Sonova, Loop), then they stay in the map in `unscored` with a reason, and no `KeyError` or 5xx occurs in mock mode.
+    - **CHL-HUNCH-6** (auto) Given a fake Claude client whose JSON includes `price`, `score` or `max_loss` fields or an unknown or malformed ticker, then those fields are dropped, the ticker is unscored, and every price shown equals `md.quote()` for that symbol.
+    - **CHL-HUNCH-7** (auto) Given the same hunch, profile and date twice, then `ranked` order is identical and matches the formula above, ties broken by symbol.
+    - **CHL-HUNCH-8** (auto) Given two profiles that differ only in familiarity, then the trade for the same symbol and risk level has the same quantity and max loss (familiarity moves rank, never size).
+    - **CHL-HUNCH-9** (auto) Given ranked US universe names, then at most 3 ideas each carry why, key risk and an optional trade from `strategies.allowed(risk)`; every trade has max loss in dollars, breakeven and exit plan, no uncovered call, and expiry 20 days or more out.
+    - **CHL-HUNCH-10** (auto) Then the result, every idea and every trade carry `NFA` added in code, and the Hunches tab shows it on the panel and each trade card (unit plus e2e).
+    - **CHL-HUNCH-11** (auto) Then `signals.confirm` and `signals.kill` each hold exactly 3 non-empty items, each naming what to watch.
+    - **CHL-HUNCH-12** (auto) Given a hunch no playbook matches with the LLM off, then `source == "none"`, the message says there is no playbook yet and names the closest universe domain (or none), and there are no players, ideas or trades.
+    - **CHL-HUNCH-13** (auto) Given a fake Claude client that returns invalid JSON, misses the schema or raises, then the result falls back to playbook or `none` with a 200; given a valid response, `source == "claude"` and the premise is labeled "Claude's draft, sources not checked".
+    - **CHL-HUNCH-14** (auto) Given a Claude call, then the request carries only the hunch text: no resume, profile, holdings or capital, and nothing is logged beyond the hunch length.
+    - **CHL-HUNCH-15** (auto) Given an empty hunch or one over 600 characters, then the API returns 422; static mode never imports `anthropic` and hides the tab.
+    - **CHL-HUNCH-16** (auto) Then no output string or tab copy says "winner", "buy", "recommend" or "guaranteed"; labels are "most exposed" and "research lead" (claims register).
+    - **CHL-HUNCH-17** (auto) The Hunches tab fits at 390 and 1280 px, light and dark, with no overflow, and passes axe WCAG 2.2 AA.
+    - **CHL-HUNCH-18** (manual) Chase runs the hearing hunch locally with `CHARLIE_DATA=auto`; AAPL, QCOM, COST and WMT show live Cboe prices, and he says whether the trail is one he'd keep.
+  - Also in the PR: `docs/architecture/02-data-flow.md` (hunch text to Anthropic) with its "Last checked" footer, and ux-reviewer plus privacy-security passes.
+- **M3.2** Hunches in the public demo. Status: todo, only if M3.1's signal is met. A prebuilt hearing hunch on first paint (the phone engine takes about 35 s), playbook only, labeled sample.
+
+Not in M3.1: chat tool for hunches; saved hunch history (no schema change); a third playbook (GLP-1); web search or citation fetching (Claude has no browse tool, so its evidence is labeled unchecked); adding KN, REGN or other names to the universe (it changes daily ideas and the demo's prebuilt drift); live prices for US tickers outside the universe; non-US listings; position sizing from a hunch; any "buy" or "winner" wording.
+
 ## Later (M2+)
 
 - "Chase uses it daily" items not in the Oct 28 release: earnings and ex-dividend check (needs a data source and architect), morning summary (cut; M1.13 B covers most of it). See `docs/plans/2026-10-28-release.md`.

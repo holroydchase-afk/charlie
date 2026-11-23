@@ -170,6 +170,8 @@
 
     <!-- SCREENER -->
     <section id="tab-screener" class="tab" role="tabpanel" aria-labelledby="tabbtn-screener">
+      <!-- M3.1: Search has two views on the local app, Screener and Hunches; the static demo removes the switch. -->
+      <div class="search-switch server-only" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener" aria-current="page">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch">Hunches</button></div>
       <div class="page-head">
         <h1>Search trades</h1>
         <p class="page-sub muted">Set your own criteria and Charlie finds trades that fit.</p>
@@ -225,6 +227,25 @@
         <div id="saved-screens" class="chips"></div>
       </form>
       <div id="screen-results"></div>
+    </section>
+
+    <!-- HUNCHES (M3.1, local app only): a sub-view of Search; the Search tab stays selected. The static demo removes it. -->
+    <section id="tab-hunch" class="tab server-only" aria-labelledby="hunch-title">
+      <div class="search-switch server-only" role="group" aria-label="Search by"><button type="button" class="btn-secondary seg" data-goto="screener">Screener</button><button type="button" class="btn-secondary seg" data-goto="hunch" aria-current="page">Hunches</button></div>
+      <div class="page-head">
+        <h1 id="hunch-title">Hunches</h1>
+        <p class="page-sub muted">Type a hunch about the world. Charlie restates it, checks the premise, maps the companies it touches and ranks the most exposed ones it can score.</p>
+      </div>
+      <form id="hunch-form" class="panel hunch-form">
+        <label for="hunch-text">Your hunch <span class="hint">Up to 600 characters.</span></label>
+        <textarea id="hunch-text" name="text" rows="3" maxlength="600" placeholder="e.g. Everyone wears earbuds all day, so hearing help becomes a huge consumer market."></textarea>
+        <div class="hunch-actions">
+          <span id="hunch-count" class="muted small num">0 / 600</span>
+          <button type="submit" class="btn-tinted">Run hunch</button>
+        </div>
+        <p id="hunch-llm" class="muted small hunch-llm"></p>
+      </form>
+      <div id="hunch-result"></div>
     </section>
 
     <!-- CHAT -->

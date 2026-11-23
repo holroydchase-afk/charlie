@@ -578,3 +578,60 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
   .disc-more { display: inline; color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
   .toast { bottom: var(--s4); }
 }
+/* M3.1: Hunches, a sub-view of Search on the local app only (the static demo removes it and its switch). */
+/* The Screener/Hunches switch: two segments on a fill track; the one showing is the raised surface. */
+.search-switch { display: inline-flex; gap: var(--s1); padding: var(--s1); margin-bottom: var(--s3); background: var(--fill); border-radius: var(--r-pill); }
+.search-switch .seg { background: transparent; color: var(--muted); font-weight: 500; }
+.search-switch .seg:hover { color: var(--ink); }
+.search-switch .seg[aria-current="page"] { background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; }
+.hunch-form textarea { resize: vertical; min-height: 88px; }
+.hunch-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
+.hunch-llm { margin: var(--s2) 0 0; }
+#hunch-result { margin-top: var(--s4); }
+.hunch-block { margin-bottom: var(--s4); overflow-wrap: anywhere; }
+.hunch-block h2 .pill { margin-left: var(--s1); }
+.hunch-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s4); }
+.hunch-groups h3 { margin-top: 0; }
+.hunch-players { list-style: none; margin: 0; padding: 0; }
+.hp { padding: var(--s2) 0; border-top: 1px solid var(--line); min-width: 0; }
+.hp-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s1) var(--s2); }
+/* Exposure is plain words, not a badge (UX-H6): a small slice is muted, a pure play reads in full ink. */
+.hp-exp { margin-left: auto; color: var(--muted); white-space: nowrap; }
+.hp-exp[data-exp="pure_play"] { color: var(--ink); font-weight: 600; }
+.hp .nowrap { white-space: nowrap; }
+.hunch-rest { margin-top: var(--s2); border-top: 1px solid var(--line); }
+.rank-list { margin: var(--s1) 0 0; padding-left: var(--s5); }
+.rank-list li { margin: var(--s1) 0; }
+.hunch-lead { overflow-wrap: anywhere; }
+.hunch-lead .metric .v { overflow-wrap: normal; }  /* "Unlimited" never breaks mid-word (UX-H3) */
+/* UX-H13: a trail link lands with the company name below the phone's sticky 56px header. */
+.hunch-lead .card-title { scroll-margin-top: calc(56px + var(--s4)); }
+.hunch-trail dl { margin: 0 0 var(--s2); }
+.trail-row { display: grid; grid-template-columns: 8.5em 1fr; gap: var(--s1) var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.trail-row:first-child { border-top: 0; }
+.trail-row dt { font-weight: 600; }
+.trail-row dd { margin: 0; min-width: 0; }
+/* The 48px box's spare width sits before a short symbol, so its comma follows the text, not a gap ("COST, ETN"). */
+.trail-row a { display: inline-flex; align-items: center; justify-content: flex-end; min-height: var(--target); min-width: var(--target); font-weight: 600; }
+.hunch-examples { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s2); }
+/* QA-R1: three research leads fit a phone's height budget. Tighter spacing on Hunches only (Today's cards keep
+   theirs), and the trail's labels run in ("Claim: ...") on phones. */
+@media (max-width: 600px) {
+  #tab-hunch .hunch-block { padding: var(--s3); margin-bottom: var(--s2); }
+  #tab-hunch .hunch-lead { padding: var(--s3); }
+  .hunch-lead .metrics.hero-m { margin: var(--s2) 0; }
+  #tab-hunch .mt-lg { margin-top: var(--s4); }
+  #tab-hunch .cards { gap: var(--s3); }
+  #tab-hunch .hunch-block .two-col h3 { margin-top: var(--s2); }
+  #tab-hunch .hp { padding: var(--s1) 0; }
+}
+/* CHL-UX-H12: under ~380px three hero tiles can't hold "Unlimited" at title size; step down to body size. */
+@media (max-width: 379px) {
+  .hunch-lead .hero-m .metric .v { font-size: var(--fs-body); line-height: var(--lh-body); }
+}
+@media (max-width: 480px) {
+  .trail-row { display: block; padding: var(--s1) 0; }
+  .trail-row dt, .trail-row dd { display: inline; }
+  .trail-row dt { margin-right: var(--s1); }
+  .trail-row dt::after { content: ":"; }
+}
