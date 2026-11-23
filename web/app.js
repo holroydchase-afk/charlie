@@ -712,7 +712,8 @@ const HUNCH_EXAMPLES = {
 const HUNCH_LLM_NOTE = { on: "Your hunch text is sent to Anthropic's Claude to draft the map. Leave out personal details.",
   off: "Your hunch stays on this computer. Charlie uses its built-in maps.",
   // The demo (M3.2): playbooks only, nothing leaves the browser. Copy from docs/product/MARKETING.md.
-  demo: "Your hunch stays in this browser. The demo has built-in maps for two example hunches: hearing and AI power." };
+  // CHL-UX-H34: the "built-in maps" fact is said once, in the sample line above the form.
+  demo: "Your hunch stays in this browser." };
 function fmtMonth(d) {  // "2022-11" -> "Nov 2022"; full dates use fmtDate
   const m = /^(\d{4})-(\d{2})$/.exec(String(d ?? ""));
   return m ? new Date(+m[1], +m[2] - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : fmtDate(d);
@@ -827,7 +828,7 @@ function renderHunch(r) {
 }
 function hunchResultClick(e) {
   const ex = e.target.closest("[data-hunch-example]");
-  if (ex) { $("#hunch-text").value = HUNCH_EXAMPLES[ex.dataset.hunchExample] || ""; hunchCount(); runHunch(); return; }
+  if (ex) { $("#hunch-text").value = HUNCH_EXAMPLES[ex.dataset.hunchExample] || ""; hunchCount(); runHunch(null, true); return; }
   const lead = e.target.closest("a[data-lead]");
   if (lead) {  // keep the tab's #hunch address; just bring the card into view
     e.preventDefault();
@@ -835,7 +836,15 @@ function hunchResultClick(e) {
     card?.scrollIntoView({ behavior: "smooth", block: "start" }); card?.focus({ preventScroll: true });
   }
 }
-async function runHunch(e) {
+// CHL-UX-H35: a run the person started (Run hunch, an example, "Try the … hunch") brings the result into view
+// under the sticky header and moves focus to its first heading. The demo's first paint and a risk change don't.
+function showHunchResult() {
+  const box = $("#hunch-result"), h = box.querySelector("h2");
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  box.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+}
+async function runHunch(e, reveal = !!e) {
   e && e.preventDefault();
   const f = $("#hunch-form"), ta = $("#hunch-text"), text = ta.value, btn = f.querySelector('button[type="submit"]'), box = $("#hunch-result");
   if (!text.trim()) { toast("Type a hunch first."); ta.focus(); return; }
@@ -845,8 +854,9 @@ async function runHunch(e) {
     const r = await postJSON("/api/hunch", { text, risk: state.risk });
     if (r.data_source) setDataBadge(r.data_source);
     renderHunch(r);
+    if (reveal) showHunchResult();
   } catch (err) {
-    box.innerHTML = errorState("Couldn't run this hunch. Check your connection and try again.", err, retryButton(() => runHunch()));
+    box.innerHTML = errorState("Couldn't run this hunch. Check your connection and try again.", err, retryButton(() => runHunch(null, true)));
   } finally { btn.textContent = "Run hunch"; hunchRunning = false; syncHunchControls(); }
 }
 const hunchCount = () => { $("#hunch-count").textContent = `${$("#hunch-text").value.length} / 600`; };

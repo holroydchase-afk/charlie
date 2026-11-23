@@ -61,7 +61,8 @@ Proof: `charlie/strategies.py` (`NFA`), `charlie/handlers.py` (`DISCLAIMER`: "no
 ### Hunch demo strings (proposed, for the engineer to apply)
 
 - Sample label on the Hunches view: `Sample data. Built-in maps for two example hunches.`
-- Form note under the hunch box: `Your hunch stays in this browser. The demo has built-in maps for two example hunches: hearing and AI power.`
+- Form note under the hunch box: `Your hunch stays in this browser.` (CHL-UX-H34: the built-in maps fact is said once, in the sample label.)
+- Hunches subtitle: `Type a hunch. Charlie checks it and ranks the companies it touches.` (CHL-UX-H36: two lines at 360px, so the Search switch doesn't move.)
 - Loading state: `Loading the engine…` (then, if over a few seconds on a phone: `Still loading. The first load takes longer on a phone.`)
 
 ### Hunch evidence (checked 2026-11-23)

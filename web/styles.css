@@ -83,7 +83,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
   .demo-bar__toggle { padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
   .demo-bar__panel { padding-left: max(var(--s4), env(safe-area-inset-left, 0px)); padding-right: max(var(--s4), env(safe-area-inset-right, 0px)); }
 }
-@media (max-width: 359px) { .demo-bar__sum { display: none; } }
+/* CHL-UX-H37: from 360 to 379px the middle text would cut off ("Sampl…"), so it steps aside and the badge reads
+   "Sample demo" in full, keeping the sample label on screen. Under 360 "Sample demo" doesn't fit beside the back
+   link and Details either, so the badge stays "Demo" there. */
+.demo-bar__badge-narrow { display: none; }
+@media (max-width: 379px) { .demo-bar__sum { display: none; } }
+@media (min-width: 360px) and (max-width: 379px) {
+  .demo-bar__badge-wide { display: none; }
+  .demo-bar__badge-narrow { display: inline; }
+}
 @media (prefers-reduced-motion: reduce) { .demo-bar__chev { transition: none; } }
 
 /* ---------------------------------------------------------------- header, tab bar, disclaimer line (CHL-NAV)
@@ -617,6 +625,10 @@ td .sector { max-width: 180px; white-space: nowrap; overflow: hidden; text-overf
 .hunch-lead .metric .v { overflow-wrap: normal; }  /* "Unlimited" never breaks mid-word (UX-H3) */
 /* UX-H13: a trail link lands with the company name below the phone's sticky 56px header. */
 .hunch-lead .card-title { scroll-margin-top: calc(56px + var(--s4)); }
+/* CHL-UX-H35: a run you start scrolls the result in below the phone's sticky 56px header plus 16px; from 760px the
+   header is the sidebar, so only the 16px. */
+#hunch-result { scroll-margin-top: calc(56px + var(--s4)); }
+@media (min-width: 760px) { #hunch-result { scroll-margin-top: var(--s4); } }
 .hunch-trail dl { margin: 0 0 var(--s2); }
 .trail-row { display: grid; grid-template-columns: 8.5em 1fr; gap: var(--s1) var(--s3); padding: var(--s2) 0; border-top: 1px solid var(--line); }
 .trail-row:first-child { border-top: 0; }

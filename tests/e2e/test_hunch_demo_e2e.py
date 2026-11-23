@@ -356,7 +356,10 @@ def test_CHL_HUNCH_DEMO_7_sample_label_and_browser_only_note(make_page, site_url
     expect(note).to_have_count(1)
     expect(note).to_be_visible()
     text = note.inner_text().strip()
-    assert re.search(r"built-in maps", text, re.I), text
+    # Re-pinned for CHL-UX-H34 (ux-reviewer round 6, Nov 23): the "built-in maps" fact now lives once, in the
+    # sample line above the form; the note says only where the hunch stays. Spec change, not a weakening:
+    # test_CHL_UX_H34_* pins the new note and that the fact appears exactly once.
+    assert text == "Your hunch stays in this browser.", text
     assert not re.search(r"computer|Claude|Anthropic", text, re.I), text
     assert text in _marketing_strings(), f"the note {text!r} isn't a MARKETING.md string"
     whole = view.inner_text()
@@ -694,3 +697,141 @@ def test_CHL_HUNCH_H33_unmatched_hunch_shows_one_set_of_examples(make_page, site
     expect(view.get_by_role("button", name="AI power", exact=True)).to_be_hidden()
     shown = view.locator("[data-hunch-example]:visible")
     expect(shown).to_have_count(2)
+
+
+# ============================================================ ux-reviewer round 6 (CHL-UX-H34 to H36, AC-H34..AC-H36)
+
+@pytest.mark.parametrize("engine", ["prebuilt", "engine_ready"])
+def test_CHL_UX_H34_built_in_maps_fact_said_once_on_the_hunches_form(make_page, site_url, engine):
+    pg = _demo(make_page, site_url, hold=engine == "prebuilt")
+    view = _to_hunches(pg)
+    if engine == "engine_ready":
+        _engine_ready(view)
+    _map_shows(view)
+    said = view.inner_text().lower().count("built-in maps for two example hunches")
+    assert said == 1, f"'built-in maps for two example hunches' appears {said}x in #tab-hunch (want once, the sample line)"
+    note = view.get_by_text(re.compile(r"stays in this browser"))
+    expect(note).to_have_count(1)
+    assert note.inner_text().strip() == "Your hunch stays in this browser.", note.inner_text()
+    if engine == "prebuilt":
+        _release(pg)
+
+
+# The band a result heading must land in: below every sticky/fixed bar at the top that covers it (header, demo
+# bar) and at least 48px above every fixed bar at the bottom (disclaimer line, tab bar). Toasts and the engine
+# pill are transient and don't count.
+RESULT_SPOT = """() => {
+    const box = document.querySelector('#hunch-result'), h = box.querySelector('h2');
+    if (!h) return {h2: null};
+    const r = h.getBoundingClientRect(), a = document.activeElement;
+    let top = 0, bottom = innerHeight;
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.closest('.toast, .engine-status, .drawer, .modal, #hunch-result')) continue;
+      const s = getComputedStyle(el);
+      if (s.position !== 'fixed' && s.position !== 'sticky') continue;
+      if (s.display === 'none' || s.visibility === 'hidden') continue;
+      const b = el.getBoundingClientRect();
+      if (!b.width || !b.height || b.height > innerHeight / 2) continue;      // side nav on laptops
+      if (b.right <= r.left || b.left >= r.right) continue;                   // doesn't sit over the heading
+      if (b.top < innerHeight / 2) top = Math.max(top, b.bottom); else bottom = Math.min(bottom, b.top);
+    }
+    return {h2: h.textContent.trim().slice(0, 50), y: r.top, top, bottom, scrollY,
+            focusIsH2: a === h, focusIn: box.contains(a), focus: a ? (a.id || a.tagName) + ' ' + (a.textContent || '').trim().slice(0, 30) : null};
+}"""
+
+
+def _settled_spot(pg, wait_ms=4_000):
+    """RESULT_SPOT once the (maybe smooth) scroll has stopped: two reads 250ms apart that agree."""
+    last, waited = None, 0
+    while waited < wait_ms:
+        got = pg.evaluate(RESULT_SPOT)
+        if last and got.get("y") == last.get("y") and got.get("scrollY") == last.get("scrollY"):
+            return got
+        last = got
+        pg.wait_for_timeout(250)
+        waited += 250
+    return last
+
+
+def _spot_problems(got, where):
+    if got["h2"] is None:
+        return [f"{where}: #hunch-result has no h2"]
+    bad = []
+    if not got["y"] >= got["top"]:
+        bad.append(f"{where}: first result h2 {got['h2']!r} top {got['y']:.0f} is behind the top bars (end at {got['top']:.0f})")
+    if not got["y"] <= got["bottom"] - 48:
+        bad.append(f"{where}: first result h2 {got['h2']!r} top {got['y']:.0f} is below {got['bottom'] - 48:.0f} "
+                   f"(bottom bars start at {got['bottom']:.0f}; scrollY {got['scrollY']:.0f})")
+    if not got["focusIsH2"]:
+        bad.append(f"{where}: focus is on {got['focus']!r}, not the first result h2 {got['h2']!r}")
+    return bad
+
+
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_UX_H35_a_run_you_start_scrolls_the_result_into_view_and_focuses_it(make_page, site_url, width, height):
+    pg = _demo(make_page, site_url, width, height)
+    view = _to_hunches(pg)
+    _engine_ready(view)
+    bad = []
+
+    # 1. The AI power example button in the form.
+    pg.evaluate("scrollTo(0, 0)")
+    pg.locator("#hunch-form").get_by_role("button", name="AI power", exact=True).click()
+    expect(view.get_by_text(re.compile(r"Arista|NVIDIA|Vistra", re.I)).first).to_be_attached(timeout=ENGINE)
+    _engine_ready(view)
+    bad += _spot_problems(_settled_spot(pg), f"{width}px Examples > AI power")
+
+    # 2. Run hunch on free text that matches a playbook.
+    pg.evaluate("scrollTo(0, 0)")
+    _box(view).fill(HEARING_FREE)
+    _run_btn(view).click()
+    expect(view.get_by_text(re.compile(r"Qualcomm", re.I)).first).to_be_attached(timeout=ENGINE)
+    _engine_ready(view)
+    bad += _spot_problems(_settled_spot(pg), f"{width}px Run hunch (hearing free text)")
+
+    # 3. Run hunch on text with no map.
+    pg.evaluate("scrollTo(0, 0)")
+    _box(view).fill(GIBBERISH)
+    _run_btn(view).click()
+    expect(view.get_by_role("heading", name="No map for this hunch yet")).to_be_attached(timeout=ENGINE)
+    _engine_ready(view)
+    bad += _spot_problems(_settled_spot(pg), f"{width}px Run hunch (no map)")
+
+    # 4. "Try the AI power hunch" in the no-map panel.
+    view.get_by_role("button", name="Try the AI power hunch").click()
+    expect(view.get_by_role("heading", name="Who it touches")).to_be_attached(timeout=ENGINE)
+    _engine_ready(view)
+    bad += _spot_problems(_settled_spot(pg), f"{width}px Try the AI power hunch")
+    assert bad == [], "\n".join(bad)
+
+
+@pytest.mark.parametrize("hash", ["", "#hunch"], ids=["via_switch", "deep_link"])
+@pytest.mark.parametrize("width,height", SIZES, ids=SIZE_IDS)
+def test_CHL_UX_H35_first_demo_paint_does_not_scroll_or_take_focus(make_page, site_url, width, height, hash):
+    pg = _demo(make_page, site_url, width, height, hash=hash)
+    view = _to_hunches(pg)
+    _map_shows(view)
+    _engine_ready(view)
+    pg.wait_for_timeout(1_000)
+    got = pg.evaluate(RESULT_SPOT)
+    assert got["scrollY"] == 0, f"{width}px {hash or 'switch'}: the first (prebuilt) paint scrolled the page to {got['scrollY']}"
+    assert not got["focusIn"], f"{width}px {hash or 'switch'}: the first paint moved focus into the result ({got['focus']!r})"
+
+
+SWITCH_TOP = """() => { const sw = [...document.querySelectorAll('.search-switch')].find((s) => s.offsetParent);
+    return sw.getBoundingClientRect().top + scrollY; }"""
+
+
+@pytest.mark.parametrize("width,height", [(360, 740), (390, 844), (1280, 800)], ids=["360x740", "390x844", "1280x800"])
+def test_CHL_UX_H36_search_switch_stays_put_between_screener_and_hunches(make_page, site_url, width, height):
+    pg = _demo(make_page, site_url, width, height)
+    pg.get_by_role("tab", name="Search", exact=True).click()
+    tops = {}
+    for view in ("screener", "hunch"):
+        if view == "hunch":
+            _switch_buttons(pg)[1].click()
+        _expect_on(pg, view)
+        pg.evaluate("scrollTo(0, 0)")
+        tops[view] = pg.evaluate(SWITCH_TOP)
+    assert abs(tops["screener"] - tops["hunch"]) <= 2, \
+        f"{width}px: Search switch top is {tops['screener']:.0f} on Screener but {tops['hunch']:.0f} on Hunches (want within 2px)"

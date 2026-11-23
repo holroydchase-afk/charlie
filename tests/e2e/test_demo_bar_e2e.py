@@ -306,3 +306,22 @@ def test_CHL_DEMO_BAR_local_app_shows_no_demo_bar(browser, local_app):
         expect(pg.locator("#data-badge")).to_have_text("Demo data")
     finally:
         ctx.close()
+
+
+# ---------------------------------------------------------------- CHL-UX-H37 (ux-reviewer round 6, AC-H37)
+CLIPPED = """(bar) => [bar, ...bar.querySelectorAll('*')]
+    .filter((e) => e.getClientRects().length && !e.closest('[hidden]') && e.scrollWidth > e.clientWidth)
+    .map((e) => `${e.getAttribute('class') || e.tagName}: ${JSON.stringify(e.textContent.trim().slice(0, 40))} `
+              + `scrollWidth ${e.scrollWidth} > clientWidth ${e.clientWidth}`)"""
+
+
+@pytest.mark.parametrize("width", [360, 375, 379])
+def test_CHL_UX_H37_demo_bar_text_is_not_cut_off_on_360_to_379px_phones(make_page, site_url, width):
+    pg = _open(make_page, site_url, width, 740)
+    bar = _bar(pg)
+    expect(bar).to_be_visible()
+    clipped = bar.evaluate(CLIPPED)
+    assert clipped == [], f"{width}px: demo bar text is cut off:\n" + "\n".join(clipped)
+    shown = " ".join(bar.inner_text().split())
+    assert "Sample demo" in shown, f"{width}px: the bar should read 'Sample demo', got {shown!r}"
+    assert pg.evaluate(OVERFLOW) <= 0, f"{width}px: the page scrolls sideways"
