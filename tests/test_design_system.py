@@ -61,6 +61,9 @@ BASE_AND_FIXED = ("bg", "surface", "ink", "muted", "line", "fill", "accent",
                   "accentInk", "safe", "danger", "dangerText", "onDanger", "scrim")
 DERIVED = ("accentSoft", "safeSoft", "tabLine")
 HC_KEYS = ("muted", "line", "tabLine", "accent", "accentSoft")
+# CHL-DARK-2 (SPEC-DARK-LAYERS.md): the only Charlie-local tokens themes.css may add. Explicit, never a pattern;
+# their values are pinned to the spec's derivation rule in tests/test_dark_layers.py (CHL-DARK-1).
+LOCAL_TOKENS = ("--raised", "--control-edge")
 FORBIDDEN_VARS = re.compile(r"--(?:warn|shadow)[\w-]*|--sunken\b|--line-strong\b|--good\b|--bad\b")
 
 
@@ -317,9 +320,11 @@ def _theme_values(state) -> dict:
 def test_CHL_DS_1_themes_css_defines_exactly_the_studio_tokens():
     rules = _themes_rules()
     defined = {p for r in rules for p, _ in r["decls"] if p.startswith("--")}
-    assert defined == set(TOKENS.values()), (
+    # Every studio token, and nothing else except the two named local tokens (CHL-DARK-2).
+    studio = defined - set(LOCAL_TOKENS)
+    assert studio == set(TOKENS.values()), (
         f"themes.css custom properties: missing {sorted(set(TOKENS.values()) - defined)}, "
-        f"extra {sorted(defined - set(TOKENS.values()))}")
+        f"extra {sorted(studio - set(TOKENS.values()))} (only {list(LOCAL_TOKENS)} may be added)")
     text = _strip_comments(THEMES.read_text())
     assert re.search(r"@media[^{]*prefers-color-scheme:\s*dark", text), "a prefers-color-scheme: dark block"
     assert re.search(r':root:not\(\[data-theme=["\']?light["\']?\]\)', text), \
@@ -454,7 +459,8 @@ def test_CHL_DS_4_every_color_var_in_styles_css_comes_from_themes_css():
     fallback_hooks = set(re.findall(r"var\((--[\w-]+)\s*,", _strip_comments(STYLES.read_text())))
 
     def ok(name, seen=()):
-        if name in theme_tokens:
+        # The same explicit two-name tuple CHL-DS-1 allows (SPEC-DARK-LAYERS Triage QA-R1); never a pattern.
+        if name in theme_tokens or name in LOCAL_TOKENS:
             return True
         if name in seen:
             return False
