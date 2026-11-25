@@ -106,11 +106,11 @@ def _run_hearing(pg):
     return panel
 
 
-# ============================================================ CHL-HUNCH-15 tab: local yes, static no
+# ============================================================ CHL-HUNCH-15 tab: local and (since M3.2) static demo
 
-# Placement since the app-style nav (CHL-NAV-1): Hunches is a sub-view of Search behind a server-only
+# Placement since the app-style nav (CHL-NAV-1): Hunches is a sub-view of Search behind a
 # "Search by" switch (Screener / Hunches), the Search tab stays selected while it shows, #hunch deep-links,
-# and the phone bar keeps exactly five tabs. The static demo has neither the switch nor the view.
+# and the phone bar keeps exactly five tabs. Since M3.2 the static demo has the switch and the view too.
 
 TABS = ["Today", "Search", "Chat", "Trades", "Learn"]
 SIZES = [(390, 844), (1280, 800)]
@@ -189,25 +189,27 @@ def test_CHL_HUNCH_15_hunch_address_deep_links_to_search_hunches(browser, local_
         ctx.close()
 
 
-def test_CHL_HUNCH_15_static_demo_hides_the_hunches_tab(page):
-    # Both directions: the local app reaches Hunches through Search (above); the public demo never does.
+# Re-pinned by qa-tdd, Nov 23, for M3.2 (Chase's call, "can we get it to the demo?"). A spec change, not a
+# weakening: these were "the static demo hides Hunches and #hunch falls back to Today". Now (CHL-HUNCH-DEMO-3)
+# the demo reaches Hunches through Search exactly as the local app does, the bar keeps exactly five tabs and
+# there is still no Hunches tab of its own. The "never imports anthropic" half stays in tests/test_hunch.py.
+def test_CHL_HUNCH_15_DEMO_3_static_demo_reaches_hunches_from_search(page):
     expect(page.get_by_role("tab", name="Hunches")).to_have_count(0)
     assert _tab_names(page) == TABS
     page.get_by_role("tab", name="Search", exact=True).click()
-    expect(page.locator("#tab-screener")).to_be_visible()
-    expect(page.get_by_role("group", name="Search by")).to_have_count(0)
-    expect(page.get_by_role("button", name="Hunches")).to_have_count(0)
-    # Gone from the page, not just hidden.
-    expect(page.locator(".search-switch, #tab-hunch, [data-goto=hunch], [data-tab=hunch]")).to_have_count(0)
+    _expect_on(page, "screener")
+    _switch_buttons(page)[1].click()
+    _expect_on(page, "hunch")
+    assert _tab_names(page) == TABS
 
 
-def test_CHL_HUNCH_15_static_demo_hunch_address_falls_back_to_today(make_page, site_url):
+def test_CHL_HUNCH_15_DEMO_3_static_demo_hunch_address_deep_links_to_search_hunches(make_page, site_url):
     pg = make_page(390, 844)
     pg.goto(site_url + "#hunch")
     pg.click("#ack-btn")
-    expect(pg.get_by_role("tab", name="Today", exact=True)).to_have_attribute("aria-selected", "true")
-    expect(pg.locator("#tab-today")).to_be_visible()
-    expect(pg.locator(".search-switch, #tab-hunch")).to_have_count(0)
+    expect(_hunches_view(pg)).to_be_visible(timeout=60_000)
+    _expect_on(pg, "hunch")
+    expect(pg.locator("#tab-today")).to_be_hidden()
 
 
 # ============================================================ CHL-HUNCH-SW the Screener / Hunches switch (local app)

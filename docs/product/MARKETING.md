@@ -52,6 +52,34 @@ Proof: `charlie/strategies.py` (`NFA`), `charlie/handlers.py` (`DISCLAIMER`: "no
 | Safe, risk-free, guaranteed income. | Don't say | Options carry real risk (`DISCLAIMER`). Say "defined worst case" or "max loss shown in dollars". |
 | Broker-ready order ticket. | Don't say | Sounds like order routing. The UI says "Copy trade details" (`tests/test_ux.py::test_CHL_UX50_...`). |
 | Works for any company you know. | Don't say | The universe is about 95 curated large caps across 17 sectors (`charlie/universe.py`, `README.md` Known limits). |
+| Hunches (demo): "Type a hunch; Charlie maps who it touches and which companies it can score." Uses "research leads" and "most exposed". Sample data. Built-in maps for two example hunches (hearing, AI power). The hunch stays in this browser. | OK to say once CHL-M3.2 ships to the demo | `charlie/hunch.py` (`HEARING`, `AI_POWER` playbooks, `RANKED_LABEL`, "research lead" label, `_FORBIDDEN`); `web/app.js` hunch view. Playbook evidence dates and facts checked against primary sources on 2026-11-23 (see Hunch evidence below). Re-verify before the demo PR merges. |
+| Hunches pick "winners", give "recommendations", or tell you what to "buy". | Don't say | `charlie/hunch.py` `_FORBIDDEN` strips these words; leads are for research and paper practice only. Say "research leads" or "most exposed". |
+| The demo uses AI (Claude) to map your hunch. | Don't say | The demo has no key and makes no network calls; it uses the two built-in playbooks only. Claude drafts exist only in the local app with a key, labeled "Claude's draft, sources not checked" (`CLAUDE_LABEL`). Any other hunch in the demo gets the "no map yet" message. |
+| Hunches show live prices. | Don't say | Demo prices are mock (`charlie/browser.py`). |
+| Charlie maps any hunch. | Don't say | Demo: two built-in maps. Local app: the same two, plus Claude drafts only with opt-in and a key. |
+
+### Hunch demo strings (proposed, for the engineer to apply)
+
+- Sample label on the Hunches view: `Sample data. Built-in maps for two example hunches.`
+- Form note under the hunch box: `Your hunch stays in this browser.` (CHL-UX-H34: the built-in maps fact is said once, in the sample label.)
+- Hunches subtitle: `Type a hunch. Charlie checks it and ranks the companies it touches.` (CHL-UX-H36: two lines at 360px, so the Search switch doesn't move.)
+- Loading state: `Loading the engine…` (then, if over a few seconds on a phone: `Still loading. The first load takes longer on a phone.`)
+
+### Hunch evidence (checked 2026-11-23)
+
+| Item | Date in code | Verified | Source | Status |
+|---|---|---|---|---|
+| BMJ Global Health unsafe listening meta-analysis, about 24% of 12 to 34 year olds | 2022-11 | Nov 2022; pooled 23.81% | https://pubmed.ncbi.nlm.nih.gov/36379592/ | OK |
+| WHO World Report on Hearing, about 2.5 billion by 2050 | 2021-03 | 2 Mar 2021 | https://www.who.int/news/item/02-03-2021-who-1-in-4-people-projected-to-have-hearing-problems-by-2050 | OK |
+| FDA OTC hearing aid final rule | 2022-08-16 | Announced 16 Aug 2022 (Federal Register 17 Aug, effective 17 Oct) | https://www.govinfo.gov/content/pkg/FR-2022-08-17/html/2022-17230.htm | OK |
+| FDA authorizes AirPods Pro hearing aid feature, first OTC hearing aid software | 2024-09-12 | 12 Sep 2024 | https://www.fda.gov/news-events/press-announcements/fda-authorizes-first-over-counter-hearing-aid-software | OK |
+| JAMA Otolaryngology, NHANES 1988-2010 (Su and Chan) | 2017-09 | Issue Sep 2017 (online Jul 2017) | https://pmc.ncbi.nlm.nih.gov/articles/PMC5710291 | OK, wording nuance: "no overall change"; prevalence rose to 2007-08 then fell |
+| LBNL data center report for DOE, 4.4% in 2023, 6.7% to 12% by 2028 | 2024-12 | Published 19 Dec 2024 | https://eta-publications.lbl.gov/publications/2024-lbnl-data-center-energy-usage-report | OK |
+| IEA Energy and AI, about 945 TWh by 2030 | 2025-04 | 10 Apr 2025; IEA says "more than double" (Base Case) | https://www.iea.org/reports/energy-and-ai/executive-summary | OK |
+| Constellation and Microsoft 20-year deal, Three Mile Island Unit 1 restart | 2024-09-20 | 20 Sep 2024 | https://www.constellationenergy.com/newsroom/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html | OK |
+
+Suggested wording fixes for the code owner (not applied here):
+- `charlie/hunch.py` HEARING "added": "US teen hearing loss was not rising in NHANES surveys from 1988 to 2010" should read "US hearing loss in children and teens showed no overall change in NHANES surveys from 1988 to 2010". The evidence fact "did not rise across the NHANES surveys" should read "showed no overall change from 1988 to 2010", since it rose mid-period before falling.
 
 ### Copy that is out of date today
 

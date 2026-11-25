@@ -1,6 +1,6 @@
 """M3.1 Hunch pipeline v1 (CHL-HUNCH-1 to 17): failing-first tests, written by qa-tdd before any code.
 
-Acceptance criteria: PLAN.md, M3.1. The browser half (tab visible locally, hidden in static, NFA on
+Acceptance criteria: PLAN.md, M3.1. The browser half (tab visible locally and, since M3.2, in the static demo too; NFA on
 the panel and cards, fit and axe at 390/1280 light/dark) is in tests/e2e/test_hunch_e2e.py.
 Only fictional data here; nothing touches the network (Claude is always a fake).
 
@@ -54,10 +54,11 @@ Claude drafter contract (what ``draft()`` returns, validated by our code):
 ``Api.hunch(text, risk=None) -> dict`` uses the current profile and, unless static,
     ``client=hunch.claude_client()``. 422 when text is empty/blank or over 600 characters.
     Routes: ``POST /api/hunch`` with JSON ``{"text": str, "risk": int|None}`` in server.py and in
-    ``Api.route``. In static mode (``Api(static=True)``) the route answers 404.
+    ``Api.route``. In static mode (``Api(static=True)``) the route runs playbooks only (``client=None``,
+    ``claude_client`` never called) and answers 200; re-pinned for M3.2 (see CHL-HUNCH-15 below).
 
-Web: a tab button ``data-tab="hunch"`` named "Hunches" with panel ``#tab-hunch``, both marked
-    ``server-only`` so the static demo hides them.
+Web: a tab button ``data-tab="hunch"`` named "Hunches" with panel ``#tab-hunch``. Since M3.2 the view and
+    its Screener / Hunches switch show in the static demo too (no ``server-only``).
 
 CHL-HUNCH-16 scope: the reused trade dicts (``idea["trade"]``) carry the existing strategy copy
 ("Buy shares", "BUY TO OPEN", "protecting a big winner"), so the forbidden-word check covers every
@@ -672,16 +673,24 @@ def test_CHL_HUNCH_15_600_characters_is_allowed(hunch, md, monkeypatch):
     assert status == 200
 
 
-def test_CHL_HUNCH_15_static_mode_has_no_hunch_route(hunch, md, monkeypatch):
+# Re-pinned by qa-tdd, Nov 23, for M3.2 (Chase's call, "can we get it to the demo?"). This is a spec change,
+# not a weakening. Old static half: "the route answers 404 and the tab is hidden". New (CHL-HUNCH-DEMO-1/3):
+# the route answers 200 from the playbooks only. What stays as strict: claude_client is never called in static
+# mode (the spy below, even with a drafter on offer) and static mode never imports anthropic (next test).
+def test_CHL_HUNCH_15_DEMO_1_static_mode_runs_playbooks_only_and_never_calls_claude(hunch, md, monkeypatch):
     called = []
     monkeypatch.setattr(hunch, "claude_client", lambda: called.append(1) or FakeClaude(claude_draft()))
-    status, _ = _static_api(md).route("POST", "/api/hunch", None, {"text": HEARING})
-    assert status == 404
+    status, out = _static_api(md).route("POST", "/api/hunch", None, {"text": HEARING})
+    assert status == 200, out
+    assert out["source"] == "playbook" and out["disclaimer"] == NFA
+    assert CLAUDE_LABEL not in json.dumps(out)
     assert called == []
 
 
 def test_CHL_HUNCH_15_static_mode_never_imports_anthropic(hunch):
     # A fresh interpreter, with the LLM switched on, so only static mode keeps Claude out.
+    # Re-pinned for M3.2 (spec change, Nov 23): the status is now 200 (playbook), was 404; the
+    # "never imports anthropic" check is unchanged.
     code = (
         "import sys, json\n"
         "from datetime import date\n"
@@ -704,7 +713,7 @@ def test_CHL_HUNCH_15_static_mode_never_imports_anthropic(hunch):
     out = subprocess.run([sys.executable, "-c", code], cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
     assert out.returncode == 0, out.stderr[-2000:]
     res = json.loads(out.stdout.strip().splitlines()[-1])
-    assert res == {"status": 404, "anthropic": False}
+    assert res == {"status": 200, "anthropic": False}
 
 
 def _section(html: str, sid: str) -> str:
@@ -721,16 +730,19 @@ def _switch(section: str):
     return m.group(0), {re.search(r'data-goto="(\w+)"', b).group(1): b for b in buttons if "data-goto" in b}
 
 
-def test_CHL_HUNCH_15_hunches_tab_exists_and_is_server_only():
+def test_CHL_HUNCH_15_DEMO_3_hunches_view_exists_and_shows_in_both_modes():
     # Placement after the app-style nav (CHL-NAV-1, decision logged in HANDOFF): Hunches is a sub-view of
-    # Search behind a server-only Screener / Hunches switch, not a sixth tab. Browser half: test_hunch_e2e.py.
+    # Search behind a Screener / Hunches switch, not a sixth tab. Browser half: test_hunch_e2e.py.
+    # Re-pinned by qa-tdd, Nov 23, for M3.2 (spec change, Chase's call): was "the switch and view are
+    # server-only"; now neither is, so the static demo shows them too (CHL-HUNCH-DEMO-3). Everything else
+    # (five tabs, both switch buttons, aria-current both ways, the view's accessible name) is unchanged.
     html = (WEB / "index.html").read_text()
     tabs = re.findall(r'<button[^>]*role="tab"[^>]*>', html)
     assert len(tabs) == 5, f"the tab bar has {len(tabs)} tabs, CHL-NAV-1 wants exactly 5"
     assert not re.search(r'data-tab="hunch"', html), "Hunches is still a tab of its own"
     for view, here in (("tab-screener", "screener"), ("tab-hunch", "hunch")):
         wrap, buttons = _switch(_section(html, view))
-        assert "server-only" in wrap and 'role="group"' in wrap and re.search(r'aria-label="[^"]+"', wrap), wrap
+        assert "server-only" not in wrap and 'role="group"' in wrap and re.search(r'aria-label="[^"]+"', wrap), wrap
         assert set(buttons) == {"screener", "hunch"}, buttons
         assert re.sub(r"<[^>]+>", "", buttons["screener"]).strip() == "Screener"
         assert re.sub(r"<[^>]+>", "", buttons["hunch"]).strip() == "Hunches"
@@ -739,7 +751,7 @@ def test_CHL_HUNCH_15_hunches_tab_exists_and_is_server_only():
         other = "hunch" if here == "screener" else "screener"
         assert "aria-current" not in buttons[other], f"{view}: the other button claims aria-current"
     panel = re.search(r'<section[^>]*id="tab-hunch"[^>]*>', html).group(0)
-    assert "server-only" in panel, panel
+    assert "server-only" not in panel, panel
     assert re.search(r'aria-labelledby="([^"]+)"', panel), "the Hunches view has no accessible name"
     label_id = re.search(r'aria-labelledby="([^"]+)"', panel).group(1)
     assert re.search(rf'id="{label_id}"[^>]*>\s*Hunches\s*<', html), "the Hunches view isn't named 'Hunches'"
