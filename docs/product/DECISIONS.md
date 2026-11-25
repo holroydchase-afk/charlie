@@ -85,7 +85,7 @@ Only Chase's calls go here. Product calls an agent makes on its own (the simples
 
 ### CHL-DEC-10: Leave the author email in history (CHL-PS16)
 - Date: 2026-10-29
-- The call: paraphrased, and the repo doesn't record Chase making it (privacy-security recommended it; HANDOFF says "accepted as is"). Accept the personal email on 23 commit authors as is, with no history rewrite. Treat as provisional until Chase confirms.
+- The call: paraphrased, and the repo doesn't record Chase making it (privacy-security recommended it; HANDOFF says "accepted as is"). Accept the personal email on commit authors as is, with no history rewrite (23 commits on Oct 29; 38 as of Nov 25, `docs/reviews/2026-11-25-public-repo-privacy.md` CHL-PS-P2, because GitHub's email privacy setting is still off). Treat as provisional until Chase confirms.
 - Why: the repo is already public, and a rewrite changes every SHA and needs a force-push.
 - What it beat: rewriting history. Still open: Chase ticks GitHub's email privacy settings so new web merges don't add more (HANDOFF "Blockers").
 - Evidence: HANDOFF "Done" (Oct 29) and "Blockers", `docs/reviews/2026-10-24-pre-public-privacy.md` finding 1.

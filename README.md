@@ -1,12 +1,12 @@
 # Charlie
 
+> **Not financial advice. Paper trading only.** Charlie is for education and paper trading only. It never places real orders and holds no broker credentials.
+
 [![CI](https://github.com/holroydchase-afk/charlie/actions/workflows/ci.yml/badge.svg)](https://github.com/holroydchase-afk/charlie/actions/workflows/ci.yml)
 
 **Invest in what you know, with training wheels.** Charlie reads your resume and interests, maps your *circle of competence* to companies, scores them with a Charlie Munger-style checklist, and turns the best 1-3 into concrete stock or options ideas each day. A risk slider decides how adventurous the trades are. It defaults to conservative (covered calls and cash-secured puts).
 
-> Education and paper trading only. Charlie never places real orders and is not financial advice.
-
-**Try the demo:** coming soon at chaseholroyd.com/charlie/. It runs entirely in your browser on a fictional sample person and simulated prices, with no sign-up. Until it's live, `python tools/build_demo.py site` builds it locally (see [Static demo](#static-demo-no-server)).
+**Try the demo:** [chaseholroyd.com/charlie/](https://chaseholroyd.com/charlie/). It runs entirely in your browser on a fictional sample person and simulated prices, with no sign-up. `python tools/build_demo.py site` builds it locally (see [Static demo](#static-demo-no-server)).
 
 <img src="docs/screenshots/demo-phone.png" alt="Charlie on a phone: today's ideas for the fictional sample person at the Conservative risk level, led by a cash-secured put on Abbott Laboratories" width="320">
 
