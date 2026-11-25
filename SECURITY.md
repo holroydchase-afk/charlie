@@ -6,9 +6,9 @@ Only `main` is supported. Fixes land there and the live demo redeploys from it.
 
 ## Reporting a vulnerability
 
-Please report it privately through GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability**. Don't open a public issue, and don't include real personal data (such as a resume) in the report.
+Please report it privately through GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability**. Don't open a public issue, and don't include real personal data (such as a resume) in the report. If that button isn't there, open a short issue that says only "security contact please", with no details, and you'll get a private way to send them.
 
-Expect an acknowledgement within a week. This is a one-person project, so fixes are best effort.
+This is a one-person project, so replies and fixes are best effort.
 
 ## In scope
 

@@ -54,7 +54,7 @@ The first screen comes from `prebuilt.json`, so it appears right away while Pyod
 ## What's in the MVP
 
 - **Profile:** resume + interests + brands + holdings → ranked sectors with the evidence behind each ("your resume mentions Da Vinci (Intuitive Surgical)"), and the companies you're positioned to understand.
-- **Today:** 1-3 ideas, one per sector. Each has a Charlie score with reasons, why it's in your circle, the exact trade (legs, contracts, credit or debit), max loss in dollars, breakeven, chance of profit, a payoff chart, an exit plan, "what could go wrong," and a broker-ready order ticket. Ideas stay fixed for the day.
+- **Today:** 1-3 ideas, one per sector. Each has a Charlie score with reasons, why it's in your circle, the exact trade (legs, contracts, credit or debit), max loss in dollars, breakeven, chance of profit, a payoff chart, an exit plan, "what could go wrong," and a **Copy trade details** button. Ideas stay fixed for the day.
 - **Risk slider (1-5):** shares only → covered calls / cash-secured puts → credit spreads and collars → debit spreads and LEAPS → short-dated long calls. Position sizing tightens as risk goes up. Uncovered calls and 0DTE are never offered.
 - **Screener:** your own criteria (sectors, tickers, min score, max price, IV range, chance of profit, capital, annualized return, days to expiry, delta, skip red flags). Save screens and rerun them.
 - **Chat:** ask about ideas, a company, a strategy, or your portfolio. Trades in answers come with **Paper trade** buttons.
@@ -102,7 +102,8 @@ Run tests with `CHARLIE_DATA=mock CHARLIE_LLM=off python -m pytest -q`.
 
 ## Known limits (MVP)
 
-- Live data adapters (Cboe delayed options, SEC EDGAR) are built and unit-tested against their documented formats, but couldn't be exercised against the real endpoints from the build machine. Expect a small fix or two on first live run.
+- Live Cboe delayed options data (local app only) was verified against the real endpoint on Oct 28. That endpoint is unofficial and may change.
+- The SEC EDGAR adapter is built and unit-tested against its documented format but not yet verified live, so fundamentals are demo numbers, shown next to live prices as "Live prices · demo fundamentals".
 - The ticker universe is a curated ~95 large caps across 17 sectors. Companies outside it (e.g. a small-cap employer) are recognized only through their sector.
 - Banks and insurers don't fit ROIC-style metrics well, so Berkshire, JPMorgan, and others score lower than they deserve.
 - No earnings-date awareness yet; check before selling options through earnings.
@@ -113,11 +114,11 @@ Run tests with `CHARLIE_DATA=mock CHARLIE_LLM=off python -m pytest -q`.
 1. Alpaca paper-trading connection, so "Paper trade this" places a real paper order (Alpaca supports options levels 1-3 in paper).
 2. Earnings calendar and ex-dividend checks before suggesting short options.
 3. Daily email or push digest of the day's ideas.
-4. Track idea outcomes over time to see whether the scoring actually works.
+4. Track trade outcomes over time (options P&L, not just the stock's move the track record shows today) to see whether the scoring actually works.
 
 ## Plan and status
 
-Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). M1 is the static, no-login demo on sample data at chaseholroyd.com/charlie/. It's built and tested, and it goes live after a privacy review and the switch to a public repo.
+Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](HANDOFF.md). M1 is the static, no-login demo on sample data. It has been live at [chaseholroyd.com/charlie/](https://chaseholroyd.com/charlie/) since Oct 29, and this repo is public.
 
 ## License
 
