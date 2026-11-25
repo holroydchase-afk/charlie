@@ -151,32 +151,62 @@ def _gh_eval(expr, ctx):
     return truthy(out)
 
 
-def _pages():
-    """The deploy job's `if:` and the `on.schedule` crons, read from pages.yml without a YAML library
-    (CI installs only requirements.txt). Returns the same shapes yaml.safe_load would."""
+def _jobs():
+    """Each job in pages.yml, read without a YAML library (CI installs only requirements.txt):
+    {name: {"if": folded or inline expr or None, "needs": [..], "uses": [..], "lines": [..]}}."""
     lines = PAGES.read_text().splitlines()
-    expr, crons = None, []
-    for i, line in enumerate(lines):
-        m = re.match(r"^(\s*)if: >-\s*$", line)
-        if m and expr is None:
-            indent, body = len(m.group(1)), []
-            for nxt in lines[i + 1:]:
-                if nxt.strip() and len(nxt) - len(nxt.lstrip()) <= indent:
-                    break
-                if nxt.strip():
-                    body.append(nxt.strip())
-            expr = " ".join(body)
+    start = next(i for i, l in enumerate(lines) if l == "jobs:")
+    jobs, name = {}, None
+    for line in lines[start + 1:]:
+        if line.strip() and not line.startswith(" "):
+            break
+        m = re.match(r"^  ([\w-]+):\s*$", line)
+        if m:
+            name = m.group(1)
+            jobs[name] = {"lines": []}
+        elif name:
+            jobs[name]["lines"].append(line)
+    for job in jobs.values():
+        body, expr = job["lines"], None
+        for i, line in enumerate(body):
+            f = re.match(r"^    if: >-\s*$", line)
+            if f:
+                expr = " ".join(n.strip() for n in body[i + 1:][:next(
+                    (k for k, n in enumerate(body[i + 1:]) if n.strip() and len(n) - len(n.lstrip()) <= 4),
+                    len(body))] if n.strip())
+            elif re.match(r"^    if:\s*\S", line):
+                expr = line.split("if:", 1)[1].strip()
+        job["if"] = expr
+        needs = next((l.split("needs:", 1)[1].strip() for l in body if re.match(r"^    needs:", l)), None)
+        job["needs"] = [n.strip() for n in needs.strip("[]").split(",") if n.strip()] if needs else []
+        job["uses"] = [re.sub(r"@.*", "", u) for u in re.findall(r"uses:\s*(\S+)", "\n".join(body))]
+    return jobs
+
+
+def _job_using(action):
+    hits = [n for n, j in _jobs().items() if action in j["uses"]]
+    assert len(hits) == 1, f"expected exactly one job using {action}, found {hits}"
+    return hits[0]
+
+
+def _pages():
+    """The build job's `if:` (the job that uploads the Pages artifact carries the folded guard) and the
+    `on.schedule` crons, read from pages.yml without a YAML library. Returns yaml.safe_load-like shapes."""
+    lines = PAGES.read_text().splitlines()
+    crons = []
+    for line in lines:
         c = re.match(r"^\s*-\s*cron:\s*[\"']([^\"']+)[\"']", line)
         if c:
             crons.append({"cron": c.group(1)})
-    assert expr, "pages.yml deploy job has no folded `if: >-` expression"
+    expr = _jobs()[_job_using("actions/upload-pages-artifact")]["if"]
+    assert expr, "pages.yml build job has no folded `if: >-` expression"
     on = {"schedule": crons} if crons else {}
-    return {"jobs": {"deploy": {"if": expr}}}, on
+    return {"jobs": {"build": {"if": expr}}}, on
 
 
 def _deploys(event_name, repo="holroydchase-afk/charlie", private=False, run=None):
     wf, _ = _pages()
-    expr = wf["jobs"]["deploy"]["if"]
+    expr = wf["jobs"]["build"]["if"]
     expr = re.sub(r"^\$\{\{(.*)\}\}$", r"\1", expr.strip(), flags=re.S)
     event = {"repository": {"private": private, "full_name": repo}}
     if run is not None:
@@ -200,9 +230,9 @@ def test_CHL_PS17_evaluator_matches_todays_workflow_for_the_allowed_cases():
 def test_CHL_PS17_a_fork_pull_request_from_a_branch_named_main_does_not_deploy():
     # CI runs for a fork's PR; its workflow_run has head_branch "main" and passes the branches filter.
     assert _deploys("workflow_run", run=_run(event="pull_request", head_repo="mallory/charlie")) is False, \
-        "deploy.if must require github.event.workflow_run.event == 'push'"
+        "build.if must require github.event.workflow_run.event == 'push'"
     assert _deploys("workflow_run", run=_run(event="push", head_repo="mallory/charlie")) is False, \
-        "deploy.if must require github.event.workflow_run.head_repository.full_name == github.repository"
+        "build.if must require github.event.workflow_run.head_repository.full_name == github.repository"
     assert _deploys("workflow_run", run=_run(event="pull_request")) is False, "a same-repo PR run must not deploy"
     assert _deploys("workflow_run", run=_run()) is True
 
@@ -217,3 +247,45 @@ def test_CHL_UX43b_pages_rebuilds_weekly_but_only_on_chases_repo():
     assert _deploys("schedule", repo="holroydchase-afk/charlie") is True, "a schedule run on Chase's repo deploys"
     assert _deploys("schedule", repo="someone/charlie") is False, \
         "a schedule run on a fork must not deploy (github.repository == 'holroydchase-afk/charlie')"
+
+
+# ---------------------------------------------------------------- CHL-PAGES-SPLIT: deploy-pages finds 0 artifacts
+# Since Nov 24 deploy-pages@v5 in the same job right after upload-pages-artifact@v5 finds no artifact.
+# Fix: a guarded `build` job uploads, a separate `deploy` job (needs: build) deploys.
+def test_CHL_PAGES_SPLIT_a_upload_runs_in_the_guarded_build_job():
+    jobs = _jobs()
+    up = _job_using("actions/upload-pages-artifact")
+    assert up == "build", f"upload-pages-artifact runs in job {up!r}; it must be the `build` job"
+    guard = jobs[up]["if"] or ""
+    for clause in ("github.event.repository.private == false",
+                   "github.event.workflow_run.event == 'push'",
+                   "github.event.workflow_run.head_repository.full_name == github.repository",
+                   "github.repository == 'holroydchase-afk/charlie'"):
+        assert clause in guard, f"build job's guard lost {clause!r}"
+    assert "actions/configure-pages" in jobs[up]["uses"] and "actions/checkout" in jobs[up]["uses"]
+    text = "\n".join(jobs[up]["lines"])
+    assert "check_site.py site --no-cdn" in text and "github.event.workflow_run.head_sha" in text
+
+
+def test_CHL_PAGES_SPLIT_b_deploy_is_its_own_job_that_needs_build():
+    up, dep = _job_using("actions/upload-pages-artifact"), _job_using("actions/deploy-pages")
+    assert dep != up, f"deploy-pages runs in the same job as upload-pages-artifact ({up!r}); it finds 0 artifacts"
+    assert _jobs()[dep]["needs"] == ["build"], f"job {dep!r} must have `needs: build`"
+    text = "\n".join(_jobs()[dep]["lines"])
+    assert "name: github-pages" in text and "steps.deployment.outputs.page_url" in text
+    assert re.search(r"id: deployment\s*\n\s*uses: actions/deploy-pages@v5", text)
+
+
+def test_CHL_PAGES_SPLIT_c_deploy_has_no_if_that_bypasses_the_build_guard():
+    dep = _jobs()[_job_using("actions/deploy-pages")]
+    expr = dep["if"] or ""
+    assert "always()" not in expr and "cancelled()" not in expr, f"deploy if: {expr!r} bypasses build's guard"
+    assert dep["if"] is None, f"deploy should rely on needs: build, not its own if: {expr!r}"
+
+
+def test_CHL_PAGES_SPLIT_d_a_new_run_never_cancels_a_deploy_midway():
+    wf = PAGES.read_text()
+    m = re.search(r"^concurrency:\s*\n((?:[ ]+.*\n)+)", wf, flags=re.M)
+    assert m, "pages.yml needs a top-level concurrency block"
+    c = re.search(r"cancel-in-progress:\s*(\S+)", m.group(1))
+    assert c and c.group(1) == "false", f"concurrency.cancel-in-progress is {c and c.group(1)!r}; must be false"

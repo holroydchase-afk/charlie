@@ -16,9 +16,13 @@ permissions:
   id-token: write
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Never cancel a deploy midway: a newer run waits its turn instead.
+  cancel-in-progress: false
 jobs:
-  deploy:
+  # Split into build and deploy: deploy-pages ran 300ms after upload-pages-artifact in the same
+  # job and found 0 artifacts (every run since Nov 24). Deploying from its own job, after the
+  # build job has finished and published the artifact, fixes that.
+  build:
     # CHL-PS17: a CI run only deploys if it was a push to this repo. A fork's pull request from a
     # branch named main also passes the branches filter above, so check the run's event and repo.
     # The weekly schedule deploys only on Chase's repo, never on a fork.
@@ -30,9 +34,6 @@ jobs:
            github.event.workflow_run.head_repository.full_name == github.repository))) ||
       (github.event_name == 'schedule' && github.repository == 'holroydchase-afk/charlie')
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,5 +58,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v5
