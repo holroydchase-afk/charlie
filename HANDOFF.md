@@ -261,3 +261,6 @@ The Polish Freeze (since Oct 24) was lifted by Chase on Oct 28; the parked items
 - 2026-10-23: studio onboarding (M0.1). No public changes yet.
 - 2026-10-23: night shift M0.2 + M0.3 (PR #2). No public changes; the demo isn't live yet.
 - 2026-10-23: M1.1 Pyodide spike page (`spike/`, test page only, not deployed). No public changes.
+
+## Repo best-practices pass (2026-11-25)
+- Done: CONTRIBUTING.md CODE_OF_CONDUCT.md SECURITY.md PR-template issue-templates SUPPORT.md README-AI-line codeql(actions, javascript-typescript, python). Added from the GitHub, Linux Foundation and Syracuse checklists (studio-agents docs/repo-standards.md). Left for this project to review: CHANGELOG.md, THIRD_PARTY_NOTICES, wording of the README AI-use line against the claims register, repo description and topics.
