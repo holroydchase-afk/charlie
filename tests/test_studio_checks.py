@@ -28,7 +28,7 @@ def test_agent_roster_check_catches_drift(tmp_path):
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 def test_logs_never_print_secrets_or_personal_data():
-    # console.* calls in web/ and spike/ never log keys, URLs, emails, resumes or raw errors.
+    # console.* calls in web/ and tools/spike/ never log keys, URLs, emails, resumes or raw errors.
     r = subprocess.run(["node", "scripts/check-logs.mjs"], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
 

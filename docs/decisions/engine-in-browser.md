@@ -6,7 +6,7 @@ Date: 2026-10-23, updated 2026-10-24. Status: **proposed, needs Chase's call** (
 FastAPI can't run on GitHub Pages, so the static demo needs the engine in the browser. Should we run the existing Python in Pyodide or port scoring and strategies to JavaScript? PLAN's stop condition says: if the interactive app takes over 10 seconds on a throttled mid-range phone, even with a prebuilt first screen, port to JS.
 
 ## What the spike does
-- `spike/` + `tools/build_spike.py` build a static page. It loads Pyodide 0.28.3, unpacks a 40 KB zip of the `charlie` modules the demo needs (`charlie/demo.py` and its imports only: no server, storage, chat, document parsers or network code), and shows today's ideas for the fictional sample resume on mock data.
+- `tools/spike/` (moved from the repo root in M1.18) + `tools/build_spike.py` build a static page. It loads Pyodide 0.28.3, unpacks a 40 KB zip of the `charlie` modules the demo needs (`charlie/demo.py` and its imports only: no server, storage, chat, document parsers or network code), and shows today's ideas for the fictional sample resume on mock data.
 - The engine now runs serially when there are no threads (`sys.platform == "emscripten"`).
 - `tests/golden/sample_ideas.json` pins the ideas pytest produces for the sample person (2026-10-22, risk level 2). The browser run produced **exactly the same summary** (symbols, strategies, scores, legs, max loss, breakeven, chance of profit) in every run below.
 

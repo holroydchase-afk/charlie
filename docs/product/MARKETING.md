@@ -83,12 +83,7 @@ Suggested wording fixes for the code owner (not applied here):
 
 ### Copy that is out of date today
 
-Logged for the owner of each file. This doc does not change them.
-
-- `README.md` says the demo is "coming soon". It has been live at chaseholroyd.com/charlie/ since Oct 29 (`HANDOFF.md`).
-- `README.md` Known limits says the live adapters "couldn't be exercised". Cboe was verified live on Oct 28; only SEC is unverified.
-- `README.md` "What's in the MVP" says "broker-ready order ticket". See the Don't say row above.
-- `README.md` Next steps lists "track idea outcomes over time", which the track record now partly does (stock move, not trade P&L).
+None as of Nov 25 (the four README items were fixed in CHL-M1.18).
 
 ## Required wording
 
