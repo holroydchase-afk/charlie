@@ -404,7 +404,11 @@ def test_CHL_NAV_8_today_has_no_pitch_proof_or_top_idea_link_and_card_one_starts
 
 
 # ================================================================ CHL-NAV-9 where the risk slider is
-SLIDER = """(id) => { const v = document.getElementById(id);
+# CHL-HUNCH-H28 (deliberate rule change, not a weakening): ux-reviewer places Search's "Screener / Hunches" switch
+# (`.search-switch`) between Search's page title and the risk slider, so on Search (Screener and Hunches) that switch,
+# and only that switch, may sit between them. Today allows nothing, and every other NAV-9 rule stays as strict.
+SEARCH_VIEWS = {"screener": ".search-switch", "hunch": ".search-switch"}
+SLIDER = """([id, allow]) => { const v = document.getElementById(id);
     const sl = [...document.querySelectorAll('input[type=range]')].filter((e) => e.checkVisibility());
     const h = [...v.querySelectorAll('h1')].find((x) => x.checkVisibility());
     const out = {n: sl.length};
@@ -415,8 +419,11 @@ SLIDER = """(id) => { const v = document.getElementById(id);
     out.row = row; out.hb = hb;
     out.between = [...document.querySelectorAll('body *')].filter((e) => e.checkVisibility() && own(e) && !(sub && sub.contains(e))
         && ![...r.labels].some((l) => l.contains(e)) && e !== r && !e.closest('header, nav, #disclaimer-line, .demo-bar')
+        && !(allow && e.closest(allow) && v.contains(e))
         && e.getBoundingClientRect().top >= hb - 0.5 && e.getBoundingClientRect().bottom <= row + 0.5)
         .map((e) => e.tagName + ' ' + (e.textContent || '').trim().slice(0, 30));
+    const sw = allow ? [...v.querySelectorAll(allow)].find((x) => x.checkVisibility()) : null;
+    if (sw) { const b = sw.getBoundingClientRect(); out.sw = {top: b.top, bottom: b.bottom}; }
     return out; }"""
 
 
@@ -424,9 +431,15 @@ SLIDER = """(id) => { const v = document.getElementById(id);
 def test_CHL_NAV_9_risk_slider_sits_under_the_title_on_today_and_search_only(make_page, site_url, size):
     pg = _open(make_page, site_url, size)
     bad = []
-    for view in ("today", "screener"):
-        _go(pg, view)
-        got = pg.evaluate(SLIDER, f"tab-{view}")
+    for view in ("today", "screener", "hunch"):
+        if view == "hunch":  # Hunches has no tab of its own: it's reached from Search's switch (CHL-HUNCH-15)
+            pg.click("#tab-screener .search-switch [data-goto=hunch]")
+            expect(pg.locator("#tab-hunch")).to_be_visible()
+            _engine_idle(pg)
+        else:
+            _go(pg, view)
+        allow = SEARCH_VIEWS.get(view)
+        got = pg.evaluate(SLIDER, [f"tab-{view}", allow])
         if got["n"] != 1:
             bad.append(f"{view}: {got['n']} visible risk sliders (want 1)")
             continue
@@ -434,6 +447,13 @@ def test_CHL_NAV_9_risk_slider_sits_under_the_title_on_today_and_search_only(mak
             bad.append(f"{view}: the slider ({got['row']:.0f}px) is above the title bottom ({got['hb']:.0f}px)")
         if got["between"]:
             bad.append(f"{view}: between the title and the slider: {got['between'][:4]}")
+        if allow:  # H28 pins the order: title, then the switch, then the slider
+            sw = got.get("sw")
+            if not sw:
+                bad.append(f"{view}: no visible {allow}")
+            elif not (sw["top"] >= got["hb"] - 0.5 and sw["bottom"] <= got["row"] + 0.5):
+                bad.append(f"{view}: {allow} ({sw['top']:.0f}-{sw['bottom']:.0f}px) is not between the title "
+                           f"({got['hb']:.0f}px) and the slider ({got['row']:.0f}px)")
     for view in ("chat", "paper"):
         _go(pg, view)
         n = pg.evaluate("[...document.querySelectorAll('input[type=range]')].filter((e) => e.checkVisibility()).length")

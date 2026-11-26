@@ -56,7 +56,9 @@ def test_prebuilt_matches_what_pyodide_computes(pre):
         s.setItem("charlie:kv:sample_risk", lvl)
         browser.init(s, DAY)
         for key, body in {**pre["common"], **entries}.items():
-            if key.startswith("POST ") or key == "chat":  # chat starters have their own parity test
+            # chat starters have their own parity test (test_prebuilt_chat_answers_match_the_engine); the hunch
+            # has its own drift test (tests/test_hunch_demo.py::test_CHL_HUNCH_DEMO_4_prebuilt_hunch_matches_what_pyodide_computes)
+            if key.startswith("POST ") or key in ("chat", "hunch"):
                 continue
             method, path = key.split(" ", 1)
             got = json.loads(browser.request(method, path))

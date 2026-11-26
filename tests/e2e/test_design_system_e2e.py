@@ -37,7 +37,11 @@ KINDS = ["btn-primary", "btn-tinted", "btn-secondary", "btn-quiet", "btn-danger"
 # DS-14's one exemption: links inside running prose <p>.
 PROSE_LINKS = ["#profile-nudge a"]
 # DS-15: tabs (the tab bar component) and whole-row targets (section 6 rows) aren't buttons with a kind.
-NOT_BUTTON_KINDS = "[role=tab], .row-card, .demo-bar__toggle"
+# Rule change, not a weakening (qa-tdd, Nov 23, CHL-HUNCH-H27 from ux-reviewer round 5): the Search
+# "Screener / Hunches" switch segments are a segmented-control component, exempt for the same reason as
+# [role=tab]. Their look is pinned instead by test_CHL_HUNCH_H27_* (tests/e2e/test_hunch_demo_e2e.py) and
+# their 48px target still by DS-14, which doesn't use this list.
+NOT_BUTTON_KINDS = "[role=tab], .row-card, .demo-bar__toggle, .search-switch .seg"
 
 
 # CHL-DS-25 (Chase, Nov 22): five tabs, in this order; Profile opens from a header button, not a tab.

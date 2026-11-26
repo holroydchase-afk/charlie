@@ -116,8 +116,8 @@ HEARING = {
         ],
         "added": [
             "\"Everyone will be deaf\": no source says this.",
-            "Rising hearing loss in young people: US teen hearing loss was not rising in NHANES surveys from "
-            "1988 to 2010.",
+            "Rising hearing loss in young people: US hearing loss in children and teens showed no overall change "
+            "in NHANES surveys from 1988 to 2010.",
             "That young listeners drive the market: most of the growth in hearing help comes from an aging "
             "population.",
         ],
@@ -133,7 +133,7 @@ HEARING = {
              "fact": "FDA authorized the hearing aid feature for AirPods Pro 2, the first OTC hearing aid "
                      "software."},
             {"source": "JAMA Otolaryngology (NHANES 1988-2010)", "date": "2017-09",
-             "fact": "Hearing loss in US children and teens did not rise across the NHANES surveys."},
+             "fact": "Hearing loss in US children and teens showed no overall change from 1988 to 2010."},
         ],
     },
     "players": [

@@ -123,3 +123,7 @@ Milestones are in [PLAN.md](PLAN.md) and where things stand is in [HANDOFF.md](H
 ## License
 
 [MIT](LICENSE)
+
+## How this is built
+
+Built with Claude Code (AI-assisted code, tests and docs). The maintainer directs the work and decides what ships. Tests and CI run on every pull request; the current state is in HANDOFF.md.

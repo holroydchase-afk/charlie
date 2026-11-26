@@ -718,20 +718,38 @@ def test_CHL_DS_11_no_shadows_in_css():
 # ============================================================ CHL-DS-15 button kinds, in the markup
 KINDS = {"btn-primary", "btn-tinted", "btn-secondary", "btn-quiet", "btn-danger"}
 NOT_BUTTON_KINDS = ("role=\"tab\"", "row-card", "demo-bar__toggle")  # tabs and whole-row targets (section 6 rows)
+# CHL-HUNCH-H27 / H28 (deliberate rule change, not a weakening): the Search "Screener / Hunches" switch is a segmented
+# control, `.search-switch .seg`, styled as one control rather than as button kinds. The e2e DS-15 check
+# (tests/e2e/test_design_system_e2e.py NOT_BUTTON_KINDS) exempts the same selector; this keeps the two in step.
+# Only a button carrying the `seg` class *inside* an open `<div class="search-switch">` is exempt; a stray `.seg`
+# anywhere else is still checked.
+NOT_BUTTON_KINDS_IN = (("search-switch", "seg"),)  # (container class, button class): ".search-switch .seg"
 
 
-def _button_tags():
+def _button_tags(context=False):
     html = (WEB / "index.html").read_text()
     js = (WEB / "app.js").read_text()
     for src, name in ((html, "index.html"), (js, "app.js")):
         for m in re.finditer(r"<button\b[^>]*>", src):
-            yield name, m.group(0)
+            yield (name, m.group(0), src[:m.start()]) if context else (name, m.group(0))
+
+
+def _inside_exempt_container(tag, before):
+    cls = re.search(r'class="([^"]*)"', tag)
+    tokens = set(cls.group(1).split()) if cls else set()
+    for container, btn_cls in NOT_BUTTON_KINDS_IN:
+        if btn_cls not in tokens:
+            continue
+        opened = [m for m in re.finditer(r'<div\b[^>]*class="([^"]*)"', before) if container in m.group(1).split()]
+        if opened and "</div>" not in before[opened[-1].end():]:
+            return True
+    return False
 
 
 def test_CHL_DS_15_every_button_in_the_markup_has_exactly_one_kind():
     bad = []
-    for name, tag in _button_tags():
-        if any(x in tag for x in NOT_BUTTON_KINDS):
+    for name, tag, before in _button_tags(context=True):
+        if any(x in tag for x in NOT_BUTTON_KINDS) or _inside_exempt_container(tag, before):
             continue
         cls = re.search(r'class="([^"]*)"', tag)
         if cls and "${" in cls.group(1) and not KINDS & set(cls.group(1).split()):

@@ -69,6 +69,10 @@
       const first = Array.isArray(messages) && messages.length === 1 && messages[0].role === "user";
       return first ? pre.levels[level]?.chat?.[messages[0].content] ?? null : null;
     }
+    if (key === "POST /api/hunch") {  // the hearing example (M3.2): its map at the asked level, like Api.hunch
+      const n = Math.max(1, Math.min(5, Math.round(Number(body?.risk)) || level));
+      return typeof body?.text === "string" ? pre.levels[n]?.hunch?.[body.text] ?? null : null;
+    }
     return pre.common[key] ?? pre.levels[level]?.[key] ?? null;
   }
 

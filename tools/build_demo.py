@@ -20,10 +20,10 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-# What charlie.browser imports. Not the server, Claude profile reading or the live data adapters.
+# What charlie.browser imports (hunch.py since M3.2, playbooks only). Not the server, Claude profile reading or the live data adapters.
 MODULES = [
     "charlie/__init__.py", "charlie/browser.py", "charlie/browser_store.py", "charlie/handlers.py",
-    "charlie/store.py", "charlie/chat.py", "charlie/portfolio.py", "charlie/demo.py", "charlie/engine.py",
+    "charlie/store.py", "charlie/chat.py", "charlie/portfolio.py", "charlie/demo.py", "charlie/engine.py", "charlie/hunch.py",
     "charlie/profile.py", "charlie/scoring.py", "charlie/strategies.py", "charlie/options_math.py", "charlie/track_record.py",
     "charlie/universe.py", "charlie/data/__init__.py", "charlie/data/market.py", "charlie/data/mock.py",
 ]
