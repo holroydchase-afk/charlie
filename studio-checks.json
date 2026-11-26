@@ -2,7 +2,7 @@
   "logs": {
     "roots": [
       "web",
-      "spike"
+      "tools/spike"
     ],
     "banned": [
       "resume"

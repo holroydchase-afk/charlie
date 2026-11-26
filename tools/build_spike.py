@@ -1,4 +1,4 @@
-"""Build the M1.1 Pyodide spike: spike/ files plus a zip of the engine modules the demo needs.
+"""Build the M1.1 Pyodide spike: tools/spike/ files plus a zip of the engine modules the demo needs.
 
 Usage: python tools/build_spike.py [out_dir]   (default build/spike)
 """
@@ -23,7 +23,7 @@ MODULES = [
 def build(out: Path) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     for name in ("index.html", "spike.js"):
-        shutil.copy(ROOT / "spike" / name, out / name)
+        shutil.copy(ROOT / "tools" / "spike" / name, out / name)
     with zipfile.ZipFile(out / "charlie.zip", "w", zipfile.ZIP_DEFLATED) as z:
         for m in MODULES:
             z.write(ROOT / m, m)
